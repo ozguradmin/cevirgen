@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 /**
  * Uygulama içinde görüntü bir kez geldikten sonra kesilirse ne yapılacağı (#643: Philips'te oyun sırasında HDMI siyah

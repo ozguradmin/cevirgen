@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 /**
  * HDMI sinyali değişirken TV'nin kendi giriş ekranı CouchSubs'ı önden itince ekranın geri alınıp alınmayacağı (#794).

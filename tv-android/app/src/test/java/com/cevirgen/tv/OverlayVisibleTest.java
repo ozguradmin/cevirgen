@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -17,7 +17,7 @@ import java.nio.file.Files;
  */
 public class OverlayVisibleTest {
     private static String source(String name) throws Exception {
-        File file = new File("src/main/java/com/couchsubs/tv/" + name);
+        File file = new File("src/main/java/com/cevirgen/tv/" + name);
         assertTrue(file.getAbsolutePath(), file.isFile());
         return new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
     }

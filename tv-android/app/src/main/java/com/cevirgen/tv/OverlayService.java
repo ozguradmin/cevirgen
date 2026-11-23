@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 import android.Manifest;
 import android.app.Notification;
@@ -36,7 +36,7 @@ import android.widget.Toast;
  * Kapatmak için CouchSubs yeniden açılır.
  */
 public class OverlayService extends Service implements TvPage.Host {
-    private static final String TAG = "CouchSubsOverlay";
+    private static final String TAG = "CevirgenOverlay";
     private static final String EXTRA_PARAMS = "params";
     private static final String CHANNEL = "overlay";
     private static final int NOTIFICATION_ID = 1;
@@ -288,14 +288,14 @@ public class OverlayService extends Service implements TvPage.Host {
         Notification.Builder builder;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notifications.createNotificationChannel(
-                    new NotificationChannel(CHANNEL, "CouchSubs", NotificationManager.IMPORTANCE_LOW));
+                    new NotificationChannel(CHANNEL, "Çevirgen", NotificationManager.IMPORTANCE_LOW));
             builder = new Notification.Builder(this, CHANNEL);
         } else {
             builder = new Notification.Builder(this);
         }
         Notification notification = builder
                 .setSmallIcon(R.mipmap.icon)
-                .setContentTitle("CouchSubs")
+                .setContentTitle("Çevirgen")
                 .setContentText(getString(R.string.overlay_running))
                 .setOngoing(true)
                 .build();

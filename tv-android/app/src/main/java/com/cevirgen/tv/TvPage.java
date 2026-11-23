@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -55,7 +55,7 @@ final class TvPage {
         String diagnostics();
     }
 
-    private static final String TAG = "CouchSubsPage";
+    private static final String TAG = "CevirgenPage";
 
     private static final String PREFS = "couchsubs";
     private static final String KEY_DISPLAY_MODE = "displayMode";

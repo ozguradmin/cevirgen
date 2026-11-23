@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 /**
  * Altyazı sayfasının WebView işlemi gidince (çökme ya da sistemin kapatması) sayfanın yeniden kurulup kurulmayacağı.

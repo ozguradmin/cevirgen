@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json, tv-tizen/config.xml ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '0.9.81';
+  var APP_VERSION = '1.0.0';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -39,8 +39,9 @@
   var STACK_WITHIN_MS = 1500;
   var PREVIOUS_HOLD_MS = 1500;
   var PREVIOUS_FADE_MS = 400;
-  // Yeni satırla yer değiştirmedikçe hiçbir satır bundan kısa görünmez.
-  var MIN_VISIBLE_MS = 1200;
+  // Yeni satırla yer değiştirmedikçe hiçbir satır bundan kısa görünmez (bilgisayarın verdiği süre için; "temizle" olayı
+  // bundan erken kaldırabilir, bkz. HOLD_MAX_MS).
+  var MIN_VISIBLE_MS = 500;
   var shownAt = 0;
   var shownParagraphs = false;
   // Bilgisayardaki "Hızlı konuşmada önceki satırları üstte göster" ayarı (kapalıysa yeni satır eskisinin yerine geçer).
@@ -57,9 +58,11 @@
   var lastLine = null;
   var RESTORE_MIN_MS = 800;
 
-  // Bilgisayarın "temizle" olayı satırı bundan erken kaldırmaz: oyundaki satır çeviri gelirken kalkmışsa yazı TV'de
-  // bir an görünüp kayboluyordu. Süre, bilgisayarın okuma süresi kuralıyla aynıdır; üst sınırı daha kısadır.
-  var HOLD_MAX_MS = 5000;
+  // Bilgisayarın "temizle" olayı (oyundaki İngilizce satır ekrandan kalktı) Türkçeyi de hemen kaldırır. Yalnız satır
+  // gösterildikten sonraki bu kısa süre içinde gelen "temizle" bu süre dolunca uygulanır: yazı tek bir karelik
+  // yanıp sönmesin. Eskiden satır okuma süresi kadar (2-5 sn) tutuluyor, İngilizce gittikten sonra ekranda kalıyordu.
+  // Geç gelen çeviriler için bilgisayar zaten kısa süre (500 ms) gönderir.
+  var HOLD_MAX_MS = 300;
   var holdUntil = 0;
   // Bağlantı bir an koptuğunda yazı silinmez; ancak bu süre içinde geri gelmezse silinir.
   var DROP_HIDE_MS = 6000;
@@ -975,7 +978,7 @@
     }
     shownAt = now;
     shownParagraphs = !!paragraphs;
-    holdUntil = shownAt + Math.min(HOLD_MAX_MS, 2000 + text.length * 60);
+    holdUntil = shownAt + HOLD_MAX_MS;
     currentBox = validBox(box);
     // "Örtsün": oyundaki altyazının yeri gelmezse son bilinen yer örtülür (Mac, Windows ve OBS katmanı ile aynı).
     if (!currentBox && placement === 'cover' && !paragraphs) currentBox = lastCoverBox;
@@ -1019,7 +1022,7 @@
     avoidRegions();
   }
 
-  // Bilgisayardan gelen "temizle": yazı okunacak kadar görünmediyse kalan süre dolunca kaldırılır.
+  // Bilgisayardan gelen "temizle": yazı hemen kaldırılır; satır daha HOLD_MAX_MS kadar bile görünmediyse o süre dolunca.
   function onClear() {
     diag.clears++;
     renderDiag();
@@ -1889,6 +1892,33 @@
     return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
   }
 
+  // Bilgisayardaki "Yazı kenarlığı" (style.outline): yazının çevresine düz siyah kontur; zemin kutusu olmadan da
+  // (koyuluk %0) okunur. -webkit-text-stroke eski WebView'lerde yok ve harfin içine taşar; bunun yerine sekiz yöne
+  // kaydırılmış bulanıksız gölge kullanılır. Kalınlık yazı boyuyla büyür (46 px'de 3 px, en az 2 px).
+  var outlineOn = false;
+
+  function outlineShadow(fontSize) {
+    var w = Math.max(2, Math.round(fontSize / 16));
+    var shadows = [];
+    for (var dx = -1; dx <= 1; dx++) {
+      for (var dy = -1; dy <= 1; dy++) {
+        if (dx || dy) shadows.push(dx * w + 'px ' + dy * w + 'px 0 #000');
+      }
+    }
+    // Köşegenlerin arasındaki küçük boşlukları yumuşak bir gölge kapatır.
+    shadows.push('0 0 ' + w + 'px #000');
+    return shadows.join(', ');
+  }
+
+  // Kenarlık kapalıyken satır içi gölge silinir: style.css'teki eski görünüm (yumuşak gölge, ince zeminde body.thin-bg
+  // konturu) geçerli olur.
+  function applyOutline() {
+    var small = Math.round(fontBase * 0.8);
+    $('subtitle-text').style.textShadow = outlineOn ? outlineShadow(fontBase) : '';
+    $('subtitle-prev-text').style.textShadow = outlineOn ? outlineShadow(small) : '';
+    $('subtitle-prev2-text').style.textShadow = outlineOn ? outlineShadow(small) : '';
+  }
+
   function applyStyle(style) {
     if (style.fontSize) {
       fontBase = style.fontSize;
@@ -1896,6 +1926,9 @@
       $('subtitle-prev-text').style.fontSize = Math.round(style.fontSize * 0.8) + 'px';
       $('subtitle-prev2-text').style.fontSize = Math.round(style.fontSize * 0.8) + 'px';
     }
+    // Alanı göndermeyen bilgisayarda (eski sürüm) kenarlık yok.
+    outlineOn = style.outline === true;
+    applyOutline();
     if (PLACEMENTS[style.placement]) placement = style.placement;
     bandShape = style.backgroundShape === 'band';
     // "Ekran yazılarını altyazıdan ayır" (alanı göndermeyen eski bilgisayarda açık).

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 import java.util.Locale;
 
@@ -7,7 +7,7 @@ import java.util.Locale;
  * Görüntü modu: HDMI CouchSubs'ın içinde mi gösterilir, yoksa TV kendi giriş ekranında gösterir ve altyazı onun üstündeki
  * şeffaf pencerede mi durur ("katman"). Bazı TV'lerde (TCL, Philips ve diğer bazı Android TV / Google TV'ler) uygulamanın
  * içinde HDMI görüntüsü siyah kalıyor; katman modu bunu çözer. Seçim bilgisayardaki/telefondaki Ayarlar › TV'de bölümünden
- * gelir (style olayının displayMode alanı) ya da elle: adb shell am start -n com.couchsubs.tv/.MainActivity --es displayMode overlay
+ * gelir (style olayının displayMode alanı) ya da elle: adb shell am start -n com.cevirgen.tv/.MainActivity --es displayMode overlay
  *
  * Üç tercih var: Otomatik (varsayılan), Uygulama içinde, Katman. Otomatik, izin varsa (bilgisayarın/telefonun kurduğu APK)
  * katmanda açar, yoksa (Play paketi, izin verilmemiş) uygulama içinde. Eskiden varsayılan uygulama içiydi: Philips

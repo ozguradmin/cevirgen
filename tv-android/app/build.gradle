@@ -3,7 +3,7 @@ plugins { id 'com.android.application' }
 
 // İmza anahtarları ortam değişkenlerinden gelir (CI'da depo sırları, bkz. .github/workflows/tv-android.yml); hiçbiri depoda
 // durmaz. Adlar TV'ye özeldir: telefon uygulamasının (couchsubs-android) anahtarı ayrıdır ve bunlara karışmaz.
-//   TV_KEYSTORE_FILE / TV_KEYSTORE_PASSWORD / TV_KEY_ALIAS: TV sürüm anahtarı (takma ad couchsubs-tv). Hem masaüstü
+//   TV_KEYSTORE_FILE / TV_KEYSTORE_PASSWORD / TV_KEY_ALIAS: TV sürüm anahtarı (takma ad cevirgen-tv). Hem masaüstü
 //     uygulamalarının ADB ile kurduğu APK hem Play paketi (AAB) bununla imzalanır; Play'in uygulama imza anahtarı da budur.
 //   TV_UPLOAD_KEYSTORE_FILE / TV_UPLOAD_KEYSTORE_PASSWORD / TV_UPLOAD_KEY_ALIAS: ayrı Play yükleme anahtarı (isteğe bağlı).
 //   Bkz. docs/play-store-tv.md.
@@ -12,15 +12,15 @@ def releaseKeystore = System.getenv('TV_KEYSTORE_FILE')
 def uploadKeystore = System.getenv('TV_UPLOAD_KEYSTORE_FILE')
 
 android {
-    namespace 'com.couchsubs.tv'
+    namespace 'com.cevirgen.tv'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.couchsubs.tv'
+        applicationId 'com.cevirgen.tv'
         minSdk 24
         targetSdk 35
         // Masaüstü uygulamaları beklenen TV sürümünü buradan alır (scripts/bundle-android-apk.sh, APK adı).
-        versionCode 84
-        versionName '0.9.81'
+        versionCode 85
+        versionName '1.0.0'
     }
     buildFeatures { buildConfig true }
     signingConfigs {
@@ -28,7 +28,7 @@ android {
             if (releaseKeystore) {
                 storeFile file(releaseKeystore)
                 storePassword System.getenv('TV_KEYSTORE_PASSWORD')
-                keyAlias System.getenv('TV_KEY_ALIAS') ?: 'couchsubs-tv'
+                keyAlias System.getenv('TV_KEY_ALIAS') ?: 'cevirgen-tv'
                 keyPassword System.getenv('TV_KEYSTORE_PASSWORD')
             }
         }

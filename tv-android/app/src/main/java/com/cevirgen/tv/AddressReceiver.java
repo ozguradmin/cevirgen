@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -7,7 +7,7 @@ import android.content.Intent;
 
 /**
  * Bilgisayar ya da telefon, TV'de zaten çalışan CouchSubs'a kendi adresini ekranı öne çekmeden bildirir
- * ({@code am broadcast -a com.couchsubs.tv.action.ADDRESS -n com.couchsubs.tv/.AddressReceiver --es params '{...}'}).
+ * ({@code am broadcast -a com.cevirgen.tv.action.ADDRESS -n com.cevirgen.tv/.AddressReceiver --es params '{...}'}).
  *
  * X @conmeyz (Philips 55PUS7303, Android 8): "TV'de bağlı görünüyor, panelde sub 0; silip yükleyince düzeldi". Uygulama
  * çalışırken kayıtlı eski bir adrese (aynı bilgisayarın eski portu, başka bir CouchSubs) bağlı kalırsa bilgisayar onu
@@ -18,7 +18,7 @@ import android.content.Intent;
  * Yalnız ADB kabuğu gönderebilir: alıcı {@code android.permission.DUMP} ister (kabukta var, sıradan uygulamalarda yok).
  */
 public final class AddressReceiver extends BroadcastReceiver {
-    static final String ACTION = "com.couchsubs.tv.action.ADDRESS";
+    static final String ACTION = "com.cevirgen.tv.action.ADDRESS";
     static final String EXTRA_PARAMS = "params";
 
     @Override

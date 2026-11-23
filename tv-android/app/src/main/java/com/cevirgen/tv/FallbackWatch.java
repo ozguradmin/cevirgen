@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package com.couchsubs.tv;
+package com.cevirgen.tv;
 
 /**
  * Uygulama içindeki HDMI görüntüsünü izler ve katmana kendiliğinden geçme zamanını söyler.
