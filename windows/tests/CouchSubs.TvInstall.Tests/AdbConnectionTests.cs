@@ -200,7 +200,7 @@ public class AdbConnectionTests
         {
             TrustedKey = key,
             Reply = "  versionName=0.7.0\n  versionCode=1\n" +
-                    "  signatures=PackageSignatures{a1b2c3 version:2, signatures:[32d37cf9], past signatures:[]}\n"
+                    "  signatures=PackageSignatures{a1b2c3 version:2, signatures:[c14db603], past signatures:[]}\n"
         };
         tv.Serve();
         var installer = new AndroidTvInstaller("127.0.0.1", dir, tv.Port);
@@ -276,8 +276,8 @@ public class AdbConnectionTests
     }
 
     [Theory]
-    [InlineData("  signatures=PackageSignatures{a1b2c3 version:2, signatures:[32d37cf9], past signatures:[]}", "32d37cf9")]
-    [InlineData("  signatures=PackageSignatures{41ab21 [32D37CF9]}", "32d37cf9")]
+    [InlineData("  signatures=PackageSignatures{a1b2c3 version:2, signatures:[c14db603], past signatures:[]}", "c14db603")]
+    [InlineData("  signatures=PackageSignatures{41ab21 [C14DB603]}", "c14db603")]
     [InlineData("  signatures=PackageSignatures{41ab21 [aa, bb]}", "aa,bb")]
     [InlineData("  versionName=1.0", "")]
     public void SignaturesAreReadFromDumpsys(string dumpsys, string expected) =>
@@ -285,7 +285,7 @@ public class AdbConnectionTests
 
     [Theory]
     [InlineData("versionName=1.0\nsignatures=PackageSignatures{x version:3, signatures:[deadbeef], past signatures:[]}", true)]
-    [InlineData("versionName=1.0\nsignatures=PackageSignatures{x version:3, signatures:[32d37cf9], past signatures:[]}", false)]
+    [InlineData("versionName=1.0\nsignatures=PackageSignatures{x version:3, signatures:[c14db603], past signatures:[]}", false)]
     // İmza okunamıyor ya da uygulama yok: yabancı sayılmaz.
     [InlineData("versionName=1.0", false)]
     [InlineData("signatures=PackageSignatures{x [deadbeef]}", false)]
@@ -403,7 +403,7 @@ public class AdbConnectionTests
         {
             TrustedKey = key,
             Reply = "  versionName=0.9.11\n" +
-                    "  signatures=PackageSignatures{a1b2c3 version:2, signatures:[32d37cf9], past signatures:[]}\n" +
+                    "  signatures=PackageSignatures{a1b2c3 version:2, signatures:[c14db603], past signatures:[]}\n" +
                     "Error: Unknown operation string: SYSTEM_ALERT_WINDOW"
         };
         tv.Serve();

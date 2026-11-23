@@ -157,7 +157,8 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
     /// özeti: <c>Signature.hashCode()</c> (sertifikanın DER baytlarında <c>Arrays.hashCode</c>), dumpsys'in yazdığı biçimde.
     /// Play'in uygulama imza anahtarı da budur; Play'den ve ADB ile kurulan kopyanın ikisi de bunu taşır.
     /// </summary>
-    public const string OurSignature = "32d37cf9";
+    /// <remarks>Çevirgen TV: kendi anahtarımız (CN=Cevirgen TV; Arrays.hashCode özeti c14db603).</remarks>
+    public const string OurSignature = "c14db603";
 
     /// <summary>
     /// dumpsys'teki imza özetleri: <c>signatures=PackageSignatures{… version:2, signatures:[32d37cf9], past signatures:[]}</c>
@@ -185,7 +186,7 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
         VersionFromDumpsys(dumpsys) is not null && SignaturesFromDumpsys(dumpsys) is { Count: > 0 } signatures && !signatures.Contains(OurSignature);
 
     private static string ForeignDetail(string dumpsys, string? version) =>
-        $"TV'de {PackageName} {version ?? "?"} başka bir imzayla kurulu ({string.Join(", ", SignaturesFromDumpsys(dumpsys))}; CouchSubs {OurSignature})";
+        $"TV'de {PackageName} {version ?? "?"} başka bir imzayla kurulu ({string.Join(", ", SignaturesFromDumpsys(dumpsys))}; Çevirgen {OurSignature})";
 
     /// <summary>
     /// "Diğer uygulamaların üzerinde göster" iznini verir. Katman modunda (bazı TV'lerde uygulama içindeki HDMI görüntüsü
