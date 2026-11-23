@@ -428,6 +428,7 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
             MissionChanged?.Invoke(missionRegion);
         }
         Reading reading;
+        TextBox? stackBox = null;
         var edge = new List<Reading>();
         bool noticesMoved;
         IReadOnlyList<WatchedArea> noticeAreas;
@@ -438,7 +439,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
             reading = rows.SubtitleBlock(area, subtitleBand, (block, reason) => LogSceneText(block.Text, reason),
                                          block => edge.Add(block.PlacedIn(area)),
                                          line => stickyRows.UnchangedMs(line, readAt),
-                                         block => staleTexts.AddRange(block.Lines.Select(line => line.Text)));
+                                         block => staleTexts.AddRange(block.Lines.Select(line => line.Text)),
+                                         stacked => stackBox = stacked);
             LogStale(staleTexts);
             subtitleBand.Record(reading, area);
             noticesMoved = notices.Observe(edge, now());
@@ -498,7 +500,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
                     ? $"yeniden-okuma: {SubtitleLog.Excerpt(note.Text)} gösterilenden kötü, yok sayıldı"
                     : $"çöp: {SubtitleLog.Excerpt(note.Text)} kararlı olmadan kalktı, gönderilmedi");
             }
-            var box = reading.Box?.PlacedIn(area).CenteredOnScreen();
+            // Yerel yama: TV'ye giden kutu, üstte yığılı eski repliklerle birlikte bütün altyazı bloğudur (bkz. Reading.StackAbove).
+            var box = (stackBox ?? reading.Box)?.PlacedIn(area).CenteredOnScreen();
             // Satır henüz doğrulanmadı: çevirisi şimdiden başlasın, doğrulanınca beklemeden gösterilsin.
             if (action.Kind == StabilizerKind.None && translator.Prefetches && reading.Text.Trim() is { Length: >= 6 } early && early != lastPrefetched
                 && !(SkipsTurkish && TurkishText.IsSure(early)))

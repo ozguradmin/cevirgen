@@ -168,8 +168,44 @@ public sealed class Reading
     /// </summary>
     public Reading SubtitleBlock(TextBox area, SubtitleBand? band = null, Action<Reading, string>? dropped = null,
                                  Action<Reading>? notices = null, Func<string, long?>? age = null,
-                                 Action<Reading>? stale = null)
+                                 Action<Reading>? stale = null) =>
+        SubtitleBlock(area, band, dropped, notices, age, stale, null);
+
+    /// <summary>Yerel yama: <paramref name="stack"/> seçilen bloğun üstte yığılı replikleriyle birleşik kutusunu bildirir.</summary>
+    public Reading SubtitleBlock(TextBox area, SubtitleBand? band, Action<Reading, string>? dropped,
+                                 Action<Reading>? notices, Func<string, long?>? age,
+                                 Action<Reading>? stale, Action<TextBox>? stack)
     {
+        var chosen = SubtitleBlockCore(area, band, dropped, notices, age, stale, out var centeredBlocks);
+        if (stack is not null && centeredBlocks is not null && chosen.Lines.Count > 0 && chosen.Box is not null)
+            stack(StackAbove(chosen, centeredBlocks));
+        return chosen;
+    }
+
+    /// <summary>
+    /// Yerel yama: seçilen bloğun kutusu, hemen üstünde yığılı duran öteki ortalı blokların (GTA 6'da yeni replik eski
+    /// repliğin altına eklenir, eskisi ekranda kalır) kutularıyla birleşir. "İngilizcenin üstünde" yerleşimde çeviri
+    /// yalnız en alttaki satırın değil bütün yığının üstüne gelir. Aralık en çok 4,5 satır boyu; zincir oradan kopar.
+    /// </summary>
+    internal static TextBox StackAbove(Reading chosen, List<Reading> centered)
+    {
+        var box = chosen.Box!.Value;
+        var lineHeight = (box.Bottom - box.Top) / Math.Max(1, chosen.Lines.Count);
+        foreach (var other in centered.Where(reading => !ReferenceEquals(reading, chosen) && reading.Box is not null)
+                     .Select(reading => reading.Box!.Value).OrderByDescending(other => other.Bottom))
+        {
+            if (other.Bottom > box.Top + lineHeight * 0.25) continue;
+            if (box.Top - other.Bottom > lineHeight * 4.5) break;
+            box = box.Union(other);
+        }
+        return box;
+    }
+
+    private Reading SubtitleBlockCore(TextBox area, SubtitleBand? band, Action<Reading, string>? dropped,
+                                      Action<Reading>? notices, Func<string, long?>? age, Action<Reading>? stale,
+                                      out List<Reading>? centeredBlocks)
+    {
+        centeredBlocks = null;
         if (Lines.Count == 0 || Lines.Any(line => line.Box is null)) return IsActionLabel ? Empty : this;
         var blocks = new List<List<TextLine>>();
         foreach (var line in Lines.OrderBy(line => line.Box!.Value.Top))
@@ -200,6 +236,7 @@ public sealed class Reading
         // Görev satırı altyazıyla aynı anda belirince ayrı blok olur (aralık ya da yazı boyu farkı): konuşan adı taşıyan
         // blok altyazıdır ("Lucia: …" görevin üstünde de dursa).
         centered = WithoutStale(centered, age, stale);
+        centeredBlocks = centered;
         if (centered.FirstOrDefault(reading => SpeakerPrefix.Parse(reading.Lines[0].Text) is not null) is { } spoken) return spoken;
         if (centered.Count > 0)
         {
