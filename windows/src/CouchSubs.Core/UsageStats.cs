@@ -19,7 +19,7 @@ namespace CouchSubs.Core;
 /// </summary>
 public sealed class UsageStats : IDisposable
 {
-    /// <remarks>Dilmaç: kullanım verisi kapalı; ölçüm yapılandırması da derlemede yoktur.</remarks>
+    /// <remarks>Çevirgen: kullanım verisi kapalı; ölçüm yapılandırması da derlemede yoktur.</remarks>
     public const bool EnabledByDefault = false;
     public const string Endpoint = "https://www.google-analytics.com/mp/collect";
     /// <summary>Measurement Protocol bir istekte en çok 25 olay alır.</summary>

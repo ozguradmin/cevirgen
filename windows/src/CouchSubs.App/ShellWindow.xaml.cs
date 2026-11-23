@@ -113,7 +113,7 @@ public partial class ShellWindow : Window
                 var resolved = controller.ResolveTvPairing(current.Id, approved);
                 if (controller.PendingTvPairing is { } next && next.Id != current.Id) { current = next; continue; }
                 if (!resolved && approved)
-                    MessageBox.Show(this, text["The pairing request expired. Try again on the TV."], "Dilmaç");
+                    MessageBox.Show(this, text["The pairing request expired. Try again on the TV."], "Çevirgen");
                 break;
             }
         }

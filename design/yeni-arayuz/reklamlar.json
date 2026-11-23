@@ -1,5 +1,5 @@
 {
-  "aciklama": "Dilmaç: reklam yok. Kendi reklamlarımız eklenince bu listeler doldurulur (biçim: CouchSubs reklamlar.json).",
+  "aciklama": "Çevirgen: reklam yok. Kendi reklamlarımız eklenince bu listeler doldurulur (biçim: CouchSubs reklamlar.json).",
   "popupAciklama": "Günde en çok bir kez açılan açılır reklam (Mac ve Windows aynı): YALNIZ GÖRSEL, görselin oranına göre dikey ya da yatay açılır; tıklanınca link tarayıcıda açılır; köşede × ve küçük REKLAM. image: reklam/ altındaki görsel. Görsel yoksa ya da yüklenemezse açılır reklam hiç açılmaz (yer tutucu yok). Görsel ve bağlantı mobil tanıtım popup'ıyla aynı (site/public/promo.json › popup, popup.webp).",
   "popups": [],
   "ads": []

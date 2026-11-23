@@ -10,7 +10,7 @@ internal sealed class FakeUpdater(string current, string journalPath) : IUpdater
     public bool CanUpdateItself { get; set; } = true;
     public Uri DownloadPage { get; } = new("https://couchsubs.enmeraapps.com/#indir");
     public UpdateAttemptJournal? Attempts { get; } = new(journalPath, current);
-    public string? UpdateLogPath => @"C:\Users\x\AppData\Local\DilmaçApp\velopack.log";
+    public string? UpdateLogPath => @"C:\Users\x\AppData\Local\ÇevirgenApp\velopack.log";
     public string? Latest { get; set; }
     public bool Installed { get; private set; }
     public Exception? InstallError { get; set; }
@@ -55,7 +55,7 @@ public sealed class UpdateAttemptTests : IDisposable
         var updater = new FakeUpdater("0.1.0-beta.83", Journal) { Latest = "0.1.0-beta.84" };
         var controller = Controller(updater);
         await controller.CheckForUpdateAsync();
-        Assert.Equal("Dilmaç'ın yeni sürümü çıktı: 0.1.0-beta.84", controller.UpdateTitle);
+        Assert.Equal("Çevirgen'in yeni sürümü çıktı: 0.1.0-beta.84", controller.UpdateTitle);
         Assert.Equal("Şimdi güncelle", controller.UpdateButtonText);
         Assert.Null(controller.UpdateHint);
 
@@ -77,7 +77,7 @@ public sealed class UpdateAttemptTests : IDisposable
         await controller.CheckForUpdateAsync();
 
         Assert.True(controller.UpdateFailed);
-        Assert.Equal("Dilmaç 0.1.0-beta.84 sürümüne güncellenemedi", controller.UpdateTitle);
+        Assert.Equal("Çevirgen 0.1.0-beta.84 sürümüne güncellenemedi", controller.UpdateTitle);
         Assert.Equal("Güncelleme uygulanamadı. Güvenlik yazılımı engellemiş olabilir; kurulum dosyasını sitemizden indirip kurun.",
             controller.UpdateHint);
         Assert.Equal("Kurulum Dosyasını İndir", controller.UpdateButtonText);
@@ -128,7 +128,7 @@ public sealed class UpdateAttemptTests : IDisposable
         var opened = new List<Uri>();
         var controller = Controller(updater, opened);
         await controller.CheckForUpdateAsync();
-        Assert.Equal("Dilmaç'ın yeni sürümü çıktı: 0.1.0-beta.84", controller.UpdateTitle);
+        Assert.Equal("Çevirgen'in yeni sürümü çıktı: 0.1.0-beta.84", controller.UpdateTitle);
         Assert.Equal("Bu kopya kendini güncelleyemiyor. Kurulum dosyasıyla yeniden kurun.", controller.UpdateHint);
         Assert.Equal("Kurulum Dosyasını İndir", controller.UpdateButtonText);
         await controller.InstallUpdateAsync();

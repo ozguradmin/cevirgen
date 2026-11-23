@@ -10,9 +10,9 @@
     <!-- Yalnız tepsi simgesi (NotifyIcon) için; WinForms türleri tam adla kullanılır. -->
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>Dilmac</AssemblyName>
+    <AssemblyName>Cevirgen</AssemblyName>
     <RootNamespace>CouchSubs.App</RootNamespace>
-    <ApplicationIcon>Assets\Dilmac.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Cevirgen.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <!-- Velopack kurulum ve güncelleme kancaları WPF başlamadan çalışmalı (Program.Main). -->
@@ -59,7 +59,7 @@
     <EmbeddedResource Include="..\..\..\design\yeni-arayuz\reklamlar.json" LogicalName="reklamlar.json" />
     <!-- Açılır reklamın görseli (reklamlar.json › popups; Mac aynı dosyayı okur). -->
     <!-- ShellWindow.xaml pencere simgesi olarak bunu okur; ApplicationIcon yalnız exe simgesidir. -->
-    <Resource Include="Assets\Dilmac.ico" />
+    <Resource Include="Assets\Cevirgen.ico" />
   </ItemGroup>
 
   <!-- TV uygulaması paketleri (scripts/package-tv.sh, package-tizen.sh ve Android derlemesi üretir); geliştirici modu açık TV'ye kurulur. -->

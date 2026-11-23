@@ -48,7 +48,7 @@ public enum SubtitleBackgroundShape
 /// <param name="NameHex">"Tek Renk"te adların rengi.</param>
 /// <param name="CharacterColors">"Karaktere Göre"de seçilen renkler (küçük harfli ad → "#RRGGBB").</param>
 /// <param name="NameOnly">Konuşan rengi yalnız adı boyar (yeni arayüz). TV'ye <c>nameOnly</c>.</param>
-/// <param name="Outline">Dilmaç: yazının çevresine siyah kenarlık (zeminsiz okunurluk). TV'ye <c>outline</c>.</param>
+/// <param name="Outline">Çevirgen: yazının çevresine siyah kenarlık (zeminsiz okunurluk). TV'ye <c>outline</c>.</param>
 /// <param name="HdmiInput">Kurulumda seçilen TV girişi (1–4); yoksa null. TV'ye <c>hdmiInput</c>.</param>
 public sealed record SubtitleStyle(
     int FontSize = 32,

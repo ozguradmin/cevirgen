@@ -1447,7 +1447,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="c:CouchLogo">
                     <Viewbox Stretch="Uniform">
-                        <!-- Dilmaç logosu: konuşma balonu ve iki altyazı çizgisi (design/dilmac/logo.svg). -->
+                        <!-- Çevirgen logosu: konuşma balonu ve iki altyazı çizgisi (design/cevirgen/logo.svg). -->
                         <Canvas Width="1024" Height="1024">
                             <Rectangle Canvas.Left="32" Canvas.Top="32" Width="960" Height="960" RadiusX="224" RadiusY="224">
                                 <Rectangle.Fill>

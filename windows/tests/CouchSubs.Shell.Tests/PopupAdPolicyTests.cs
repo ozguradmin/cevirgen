@@ -39,7 +39,7 @@ public class PopupAdPolicyTests
         Assert.Null(PopupAdPolicy.Pick(Array.Empty<PopupAdEntry>(), Now));
     }
 
-    /// <summary>Dilmaç: uygulamayla gelen reklam listesi boş; üst projenin reklamları gösterilmez.</summary>
+    /// <summary>Çevirgen: uygulamayla gelen reklam listesi boş; üst projenin reklamları gösterilmez.</summary>
     [Fact]
     public void ShippedCatalogHasNoUpstreamAds()
     {

@@ -129,7 +129,7 @@ public partial class HistoryView : UserControl
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow, error.Message, "Dilmaç");
+            MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow, error.Message, "Çevirgen");
         }
     }
 

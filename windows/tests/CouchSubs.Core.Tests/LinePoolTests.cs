@@ -53,7 +53,7 @@ public class LinePoolTests
     [Fact]
     public async Task DisabledPoolSendsNothing()
     {
-        Assert.False(LinePool.EnabledByDefault); // Dilmaç: havuz kapalı
+        Assert.False(LinePool.EnabledByDefault); // Çevirgen: havuz kapalı
         var pool = MakePool(enabled: false);
         pool.Offer("Don Torrisi wants you.");
         await pool.FlushAsync();

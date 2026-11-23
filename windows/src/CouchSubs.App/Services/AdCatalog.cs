@@ -89,7 +89,7 @@ public static class AdCatalog
         {
             var image = new BitmapImage();
             image.BeginInit();
-            image.UriSource = new Uri($"pack://application:,,,/Dilmac;component/Assets/reklam/{file}", UriKind.Absolute);
+            image.UriSource = new Uri($"pack://application:,,,/Cevirgen;component/Assets/reklam/{file}", UriKind.Absolute);
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.EndInit();
             image.Freeze();
@@ -110,7 +110,7 @@ public static class AdCatalog
         {
             var image = new BitmapImage();
             image.BeginInit();
-            image.UriSource = new Uri($"pack://application:,,,/Dilmac;component/Assets/reklam/{file}", UriKind.Absolute);
+            image.UriSource = new Uri($"pack://application:,,,/Cevirgen;component/Assets/reklam/{file}", UriKind.Absolute);
             image.DecodePixelWidth = 96;
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.EndInit();

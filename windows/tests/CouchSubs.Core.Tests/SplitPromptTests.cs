@@ -5,7 +5,7 @@ using Xunit;
 
 namespace CouchSubs.Core.Tests;
 
-/// <summary>Dilmaç: yazı tanıma tuş ipucunu simgenin yerinden ikiye bölse de ipucu birleşik satırda tanınır.</summary>
+/// <summary>Çevirgen: yazı tanıma tuş ipucunu simgenin yerinden ikiye bölse de ipucu birleşik satırda tanınır.</summary>
 public class SplitPromptTests
 {
     [Fact]

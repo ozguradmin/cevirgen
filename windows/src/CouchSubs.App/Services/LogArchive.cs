@@ -18,7 +18,7 @@ namespace CouchSubs.App.Services;
 public static class LogArchive
 {
     public static string LogsFolder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dilmac");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cevirgen");
 
     /// <summary>Son oluşturulan zip (Gezgin'de Göster için).</summary>
     public static string? Last { get; private set; }
@@ -31,7 +31,7 @@ public static class LogArchive
         string zip;
         try
         {
-            zip = await Task.Run(() => LogShare.MakeZip(LogsFolder, Path.Combine(Path.GetTempPath(), "Dilmac"), header, DateTime.Now));
+            zip = await Task.Run(() => LogShare.MakeZip(LogsFolder, Path.Combine(Path.GetTempPath(), "Cevirgen"), header, DateTime.Now));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException)
         {

@@ -543,7 +543,7 @@ public partial class SettingsView : UserControl
     private async void OnOpenTvPairing(object sender, RoutedEventArgs e)
     {
         try { await controller.OpenTvPairingAsync(); }
-        catch (Exception error) { MessageBox.Show(Host, error.Message, "Dilmaç"); }
+        catch (Exception error) { MessageBox.Show(Host, error.Message, "Çevirgen"); }
     }
 
     private void OnRenewAccessKey(object sender, RoutedEventArgs e) => controller.RotateSubtitleKey();
@@ -1525,7 +1525,7 @@ public partial class SettingsView : UserControl
     private void OnBold(object sender, RoutedEventArgs e) =>
         Update(s => s with { Style = s.Style with { Bold = Bold.IsChecked == true } });
 
-    /// <summary>Dilmaç: TV'deki yazının siyah kenarlığı.</summary>
+    /// <summary>Çevirgen: TV'deki yazının siyah kenarlığı.</summary>
     private void OnOutline(object sender, RoutedEventArgs e) =>
         Update(s => s with { Style = s.Style with { Outline = Outline.IsChecked == true } });
 

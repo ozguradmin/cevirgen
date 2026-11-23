@@ -15,7 +15,7 @@ namespace CouchSubs.TvInstall.Android;
 public sealed partial class AndroidTvInstaller(string host, string keyDirectory, int port = AndroidTvInstaller.DefaultPort)
 {
     public const int DefaultPort = 5555;
-    public const string PackageName = "com.dilmac.tv";
+    public const string PackageName = "com.cevirgen.tv";
 
     /// <summary>Kurulum sırasında TV'nin onay sorusunu göstermesi.</summary>
     public Action? OnApprovalNeeded { get; init; }

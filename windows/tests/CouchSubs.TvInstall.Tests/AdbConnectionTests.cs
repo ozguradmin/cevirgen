@@ -208,7 +208,7 @@ public class AdbConnectionTests
         Assert.Equal("0.7.0", version);
         Assert.False(installed);
         // Güncel uygulama da katman izni alır (eski CouchSubs kurmuşsa izin yoktur).
-        Assert.Contains("shell:appops set com.dilmac.tv SYSTEM_ALERT_WINDOW allow", tv.OpenedServices);
+        Assert.Contains("shell:appops set com.cevirgen.tv SYSTEM_ALERT_WINDOW allow", tv.OpenedServices);
     }
 
     /// <summary>Bizim kimliğimizle başka imzalı uygulama: sürümü yüksek olsa da "güncel" sayılmaz, onaysız silinmez.</summary>
@@ -242,7 +242,7 @@ public class AdbConnectionTests
         var (version, installed) = await installer.EnsureInstalledAsync(apk, "0.9.74");
         Assert.True(installed);
         Assert.Equal("0.9.74", version);
-        var uninstall = tv.OpenedServices.IndexOf("shell:pm uninstall com.dilmac.tv");
+        var uninstall = tv.OpenedServices.IndexOf("shell:pm uninstall com.cevirgen.tv");
         var install = tv.OpenedServices.FindIndex(s => s.StartsWith("exec:cmd package install"));
         Assert.True(uninstall >= 0 && install > uninstall, string.Join(" | ", tv.OpenedServices));
     }
@@ -306,8 +306,8 @@ public class AdbConnectionTests
         var (version, installed) = await installer.EnsureInstalledAsync(apk, "0.9.11");
         Assert.True(installed);
         Assert.Equal("0.9.11", version);
-        var grant = tv.OpenedServices.IndexOf("shell:appops set com.dilmac.tv SYSTEM_ALERT_WINDOW allow");
-        var open = tv.OpenedServices.IndexOf("shell:am start -n com.dilmac.tv/.MainActivity");
+        var grant = tv.OpenedServices.IndexOf("shell:appops set com.cevirgen.tv SYSTEM_ALERT_WINDOW allow");
+        var open = tv.OpenedServices.IndexOf("shell:am start -n com.cevirgen.tv/.MainActivity");
         Assert.True(grant >= 0 && open > grant, string.Join(" | ", tv.OpenedServices));
         Assert.DoesNotContain(tv.OpenedServices, s => s.StartsWith("shell:pm grant"));
     }
@@ -324,17 +324,17 @@ public class AdbConnectionTests
         tv.Serve();
         var installer = new AndroidTvInstaller("127.0.0.1", dir, tv.Port) { LaunchParams = "{\"server\":\"http://192.168.1.5:8790\"}" };
         await installer.EnsureInstalledAsync(apk, "0.9.11");
-        Assert.Contains("shell:am start -n com.dilmac.tv/.MainActivity --es params '{\"server\":\"http://192.168.1.5:8790\"}'",
+        Assert.Contains("shell:am start -n com.cevirgen.tv/.MainActivity --es params '{\"server\":\"http://192.168.1.5:8790\"}'",
             tv.OpenedServices);
     }
 
     [Theory]
-    [InlineData(null, "shell:am start -n com.dilmac.tv/.MainActivity")]
-    [InlineData("", "shell:am start -n com.dilmac.tv/.MainActivity")]
-    [InlineData("{\"server\":\"http://10.0.0.2:8787\"}", "shell:am start -n com.dilmac.tv/.MainActivity --es params '{\"server\":\"http://10.0.0.2:8787\"}'")]
+    [InlineData(null, "shell:am start -n com.cevirgen.tv/.MainActivity")]
+    [InlineData("", "shell:am start -n com.cevirgen.tv/.MainActivity")]
+    [InlineData("{\"server\":\"http://10.0.0.2:8787\"}", "shell:am start -n com.cevirgen.tv/.MainActivity --es params '{\"server\":\"http://10.0.0.2:8787\"}'")]
     // Kabukta tırnaktan çıkabilecek değer gönderilmez; uygulama parametresiz açılır.
-    [InlineData("{\"server\":\"x'; reboot; '\"}", "shell:am start -n com.dilmac.tv/.MainActivity")]
-    [InlineData("{\"a\":\"b\"}\nreboot", "shell:am start -n com.dilmac.tv/.MainActivity")]
+    [InlineData("{\"server\":\"x'; reboot; '\"}", "shell:am start -n com.cevirgen.tv/.MainActivity")]
+    [InlineData("{\"a\":\"b\"}\nreboot", "shell:am start -n com.cevirgen.tv/.MainActivity")]
     public void StartCommandQuotesTheParams(string? launchParams, string expected) =>
         Assert.Equal(expected, AndroidTvInstaller.StartCommand(launchParams));
 
@@ -347,7 +347,7 @@ public class AdbConnectionTests
     {
         var dir = Directory.CreateTempSubdirectory().FullName;
         using var key = AndroidTvInstaller.LoadOrCreateKey(dir);
-        await using var tv = new FakeAdbd { TrustedKey = key, Reply = "    * Hist #0: ActivityRecord{6c1b2f0 u0 com.dilmac.tv/.MainActivity t42}\n" };
+        await using var tv = new FakeAdbd { TrustedKey = key, Reply = "    * Hist #0: ActivityRecord{6c1b2f0 u0 com.cevirgen.tv/.MainActivity t42}\n" };
         tv.Serve();
         string result;
         await using (var adb = await AdbConnection.ConnectAsync("127.0.0.1", tv.Port, key, () => { }))
@@ -356,7 +356,7 @@ public class AdbConnectionTests
         // am start gitmez; çalışan uygulamaya adres ekranı öne çekmeden yayınla bildirilir (eski bir adrese bağlı kalmış
         // olabilir: "TV'de bağlı, panelde sub 0").
         Assert.Equal([AndroidTvInstaller.RunningCommand,
-            "shell:am broadcast -a com.dilmac.tv.action.ADDRESS -n com.dilmac.tv/.AddressReceiver --es params '{\"server\":\"http://192.168.1.4:8787\"}'"],
+            "shell:am broadcast -a com.cevirgen.tv.action.ADDRESS -n com.cevirgen.tv/.AddressReceiver --es params '{\"server\":\"http://192.168.1.4:8787\"}'"],
             tv.OpenedServices);
         Assert.DoesNotContain(tv.OpenedServices, service => service.StartsWith("shell:am start", StringComparison.Ordinal));
     }
@@ -366,7 +366,7 @@ public class AdbConnectionTests
     [InlineData("", null)]
     [InlineData("{\"server\":\"x'; reboot; '\"}", null)]
     [InlineData("{\"server\":\"http://10.0.0.2:8787\"}",
-        "shell:am broadcast -a com.dilmac.tv.action.ADDRESS -n com.dilmac.tv/.AddressReceiver --es params '{\"server\":\"http://10.0.0.2:8787\"}'")]
+        "shell:am broadcast -a com.cevirgen.tv.action.ADDRESS -n com.cevirgen.tv/.AddressReceiver --es params '{\"server\":\"http://10.0.0.2:8787\"}'")]
     public void AddressCommandQuotesTheParams(string? launchParams, string? expected) =>
         Assert.Equal(expected, AndroidTvInstaller.AddressCommand(launchParams));
 
@@ -375,7 +375,7 @@ public class AdbConnectionTests
     {
         var dir = Directory.CreateTempSubdirectory().FullName;
         using var key = AndroidTvInstaller.LoadOrCreateKey(dir);
-        await using var tv = new FakeAdbd { TrustedKey = key, Reply = "Starting: Intent { cmp=com.dilmac.tv/.MainActivity }\n" };
+        await using var tv = new FakeAdbd { TrustedKey = key, Reply = "Starting: Intent { cmp=com.cevirgen.tv/.MainActivity }\n" };
         tv.Serve();
         string result;
         await using (var adb = await AdbConnection.ConnectAsync("127.0.0.1", tv.Port, key, () => { }))
@@ -386,10 +386,10 @@ public class AdbConnectionTests
     }
 
     [Theory]
-    [InlineData("    * Hist #0: ActivityRecord{6c1b2f0 u0 com.dilmac.tv/.MainActivity t42}", true)]
-    [InlineData("  * ServiceRecord{9f3e2a1 u0 com.dilmac.tv/.OverlayService}", true)]
+    [InlineData("    * Hist #0: ActivityRecord{6c1b2f0 u0 com.cevirgen.tv/.MainActivity t42}", true)]
+    [InlineData("  * ServiceRecord{9f3e2a1 u0 com.cevirgen.tv/.OverlayService}", true)]
     [InlineData("    * Hist #0: ActivityRecord{2a1d9e1 u0 com.android.tv.launcher/.MainActivity t1}", false)]
-    [InlineData("  mLastPausedActivity: ActivityRecord{6c1b2f0 u0 com.dilmac.tv/.MainActivity t42}", false)]
+    [InlineData("  mLastPausedActivity: ActivityRecord{6c1b2f0 u0 com.cevirgen.tv/.MainActivity t42}", false)]
     [InlineData("/system/bin/sh: grep: not found", false)]
     [InlineData("", false)]
     public void RunningAppIsRecognised(string output, bool running) => Assert.Equal(running, AndroidTvInstaller.IsRunning(output));
@@ -411,7 +411,7 @@ public class AdbConnectionTests
         var (version, installed) = await installer.EnsureInstalledAsync("yok.apk", "0.9.11");
         Assert.Equal("0.9.11", version);
         Assert.False(installed);
-        Assert.Contains("shell:pm grant com.dilmac.tv android.permission.SYSTEM_ALERT_WINDOW", tv.OpenedServices);
+        Assert.Contains("shell:pm grant com.cevirgen.tv android.permission.SYSTEM_ALERT_WINDOW", tv.OpenedServices);
     }
 
     [Fact]
@@ -458,7 +458,7 @@ public class AdbConnectionTests
     public void VersionIsReadFromDumpsys()
     {
         Assert.Equal("0.7.0", AndroidTvInstaller.VersionFromDumpsys("Packages:\n    versionCode=1 minSdk=24\n    versionName=0.7.0\n"));
-        Assert.Null(AndroidTvInstaller.VersionFromDumpsys("Unable to find package: com.dilmac.tv"));
+        Assert.Null(AndroidTvInstaller.VersionFromDumpsys("Unable to find package: com.cevirgen.tv"));
     }
 
     [Fact]

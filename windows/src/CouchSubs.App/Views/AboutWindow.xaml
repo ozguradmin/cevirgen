@@ -6,7 +6,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:CouchSubs.App.Controls"
         xmlns:t="clr-namespace:CouchSubs.App.Theme"
-        Title="Dilmaç Hakkında" Width="460" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="True"
+        Title="Çevirgen Hakkında" Width="460" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="True"
         WindowStartupLocation="CenterOwner" Background="{DynamicResource windowBackgroundBrush}" Foreground="{DynamicResource textPrimaryBrush}">
     <!-- Perde: arkada üstten düşen durağan projeksiyon ışığı; logonun arkasında amber ışıma. -->
     <Grid>
@@ -19,10 +19,10 @@
                     <DropShadowEffect BlurRadius="48" ShadowDepth="0" Opacity="0.45" Color="#2DD4BF" RenderingBias="Performance" />
                 </c:CouchLogo.Effect>
             </c:CouchLogo>
-            <TextBlock Text="Dilmaç" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="{t:Sp '0,s,0,0'}" />
+            <TextBlock Text="Çevirgen" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="{t:Sp '0,s,0,0'}" />
             <TextBlock x:Name="Version" Style="{StaticResource MonoText}" Foreground="{DynamicResource textSecondaryBrush}" HorizontalAlignment="Center" Margin="{t:Sp '0,xxs,0,s'}" />
             <TextBlock Text="Oyunlar için canlı Türkçe altyazı." Style="{StaticResource HintText}" TextAlignment="Center" />
-            <TextBlock Text="Dilmaç, Sinan Yorulmaz'ın CouchSubs uygulamasına dayanır (github.com/yorulmazsinan/couchsubs); 23 Kasım 2026'dan itibaren değiştirilmiştir. CouchSubs © 2026 Sinan Yorulmaz."
+            <TextBlock Text="Çevirgen, Sinan Yorulmaz'ın CouchSubs uygulamasına dayanır (github.com/yorulmazsinan/couchsubs); 23 Kasım 2026'dan itibaren değiştirilmiştir. CouchSubs © 2026 Sinan Yorulmaz."
                        Style="{StaticResource HintText}" TextAlignment="Center" TextWrapping="Wrap" Margin="{t:Sp '0,xs,0,0'}" />
             <TextBlock Text="{t:T 'Free and open source under the GNU AGPL-3.0 license.'}" Style="{StaticResource HintText}" TextAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
             <TextBlock Text="{t:T 'Remote Play connection by chiaki-ng (AGPL-3.0). Thanks to its developers.'}" Style="{StaticResource HintText}" TextAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
@@ -37,7 +37,7 @@
                 <Button Content="chiaki-ng" Style="{StaticResource SmallSecondaryButton}" Height="40" Margin="{t:Sp 'xs,0,0,0'}" Tag="https://github.com/chiaki-ng/chiaki-ng" Click="OnLink" />
                 <Button Content="Greenlight" Style="{StaticResource SmallSecondaryButton}" Height="40" Margin="{t:Sp 'xs,0,0,0'}" Tag="https://github.com/unknownskl/greenlight" Click="OnLink" />
             </StackPanel>
-            <TextBlock Text="Dilmaç · AGPL-3.0 · kaynak kodu uygulamayla birlikte verilir" FontSize="11" Foreground="{DynamicResource textTertiaryBrush}" HorizontalAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
+            <TextBlock Text="Çevirgen · AGPL-3.0 · kaynak kodu uygulamayla birlikte verilir" FontSize="11" Foreground="{DynamicResource textTertiaryBrush}" HorizontalAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
             <Button Content="{t:T 'Close'}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="{t:Sp '0,m,0,0'}" IsDefault="True" IsCancel="True" Click="OnClose" />
         </StackPanel>
     </Border>

@@ -1586,7 +1586,7 @@ public class AppControllerRunTests
         var turkish = Localizer.ForLanguage("tr");
         Assert.Equal("Otomatik açmayı dene", turkish[TvOpenText.TryButton]);
         Assert.StartsWith("Her oyunda", turkish[TvOpenText.WizardNote]);
-        Assert.StartsWith("Dilmaç TV'de", turkish[TvOpenText.OpenOnTv(TvBrand.Lg)]);
+        Assert.StartsWith("Çevirgen TV'de", turkish[TvOpenText.OpenOnTv(TvBrand.Lg)]);
     }
 
     [Fact]
@@ -1903,7 +1903,7 @@ public class AppControllerRunTests
         var (controller, services, _) = Ready();
         await controller.StartAsync();
         controller.Settings = controller.Settings with { OcrEngine = OcrEngine.Advanced };
-        Assert.Equal([OcrEngine.Advanced], services.ReaderEngines); // Dilmaç: varsayılan zaten gelişmiş
+        Assert.Equal([OcrEngine.Advanced], services.ReaderEngines); // Çevirgen: varsayılan zaten gelişmiş
         controller.Dispose();
     }
 
@@ -2205,9 +2205,9 @@ public class AppControllerRunTests
         Assert.Equal("PS5 Uzaktan Oynatma'yı kapattı. Bu çoğunlukla oyun sırasında PS5'te kullanıcı değiştirilince olur. Yeniden bağlanılıyor…",
             AppController.StatusText(SessionState.Disconnected(DisconnectKind.ConsoleClosed, "x"), true, Localizer.ForLanguage("tr")));
         // GitHub #353: PS5 yeniden bağlanmadan sonra da kapatınca durulur; ana hesapla oynaması söylenir.
-        Assert.Equal("PS5 uzaktan oynatmayı kapattı. Oynarken PS5'te kendi ana hesabınızı seçin; Dilmaç'ın kullandığı ikinci hesapla oynamayın.",
+        Assert.Equal("PS5 uzaktan oynatmayı kapattı. Oynarken PS5'te kendi ana hesabınızı seçin; Çevirgen'in kullandığı ikinci hesapla oynamayın.",
             AppController.StatusText(SessionState.Disconnected(DisconnectKind.ConsoleClosedRepeatedly), true, Localizer.ForLanguage("tr")));
-        Assert.Equal("The PS5 ended Remote Play. While playing, choose your own main account on the PS5; don't play with the second account Dilmaç uses.",
+        Assert.Equal("The PS5 ended Remote Play. While playing, choose your own main account on the PS5; don't play with the second account Çevirgen uses.",
             AppController.StatusText(SessionState.Disconnected(DisconnectKind.ConsoleClosedRepeatedly), true, text));
         Assert.Equal("PS5 bağlantısı art arda koptu, yeniden bağlanma durduruldu. PS5'in açık ve aynı ağda olduğundan emin olun, sonra Yeniden bağlan'a basın.",
             AppController.StatusText(SessionState.Disconnected(DisconnectKind.ReconnectGaveUp), true, Localizer.ForLanguage("tr")));
@@ -2522,18 +2522,18 @@ public class TvAppInstallTests
         var services = new FakeServices
         {
             SamsungDevMode = true, InstallError = DevModeError.PackageBlocked,
-            InstallDetail = "app_id[DilmaçT.CouchSubs] install failed[118, -22]",
+            InstallDetail = "app_id[ÇevirgenT.CouchSubs] install failed[118, -22]",
         };
         services.Bundled[TvBrand.Samsung] = SamsungApp;
         var controller = Make(services);
         await controller.PairAsync(Samsung);
         Assert.Equal(new TvAppState(TvAppKind.Failed, Error: DevModeError.PackageBlocked,
-            Reason: "app_id[DilmaçT.CouchSubs] install failed[118, -22]"), controller.TvApp);
+            Reason: "app_id[ÇevirgenT.CouchSubs] install failed[118, -22]"), controller.TvApp);
 
-        var text = TvAppMessages.Problem(controller.TvApp, TvBrand.Samsung, Localizer.ForLanguage("tr"), @"C:\Dilmaç\tvinstall.log");
+        var text = TvAppMessages.Problem(controller.TvApp, TvBrand.Samsung, Localizer.ForLanguage("tr"), @"C:\Çevirgen\tvinstall.log");
         Assert.Contains("Smart Hub", text);
-        Assert.Contains("Ayrıntı: app_id[DilmaçT.CouchSubs] install failed[118, -22]", text);
-        Assert.EndsWith(@"C:\Dilmaç\tvinstall.log", text);
+        Assert.Contains("Ayrıntı: app_id[ÇevirgenT.CouchSubs] install failed[118, -22]", text);
+        Assert.EndsWith(@"C:\Çevirgen\tvinstall.log", text);
     }
 
     [Fact]
@@ -2582,9 +2582,9 @@ public class TvAppInstallTests
     public void LgAndAndroidFailuresNameTheLogFileToo(TvBrand brand)
     {
         var state = new TvAppState(TvAppKind.Failed, Error: DevModeError.InstallFailed, Reason: "Invalid package");
-        var text = TvAppMessages.Problem(state, brand, Localizer.ForLanguage("en"), @"C:\Dilmaç\tvinstall.log");
+        var text = TvAppMessages.Problem(state, brand, Localizer.ForLanguage("en"), @"C:\Çevirgen\tvinstall.log");
         Assert.Contains("TV says: Invalid package", text);
-        Assert.EndsWith(@"send us this file: C:\Dilmaç\tvinstall.log", text);
+        Assert.EndsWith(@"send us this file: C:\Çevirgen\tvinstall.log", text);
         Assert.DoesNotContain("Samsung", text);
     }
 
@@ -2655,7 +2655,7 @@ public class TvAppInstallTests
         Assert.True(services.ForeignOnTv);
         Assert.Empty(services.BrandInstalls);
         var text = Localizer.ForLanguage("tr");
-        Assert.Equal("Bu TV'de Dilmaç kimliğini kullanan başka bir uygulama kurulu. Kaldırıp Dilmaç'ı kuralım mı?",
+        Assert.Equal("Bu TV'de Çevirgen kimliğini kullanan başka bir uygulama kurulu. Kaldırıp Çevirgen'i kuralım mı?",
             TvAppMessages.Problem(controller.TvApp, TvBrand.AndroidTv, text, "x.log"));
         Assert.Equal("Kaldırıp Kur", text[TvAppMessages.ForeignAppConfirm]);
         Assert.Equal("Vazgeç", text[TvAppMessages.ForeignAppCancel]);

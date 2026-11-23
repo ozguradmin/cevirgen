@@ -19,7 +19,7 @@ namespace CouchSubs.Shell;
 /// </summary>
 public sealed class AppController : INotifyPropertyChanged, IDisposable
 {
-    public const string TvAppId = "com.dilmac.tv";
+    public const string TvAppId = "com.cevirgen.tv";
     public const int DefaultServerPort = 8787;
 
     private readonly IAppServices services;

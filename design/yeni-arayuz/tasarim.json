@@ -1,5 +1,5 @@
 {
-  "name": "Dilmaç arayüzü (CouchSubs Perde tasarımından uyarlandı)",
+  "name": "Çevirgen arayüzü (CouchSubs Perde tasarımından uyarlandı)",
   "version": 2,
   "kaynak": "Perde tasarım dili (23 Kas 2026; tuval DL-* panoları). Koyu tema birincil (defaultTheme). v1 ile geriye uyumlu: tüm eski anahtarlar korunur, koyu değerler derinleşti, yeni renk/yükselti/efekt/hareket anahtarları eklendi. Mac, iPhone ve Windows bu dosyayı doğrudan okur; color/font/space/radius/size bölümlerinde yalnız düz değerler durur (Windows sayı olmayanları atlar). iPhone metin stilleri fontIOS'ta. Köşeler iOS'ta sürekli, Mac'te hap dairesel.",
   "defaultTheme": "dark",

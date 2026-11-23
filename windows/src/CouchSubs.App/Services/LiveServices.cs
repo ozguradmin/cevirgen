@@ -272,7 +272,7 @@ public sealed class LiveServices : IAppServices
 
     /// <summary>Kalıcı dosyalar: ADB anahtarı ve Samsung sertifikaları.</summary>
     private static string DataDirectory(string name) =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dilmac", name);
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cevirgen", name);
 
     public BundledTvApp? BundledApp(TvBrand brand)
     {

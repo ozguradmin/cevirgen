@@ -17,7 +17,7 @@ internal static class StartupGuard
     static bool Turkish => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr";
 
     internal static string LogPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dilmac", "hata.log");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cevirgen", "hata.log");
 
     internal const string UninstallHook = "--veloapp-uninstall";
 
@@ -122,7 +122,7 @@ internal static class StartupGuard
         {
             // Arayüz açılamadı: düzeltilmiş sürüm varsa kurulup uygulama yeniden başlar (RescueUpdate).
             RescueUpdate.TryNow();
-            MessageBox.Show(message, "Dilmaç", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(message, "Çevirgen", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         else
         {
@@ -225,7 +225,7 @@ internal static class StartupGuard
     {
         try
         {
-            MessageBox.Show(message, "Dilmaç", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(message, "Çevirgen", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch (Exception error)
         {
