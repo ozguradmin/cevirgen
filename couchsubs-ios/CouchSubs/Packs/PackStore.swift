@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import CouchSubsCore
+import CryptoKit
+import Foundation
+
+/// Sunucudaki paket listesi. Sözleşme: server/packs/README.md (Cloudflare Worker). İkisi de herkese açık, kimlik istemez:
+/// `GET /v1/packs` liste, `GET /v1/packs/:id` paket (`packs/<id>.json.gz`); 404 paket yok.
+struct PackManifest: Codable, Equatable, Sendable {
+    struct Entry: Codable, Equatable, Sendable, Identifiable {
+        let id: String
+        let title: String
+        /// Paketin sürümü (sunucuda artan bir sayı; yalnız gösterilir, karşılaştırma `sha256` ile).
+        let version: String?
+        /// İndirilen dosyanın (gövdenin) SHA-256'sı, küçük harf onaltılık.
+        let sha256: String
+        let size: Int?
+        let entries: Int?
+
+        init(id: String, title: String, version: String?, sha256: String, size: Int?, entries: Int?) {
+            (self.id, self.title, self.version, self.sha256, self.size, self.entries) = (id, title, version, sha256, size, entries)
+        }
+
+        /// Sürüm sayı ya da metin olabilir.
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            id = try values.decode(String.self, forKey: .id)
+            title = try values.decodeIfPresent(String.self, forKey: .title) ?? id
+            if let number = try? values.decodeIfPresent(Int.self, forKey: .version) {
+                version = String(number)
+            } else {
+                version = try values.decodeIfPresent(String.self, forKey: .version)
+            }
+            sha256 = try values.decode(String.self, forKey: .sha256)
+            size = try values.decodeIfPresent(Int.self, forKey: .size)
+            entries = try values.decodeIfPresent(Int.self, forKey: .entries)
+        }
+    }
+
+    let packs: [Entry]
+}
+
+/// Oyun paketlerini sunucudan indirir (ücretsiz, herkese): liste, eksik ya da değişmiş paketi indirme, SHA-256 denetimi,
+/// açılışta, günde bir ve PS5'te yeni oyun başlayınca yenileme. Paketler `files` klasörüne yazılır; `GamePackLibrary` uygulamayla gelenlerden sonra oradan okur,
+/// aynı kimlikli indirilen paket uygulamayla gelenin yerine geçer.
+actor PackStore {
+    enum Failure: Error, Equatable {
+        case server(Int)
+        /// İndirilen dosyanın SHA-256'sı listedekiyle tutmuyor (dosya yazılmaz).
+        case badChecksum(String)
+        case badResponse
+        case network
+    }
+
+    /// Açılışta ve günde bir bakılır (Android'deki PackStore ile aynı); havuzdan her gece üretilen `pool-*` paketleri en
+    /// geç bir gün sonra gelir.
+    static let refreshInterval: TimeInterval = 24 * 3600
+    /// PS5'te yeni bir oyun tanınınca son bakış bundan eskiyse hemen bakılır (o oyunun paketi yeni çıkmış olabilir).
+    static let gameCheckInterval: TimeInterval = 10 * 60
+
+    private let mirrors: PackMirrors
+    private let directory: URL
+    private let session: URLSession
+    private let now: @Sendable () -> Date
+
+    /// `directory`: paket önbelleği (Application Support/CouchSubs/Packs); `files` alt klasörü paketleri, `manifest.json`
+    /// son listeyi tutar. `fallbackURLs`: `baseURL`'e (workers.dev) ulaşılamazsa (ağ hatası, zaman aşımı, 5xx) sırayla
+    /// denenen yedek adresler (#583); çalışan adres uygulama açıkken hatırlanır (`PackMirrors`).
+    /// `secret`: isteklerin imzası (`PackSigning`, server/packs).
+    init(baseURL: URL, fallbackURLs: [URL] = [], secret: String? = nil, directory: URL, session: URLSession = .shared,
+         now: @escaping @Sendable () -> Date = { Date() }) {
+        mirrors = PackMirrors(primary: baseURL, fallbacks: fallbackURLs, secret: secret, clock: now)
+        self.directory = directory
+        self.session = session
+        self.now = now
+    }
+
+    static var defaultDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CouchSubs", isDirectory: true).appendingPathComponent("Packs", isDirectory: true)
+    }
+
+    /// Ayarlar › Oyun paketleri'nden içe aktarılan topluluk paketleri (`GamePackImporter`). Yalnız bu telefonda kalır,
+    /// sunucuya gitmez; `refresh` yalnız `files` klasörünü temizlediği için güncellemede silinmez.
+    static var importedDirectory: URL { defaultDirectory.appendingPathComponent("imported", isDirectory: true) }
+
+    /// `GamePackLibrary`'nin okuduğu klasör.
+    nonisolated var filesDirectory: URL { Self.filesDirectory(in: directory) }
+
+    static func filesDirectory(in directory: URL) -> URL { directory.appendingPathComponent("files", isDirectory: true) }
+    private var manifestFile: URL { directory.appendingPathComponent("manifest.json") }
+    private var refreshedFile: URL { directory.appendingPathComponent("refreshed") }
+
+    /// Önbellekteki son liste (indirilmiş paketler).
+    func cachedManifest() -> PackManifest? {
+        (try? Data(contentsOf: manifestFile)).flatMap { try? JSONDecoder().decode(PackManifest.self, from: $0) }
+    }
+
+    var lastRefresh: Date? {
+        (try? FileManager.default.attributesOfItem(atPath: refreshedFile.path)[.modificationDate]) as? Date
+    }
+
+    /// Son yenilemeden bu yana `maxAge` (varsayılan bir gün) geçti mi (ya da hiç yenilenmedi mi)?
+    func needsRefresh(maxAge: TimeInterval = PackStore.refreshInterval) -> Bool {
+        guard let lastRefresh else { return true }
+        return now().timeIntervalSince(lastRefresh) >= maxAge
+    }
+
+    /// Son yenilemede indirilen paket sayısı; yenileme bir paket yüzünden hata verse de inenler kitaplığa alınsın diye.
+    private(set) var lastDownloadCount = 0
+    /// Son yenilemede inen paketler (sunucudaki başlık ve satır sayısıyla); "Paketleri şimdi güncelle" özeti için.
+    private(set) var lastDownloaded: [PackManifest.Entry] = []
+    /// Son yenileme bu kurulumdaki ilk paket indirmesiydi: inenler "yeni paket" diye bildirilmez (Android ile aynı).
+    private(set) var lastWasFirstCheck = false
+
+    /// Listeyi alır, eksik ya da değişmiş paketleri indirir, listede olmayanları siler. `force` false ise son bakıştan
+    /// `maxAge` geçmeden hiçbir şey yapmaz. Dönen değer: indirilen (yeni ya da güncellenen) paket sayısı.
+    @discardableResult
+    func refresh(force: Bool = false, maxAge: TimeInterval = PackStore.refreshInterval) async throws -> Int {
+        guard force || needsRefresh(maxAge: maxAge) else { return 0 }
+        lastDownloadCount = 0
+        lastDownloaded = []
+        // Liste her bakışta sunucudan alınır: sunucu onu `max-age=300` ile gönderiyor, URLSession'ın önbelleği "Paketleri
+        // şimdi güncelle"de son beş dakikadaki eski listeyi döndürüyor, yeni sürüm inmiyordu (bkz. PackMirrors.get).
+        let manifest: PackManifest = try await fetch(path: "v1/packs", cachePolicy: .reloadIgnoringLocalCacheData).decoded()
+        let manager = FileManager.default
+        try manager.createDirectory(at: filesDirectory, withIntermediateDirectories: true)
+        let previous = cachedManifest()
+        lastWasFirstCheck = previous?.packs.isEmpty ?? true
+        var downloaded = 0
+        // Bir paket inmeyince (ağ, 429, SHA-256) ötekiler yine iner; eskiden ilk hatada bütün yenileme bırakılıyor, liste
+        // kaydedilmediği için her açılışta hepsi baştan indiriliyor ve sıradaki paketler (ör. gta-6) hiç gelmiyordu.
+        var saved: [PackManifest.Entry] = []
+        var firstFailure: Failure?
+        for entry in manifest.packs {
+            let file = packFile(entry.id)
+            let old = previous?.packs.first { $0.id == entry.id }
+            let unchanged: Bool
+            if old?.sha256 == entry.sha256, manager.fileExists(atPath: file.path),
+               let cached = try? Data(contentsOf: file) {
+                // The manifest can still match after the cached archive is corrupted or truncated.
+                unchanged = Self.sha256(cached) == entry.sha256.lowercased()
+            } else {
+                unchanged = false
+            }
+            if unchanged {
+                saved.append(entry)
+                continue
+            }
+            do {
+                let data = try await fetch(path: "v1/packs/\(entry.id)")
+                guard Self.sha256(data) == entry.sha256.lowercased() else { throw Failure.badChecksum(entry.id) }
+                try data.write(to: file, options: .atomic)
+                downloaded += 1
+                lastDownloaded.append(entry)
+                saved.append(entry)
+            } catch {
+                firstFailure = firstFailure ?? (error as? Failure) ?? .badResponse
+                // Eski sürüm diskte kaldıysa eski kaydıyla tutulur; sonraki yenilemede yeni sürüm yeniden denenir.
+                if let old, manager.fileExists(atPath: file.path) { saved.append(old) }
+            }
+        }
+        lastDownloadCount = downloaded
+        // Sunucudan kalkan paket önbellekte de kalmasın.
+        let wanted = Set(manifest.packs.map { packFile($0.id).lastPathComponent })
+        for file in (try? manager.contentsOfDirectory(at: filesDirectory, includingPropertiesForKeys: nil)) ?? []
+        where !wanted.contains(file.lastPathComponent) {
+            try? manager.removeItem(at: file)
+        }
+        try JSONEncoder().encode(PackManifest(packs: saved)).write(to: manifestFile, options: .atomic)
+        // Yenileme zamanı yalnız hepsi inince ilerler: inemeyen paket bir sonraki açılışta yeniden denenir.
+        if let firstFailure { throw firstFailure }
+        if !manager.createFile(atPath: refreshedFile.path, contents: Data()) { throw Failure.badResponse }
+        try manager.setAttributes([.modificationDate: now()], ofItemAtPath: refreshedFile.path)
+        return downloaded
+    }
+
+    static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func packFile(_ id: String) -> URL {
+        // Kimlik dosya adına girer; sunucudan gelen değer yol olarak yorumlanmasın.
+        let safe = id.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        return filesDirectory.appendingPathComponent("\(safe).json.gz")
+    }
+
+    private func fetch(path: String, cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy) async throws -> Data {
+        let session = self.session
+        switch await mirrors.get(path, timeout: 30, cachePolicy: cachePolicy, fetch: { try await session.data(for: $0) }) {
+        case let .success(data): return data
+        case .failure(.network): throw Failure.network
+        case .failure(.badResponse): throw Failure.badResponse
+        case let .failure(.status(code)): throw Failure.server(code)
+        }
+    }
+}
+
+private extension Data {
+    func decoded<T: Decodable>() throws -> T {
+        do { return try JSONDecoder().decode(T.self, from: self) } catch { throw PackStore.Failure.badResponse }
+    }
+}

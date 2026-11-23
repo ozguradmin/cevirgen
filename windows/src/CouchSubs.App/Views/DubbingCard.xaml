@@ -1,0 +1,49 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<UserControl x:Class="CouchSubs.App.Views.DubbingCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:CouchSubs.App.Controls"
+             xmlns:t="clr-namespace:CouchSubs.App.Theme"
+             Visibility="Collapsed">
+    <c:Card Title="{t:T 'Turkish dubbing'}">
+        <c:SpacedStack>
+            <StackPanel>
+                <c:SwitchRow x:Name="Enabled" Content="{t:T 'Voice the translation in Turkish'}" Checked="OnEnabled" Unchecked="OnEnabled" />
+                <TextBlock x:Name="SetupHint" Style="{StaticResource HintText}" Margin="{t:Sp 'xxl,unitHint,0,0'}" />
+            </StackPanel>
+            <c:SpacedStack x:Name="Options">
+                <c:Unit x:Name="EnginePanel" Title="{t:T 'Voice'}">
+                    <StackPanel>
+                        <Border Style="{StaticResource SegmentGroup}">
+                            <UniformGrid Rows="1">
+                                <RadioButton x:Name="NaturalEngine" Content="{t:T 'Natural'}" GroupName="engine" Style="{StaticResource SegmentButton}" Checked="OnEngine" Tag="Natural" />
+                                <RadioButton x:Name="FastEngine" Content="{t:T 'Fast'}" GroupName="engine" Style="{StaticResource SegmentButton}" Checked="OnEngine" Tag="Fast" />
+                            </UniformGrid>
+                        </Border>
+                        <TextBlock x:Name="EngineHint" Style="{StaticResource HintText}" Margin="{t:Sp '0,unitHint,0,0'}" />
+                    </StackPanel>
+                </c:Unit>
+                <c:Unit x:Name="DownloadPanel" Hint="{t:T 'The voices are downloaded once (440 MB).'}">
+                    <StackPanel>
+                        <Button x:Name="DownloadButton" Content="{t:T 'Download voices'}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="OnDownload" />
+                        <ProgressBar x:Name="Progress" Maximum="1" Margin="{t:Sp '0,s,0,0'}" Visibility="Collapsed" />
+                        <TextBlock x:Name="ProgressText" Style="{StaticResource HintText}" Margin="{t:Sp '0,unitHint,0,0'}" Visibility="Collapsed" />
+                    </StackPanel>
+                </c:Unit>
+                <c:SpacedStack x:Name="ReadyPanel">
+                    <c:Unit Title="{t:T 'Play the voice on'}">
+                        <Border Style="{StaticResource SegmentGroup}">
+                            <UniformGrid Rows="1">
+                                <RadioButton x:Name="OnTv" Content="{t:T 'TV'}" GroupName="output" Style="{StaticResource SegmentButton}" Checked="OnOutput" Tag="Tv" />
+                                <RadioButton x:Name="OnComputer" Content="{t:T 'This computer'}" GroupName="output" Style="{StaticResource SegmentButton}" Checked="OnOutput" Tag="Computer" />
+                            </UniformGrid>
+                        </Border>
+                    </c:Unit>
+                    <StackPanel x:Name="Voices" />
+                    <TextBlock x:Name="Credits" Style="{StaticResource HintText}" />
+                </c:SpacedStack>
+                <TextBlock x:Name="Error" Style="{StaticResource ErrorText}" Visibility="Collapsed" />
+            </c:SpacedStack>
+        </c:SpacedStack>
+    </c:Card>
+</UserControl>

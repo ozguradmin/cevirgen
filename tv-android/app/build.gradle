@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+plugins { id 'com.android.application' }
+
+// İmza anahtarları ortam değişkenlerinden gelir (CI'da depo sırları, bkz. .github/workflows/tv-android.yml); hiçbiri depoda
+// durmaz. Adlar TV'ye özeldir: telefon uygulamasının (couchsubs-android) anahtarı ayrıdır ve bunlara karışmaz.
+//   TV_KEYSTORE_FILE / TV_KEYSTORE_PASSWORD / TV_KEY_ALIAS: TV sürüm anahtarı (takma ad couchsubs-tv). Hem masaüstü
+//     uygulamalarının ADB ile kurduğu APK hem Play paketi (AAB) bununla imzalanır; Play'in uygulama imza anahtarı da budur.
+//   TV_UPLOAD_KEYSTORE_FILE / TV_UPLOAD_KEYSTORE_PASSWORD / TV_UPLOAD_KEY_ALIAS: ayrı Play yükleme anahtarı (isteğe bağlı).
+//   Bkz. docs/play-store-tv.md.
+// Anahtar yoksa geliştirme anahtarıyla imzalanır; sürüm derlemesi (release.yml) bu durumda iş akışında hata verir.
+def releaseKeystore = System.getenv('TV_KEYSTORE_FILE')
+def uploadKeystore = System.getenv('TV_UPLOAD_KEYSTORE_FILE')
+
+android {
+    namespace 'com.couchsubs.tv'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.couchsubs.tv'
+        minSdk 24
+        targetSdk 35
+        // Masaüstü uygulamaları beklenen TV sürümünü buradan alır (scripts/bundle-android-apk.sh, APK adı).
+        versionCode 84
+        versionName '0.9.81'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            if (releaseKeystore) {
+                storeFile file(releaseKeystore)
+                storePassword System.getenv('TV_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('TV_KEY_ALIAS') ?: 'couchsubs-tv'
+                keyPassword System.getenv('TV_KEYSTORE_PASSWORD')
+            }
+        }
+        upload {
+            if (uploadKeystore) {
+                storeFile file(uploadKeystore)
+                storePassword System.getenv('TV_UPLOAD_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('TV_UPLOAD_KEY_ALIAS') ?: 'upload'
+                keyPassword System.getenv('TV_UPLOAD_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    // İki dağıtım: masaüstünün ADB ile kurduğu APK (katman modu var) ve Google Play paketi (katman modu yok: Play'in TV
+    // kalite kuralı TV-TR uygulamanın başka uygulamaların üstünü örtmesine izin vermiyor). Bkz. docs/play-store-tv.md.
+    flavorDimensions = ['distribution']
+    productFlavors {
+        sideload {
+            dimension 'distribution'
+            minSdk 22
+            buildConfigField 'boolean', 'OVERLAY_MODE', 'true'
+            signingConfig releaseKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+        play {
+            dimension 'distribution'
+            buildConfigField 'boolean', 'OVERLAY_MODE', 'false'
+            signingConfig uploadKeystore ? signingConfigs.upload : (releaseKeystore ? signingConfigs.release : signingConfigs.debug)
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets.main.assets.srcDirs += layout.buildDirectory.dir('generated/tv-assets')
+}
+
+// Arayüz LG ve Samsung'la ortaktır.
+tasks.register('copyTvAssets', Copy) {
+    into layout.buildDirectory.dir('generated/tv-assets/tv')
+    from('../../tv-webos') { include 'app.js', 'i18n.js', 'config.js', 'index.html', 'style.css', 'icon.png', 'largeIcon.png' }
+    from('..') { include 'platform.js' }
+}
+preBuild.dependsOn 'copyTvAssets'
+
+// Görüntü modu kararları (DisplayMode, FallbackWatch) JVM'de denenir: src/test. Dağıtıma özgü denetimler src/testPlay ve
+// src/testSideload'dadır.
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

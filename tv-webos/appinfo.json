@@ -1,0 +1,17 @@
+{
+  "id": "com.couchsubs.tv",
+  "version": "0.9.81",
+  "vendor": "Enmera",
+  "type": "web",
+  "main": "index.html",
+  "title": "CouchSubs",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#000000",
+  "resolution": "1920x1080",
+  "requiredACG": [],
+  "disableBackHistoryAPI": true,
+  "screenSaverProperties": {
+    "preferredType": 2
+  }
+}

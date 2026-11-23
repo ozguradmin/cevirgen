@@ -1,0 +1,1452 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using CouchSubs.Core;
+using CouchSubs.Translation;
+using Xunit;
+
+namespace CouchSubs.Translation.Tests;
+
+/// <summary>Mac'teki AITranslationTests ile aynı durumlar. Gerçek hizmetlere hiç gidilmez.</summary>
+public class AiTranslatorTests
+{
+    private const string Secret = "sk-SECRET-123";
+
+    // Eski Ollama'nın reddettiği düşünme alanı oturum boyunca hatırlanır; her test temiz başlar.
+    public AiTranslatorTests() => AiTranslator.ResetThinkingRejected();
+
+    private static AiTranslator WithGame(FakeAi fake, TranslationCache cache, Func<string?> game) =>
+        new(AiProvider.OpenAi, Secret, null, new FakeLocal(), new HttpClient(fake), cache,
+            new RequestBudget(1000), game: game);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GameCacheSeparatesGamesAndReusesTheSameGame(bool screen)
+    {
+        string? game = "City game";
+        var fake = new FakeAi((request, body) => Wrap(request,
+            UserText(request, body).StartsWith("Game: City game\n") ? "[\"Banka yakında.\"]" : "[\"Kıyı yakında.\"]"));
+        var translator = WithGame(fake, new TranslationCache(), () => game);
+        const string text = "The bank is close.";
+        async Task<string> Translate() => screen
+            ? (await translator.TranslateAllAsync([text]))[0] : await translator.TranslateAsync(text);
+        Assert.Equal("Banka yakında.", await Translate());
+        Assert.Equal("Banka yakında.", await Translate());
+        Assert.Single(fake.Requests);
+        game = "River game";
+        Assert.Equal("Kıyı yakında.", await Translate());
+        Assert.Equal(2, fake.Requests.Count);
+        game = "City game";
+        Assert.Equal("Banka yakında.", await Translate());
+        Assert.Equal(2, fake.Requests.Count);
+    }
+
+    /// <summary>#827: menü ve görev etiketleri kısa, tekil emir kipinde çevrilir ("Para Kazan"; "Para Kazanın" değil).</summary>
+    [Fact]
+    public void SystemPromptAsksForSingularImperativeLabels()
+    {
+        Assert.Contains("singular informal imperatives", AiRequest.SystemPrompt);
+        Assert.Contains("\"Para Kazan\"", AiRequest.SystemPrompt);
+    }
+
+    [Fact]
+    public async Task GameCacheAlsoSeparatesSentencePieces()
+    {
+        var fake = new FakeAi();
+        string? game = "One";
+        var translator = WithGame(fake, new TranslationCache(), () => game);
+        await translator.TranslateAsync("Stay close.");
+        game = "Two";
+        await translator.TranslateAsync("Stay close. Run!");
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.EndsWith("[\"Stay close.\",\"Run!\"]", User(fake, 1));
+        await translator.TranslateAsync("Run!");
+        Assert.Equal(2, fake.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GameCacheKeepsLegacyEntriesOnlyForUnknownGame(bool screen)
+    {
+        var cache = new TranslationCache();
+        cache.Store("Stay close.", "Eski çeviri.");
+        string? game = null;
+        var fake = new FakeAi();
+        var translator = WithGame(fake, cache, () => game);
+        async Task<string> Translate() => screen
+            ? (await translator.TranslateAllAsync(["Stay close."]))[0] : await translator.TranslateAsync("Stay close.");
+        Assert.Equal("Eski çeviri.", await Translate());
+        game = "   ";
+        Assert.Equal("Eski çeviri.", await Translate());
+        Assert.Empty(fake.Requests);
+        game = "  One  ";
+        Assert.Equal("[tr] Stay close.", await Translate());
+        Assert.StartsWith("Game: One\n", User(fake, 0));
+        game = "One";
+        Assert.Equal("[tr] Stay close.", await Translate());
+        Assert.Single(fake.Requests);
+        game = null;
+        Assert.Equal("Eski çeviri.", await Translate());
+        Assert.True(cache.TryGet("Stay close.", out var legacy));
+        Assert.Equal("Eski çeviri.", legacy);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GameCacheSnapshotsGameBeforeRequestAndStoresUnderThatGame(bool screen)
+    {
+        var reads = 0;
+        string? game = "One";
+        var fake = new FakeAi((request, body) => { game = "Two"; return Echo(request, body); });
+        var cache = new TranslationCache();
+        var translator = WithGame(fake, cache, () => { reads++; return game; });
+        if (screen) await translator.TranslateAllAsync(["Stay close."]);
+        else await translator.TranslateAsync("Stay close.");
+        Assert.Equal(1, reads);
+        Assert.StartsWith("Game: One\n", User(fake, 0));
+        var other = WithGame(fake, cache, () => "Two");
+        if (screen) await other.TranslateAllAsync(["Stay close."]);
+        else await other.TranslateAsync("Stay close.");
+        Assert.Equal(2, fake.Requests.Count);
+        var original = WithGame(fake, cache, () => "One");
+        if (screen) await original.TranslateAllAsync(["Stay close."]);
+        else await original.TranslateAsync("Stay close.");
+        Assert.Equal(2, fake.Requests.Count);
+    }
+
+    [Fact]
+    public async Task GameCachePersistsSpeechPiecesWithoutLeakingAcrossGames()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "couchsubs-game-cache-" + Guid.NewGuid());
+        var file = Path.Combine(directory, "cache.jsonl");
+        try
+        {
+            const string text = "KRATOS: We go now. Stay close.";
+            var fake = new FakeAi((request, body) => Wrap(request,
+                UserText(request, body).StartsWith("Game: Two\n") ? "[\"Gidelim.\",\"Yakında kal.\"]" : EchoText(UserText(request, body))));
+            string? game = "One";
+            var first = WithGame(fake, new TranslationCache(file), () => game);
+            await first.TranslateAsync(text);
+            var expected = first.SpokenLines(text);
+            Assert.Equal(2, expected.Count);
+            Assert.All(expected, line => Assert.Equal("KRATOS", line.Speaker));
+            game = "Two";
+            Assert.Empty(first.SpokenLines(text));
+            game = "One";
+            var reloaded = WithGame(fake, new TranslationCache(file), () => game);
+            Assert.Equal(expected, reloaded.SpokenLines(text));
+            await reloaded.TranslateAsync(text);
+            Assert.Single(fake.Requests);
+            game = "Two";
+            Assert.Empty(reloaded.SpokenLines(text));
+            await reloaded.TranslateAsync(text);
+            Assert.Equal(2, fake.Requests.Count);
+            Assert.Equal("Gidelim.", reloaded.SpokenLines(text)[0].Turkish);
+            game = "One";
+            Assert.Equal(expected, reloaded.SpokenLines(text));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task GameCacheSpeechCanUseWholeScreenEntryWithoutSentenceEntries()
+    {
+        var cache = new TranslationCache();
+        var fake = new FakeAi();
+        const string text = "We go now. Stay close.";
+        await WithGame(fake, cache, () => "One").TranslateAllAsync([text]);
+        var reloaded = WithGame(fake, cache, () => "One");
+        var line = Assert.Single(reloaded.SpokenLines(text));
+        Assert.Equal(text, line.English);
+        Assert.Equal("[tr] " + text, line.Turkish);
+        Assert.Empty(WithGame(fake, cache, () => "Two").SpokenLines(text));
+    }
+
+    [Fact]
+    public async Task GameCacheScreenBatchesKeepTheInitialGame()
+    {
+        var reads = 0;
+        string? game = "One";
+        var fake = new FakeAi((request, body) => { game = "Two"; return Echo(request, body); });
+        var cache = new TranslationCache();
+        var texts = Enumerable.Range(0, AiTranslator.ScreenBatch + 1).Select(i => $"Menu item {i}").ToArray();
+        var translator = WithGame(fake, cache, () => { reads++; return game; });
+        Assert.Equal(texts.Select(text => "[tr] " + text), await translator.TranslateAllAsync(texts));
+        Assert.Equal(1, reads);
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.StartsWith("Game: One\n", User(fake, 0));
+        Assert.StartsWith("Game: One\n", User(fake, 1));
+        await WithGame(fake, cache, () => "One").TranslateAllAsync(texts);
+        Assert.Equal(2, fake.Requests.Count);
+        await WithGame(fake, cache, () => "Two").TranslateAllAsync(texts);
+        Assert.Equal(4, fake.Requests.Count);
+    }
+
+    /// <summary>Yapay zekâ hizmetlerinin yerine geçen sahte sunucu: istekleri saklar, cümleleri "[tr] cümle" diye çevirir.</summary>
+    private sealed class FakeAi(Func<HttpRequestMessage, string, HttpResponseMessage>? reply = null) : HttpMessageHandler
+    {
+        public List<(HttpRequestMessage Request, string Body)> Requests { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
+            Requests.Add((request, body));
+            return (reply ?? Echo)(request, body);
+        }
+    }
+
+    private sealed class FakeLocal : ITextTranslator
+    {
+        public List<string> Calls { get; } = [];
+        public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default)
+        {
+            Calls.Add(text);
+            return Task.FromResult("yerel: " + text);
+        }
+    }
+
+    /// <summary>İlk HTTP isteği yalnız iptalle biter; sonraki istek normal yanıt verir. Gerçek ağa çıkmaz.</summary>
+    private sealed class CancelFirstAi : HttpMessageHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public List<string> Bodies { get; } = [];
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Bodies.Add(UserText(request, body));
+            if (Bodies.Count == 1)
+            {
+                Started.SetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            return Echo(request, body);
+        }
+    }
+
+    [Fact]
+    public async Task CancelledLocalRequestDoesNotFallbackCacheOrPauseNextTranslation()
+    {
+        using var handler = new CancelFirstAi();
+        using var http = new HttpClient(handler);
+        using var cancel = new CancellationTokenSource();
+        var fallback = new FakeLocal();
+        var cache = new TranslationCache();
+        var translator = new AiTranslator(AiProvider.Local, "", "qwen2.5:7b", fallback, http, cache);
+        var failures = new List<OnlineKeyState?>();
+        translator.FailureChanged += failures.Add;
+        var old = translator.TranslateAsync("Hold the gate.", cancel.Token);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => old);
+        Assert.False(cache.TryGet("Hold the gate.", out _));
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.Empty(fallback.Calls);
+        Assert.Empty(failures);
+        Assert.Null(translator.LastError);
+        Assert.Equal(2, handler.Bodies.Count);
+        // İptal edilen repliğin kaynağı bağlamda kalır; üretilmemiş Türkçe sonuç eklenmez.
+        Assert.Contains("English: Hold the gate.", handler.Bodies[1]);
+        Assert.DoesNotContain("Turkish:", handler.Bodies[1]);
+    }
+
+    private static HttpResponseMessage Json(string json, HttpStatusCode status = HttpStatusCode.OK) =>
+        new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+
+    internal static string UserText(HttpRequestMessage request, string body)
+    {
+        var root = JsonNode.Parse(body)!;
+        return request.RequestUri!.Host == "generativelanguage.googleapis.com"
+            ? root["contents"]![0]!["parts"]![0]!["text"]!.GetValue<string>()
+            : root["messages"]!.AsArray()[^1]!["content"]!.GetValue<string>();
+    }
+
+    /// <summary>İletinin son satırındaki JSON dizisini "[tr] …" diye çevirir.</summary>
+    private static string EchoText(string user)
+    {
+        var sentences = JsonNode.Parse(user.Split('\n')[^1])!.AsArray().Select(n => "[tr] " + n!.GetValue<string>());
+        return new JsonArray([.. sentences.Select(s => (JsonNode?)JsonValue.Create(s))]).ToJsonString();
+    }
+
+    /// <summary>Hizmetin kendi yanıt biçimi.</summary>
+    private static HttpResponseMessage Wrap(HttpRequestMessage request, string text)
+    {
+        JsonNode reply = request.RequestUri!.Host switch
+        {
+            "generativelanguage.googleapis.com" => new JsonObject
+            {
+                ["candidates"] = new JsonArray(new JsonObject
+                {
+                    ["content"] = new JsonObject
+                    {
+                        ["role"] = "model",
+                        ["parts"] = new JsonArray(new JsonObject { ["text"] = "thinking…", ["thought"] = true }, new JsonObject { ["text"] = text }),
+                    },
+                }),
+            },
+            // Yerel model sunucuları (Ollama, LM Studio) OpenAI biçimiyle yanıt verir.
+            "api.openai.com" or "localhost" or "127.0.0.1" or "192.168.1.20" => new JsonObject
+            {
+                ["choices"] = new JsonArray(new JsonObject
+                {
+                    ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = text },
+                    ["finish_reason"] = "stop",
+                }),
+            },
+            _ => new JsonObject
+            {
+                ["content"] = new JsonArray(new JsonObject { ["type"] = "thinking", ["thinking"] = "…" }, new JsonObject { ["type"] = "text", ["text"] = text }),
+                ["stop_reason"] = "end_turn",
+            },
+        };
+        return Json(reply.ToJsonString());
+    }
+
+    private static HttpResponseMessage Echo(HttpRequestMessage request, string body) => Wrap(request, EchoText(UserText(request, body)));
+
+    /// <summary>Her çevirmen kendi dakikalık hakkıyla kurulur; testler uygulamanın ortak hakkını tüketmesin.</summary>
+    private static AiTranslator Make(AiProvider provider, FakeAi fake, ITextTranslator? local = null, TranslationCache? cache = null, string? model = null,
+                                     RequestBudget? budget = null) =>
+        new(provider, $"  {Secret} ", model, local ?? new FakeLocal(), new HttpClient(fake), cache, budget ?? new RequestBudget(1000));
+
+    /// <summary>Gemini'nin dakikalık sınır yanıtı (error.details içinde QuotaFailure ve RetryInfo).</summary>
+    private static string RateLimitBody(string quotaId, string value = "5", string delay = "3s") =>
+        $$$"""{"error":{"code":429,"message":"You exceeded your current quota.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"{{{quotaId}}}","quotaValue":"{{{value}}}"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"{{{delay}}}"}]}}""";
+
+    private const string PerMinute = "GenerateRequestsPerMinutePerProjectPerModel-FreeTier";
+
+    private static string User(FakeAi fake, int index) => UserText(fake.Requests[index].Request, fake.Requests[index].Body);
+
+    // --- İstek ---
+
+    /// <summary>
+    /// #287: konuşan etiketinden öğrenilen ad, sonraki cümlede geçince istemde "çevirme" diye adıyla söylenir; görev
+    /// sözcükleri ("Soldier") ve küçük harfle geçen sözcük ("ghostly", "price") söylenmez.
+    /// </summary>
+    [Fact]
+    public async Task LearnedSpeakerNamesAreNamedInThePrompt()
+    {
+        var fake = new FakeAi();
+        var translator = Make(AiProvider.Gemini, fake);
+        await translator.TranslateAsync("PRICE: Move.");
+        Assert.DoesNotContain("Character names", User(fake, 0));
+        await translator.TranslateAsync("SOLDIER: Price, get down!");
+        Assert.Contains("Character names (keep them exactly as written, do not translate them): Price\n", User(fake, 1));
+        Assert.DoesNotContain("Soldier", User(fake, 1));
+        await translator.TranslateAsync("It looks ghostly, price is high.");
+        Assert.DoesNotContain("Character names", User(fake, 2));
+    }
+
+    [Fact]
+    public async Task GeminiRequest()
+    {
+        var fake = new FakeAi();
+        Assert.Equal("KRATOS: [tr] We go now.", await Make(AiProvider.Gemini, fake).TranslateAsync("KRATOS: We go now."));
+        var (request, body) = fake.Requests[0];
+        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent", request.RequestUri!.AbsoluteUri);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(Secret, Assert.Single(request.Headers.GetValues("x-goog-api-key")));
+        Assert.Null(request.Headers.Authorization);
+        var json = JsonNode.Parse(body)!;
+        Assert.Equal(AiRequest.SystemPrompt, json["systemInstruction"]!["parts"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal(AiRequest.MaxOutputTokens, json["generationConfig"]!["maxOutputTokens"]!.GetValue<int>());
+        // Flash-Lite zaten en az düşünmeyle çalışır; düşünme ayarı gönderilmez.
+        Assert.Null(json["generationConfig"]!["thinkingConfig"]);
+        // Konuşmacı etiketi gönderilmez; yalnız cümle gider.
+        Assert.EndsWith("[\"We go now.\"]", User(fake, 0));
+        Assert.DoesNotContain("KRATOS", User(fake, 0));
+    }
+
+    [Fact]
+    public async Task OpenAiRequest()
+    {
+        var fake = new FakeAi();
+        await Make(AiProvider.OpenAi, fake).TranslateAsync("Run!");
+        var (request, body) = fake.Requests[0];
+        Assert.Equal("https://api.openai.com/v1/chat/completions", request.RequestUri!.AbsoluteUri);
+        Assert.Equal($"Bearer {Secret}", Assert.Single(request.Headers.GetValues("Authorization")));
+        var json = JsonNode.Parse(body)!;
+        Assert.Equal("gpt-6-luna", json["model"]!.GetValue<string>());
+        Assert.Equal("none", json["reasoning_effort"]!.GetValue<string>());
+        Assert.Equal(AiRequest.MaxOutputTokens, json["max_completion_tokens"]!.GetValue<int>());
+        var messages = json["messages"]!.AsArray();
+        Assert.Equal(["developer", "user"], messages.Select(m => m!["role"]!.GetValue<string>()));
+        Assert.Equal(AiRequest.SystemPrompt, messages[0]!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ClaudeRequest()
+    {
+        var fake = new FakeAi();
+        await Make(AiProvider.Claude, fake).TranslateAsync("Run!");
+        var (request, body) = fake.Requests[0];
+        Assert.Equal("https://api.anthropic.com/v1/messages", request.RequestUri!.AbsoluteUri);
+        Assert.Equal(Secret, Assert.Single(request.Headers.GetValues("x-api-key")));
+        Assert.Equal("2023-06-01", Assert.Single(request.Headers.GetValues("anthropic-version")));
+        var json = JsonNode.Parse(body)!;
+        Assert.Equal("claude-haiku-5-5", json["model"]!.GetValue<string>());
+        Assert.Equal(AiRequest.MaxOutputTokens, json["max_tokens"]!.GetValue<int>());
+        Assert.Equal(AiRequest.SystemPrompt, json["system"]!.GetValue<string>());
+        Assert.Null(json["temperature"]);
+        Assert.Equal("low", json["output_config"]!["effort"]!.GetValue<string>());
+        Assert.Equal("disabled", json["thinking"]!["type"]!.GetValue<string>());
+    }
+
+    /// <summary>Effort ve düşünme ayarı listedeki modelden gelir, adından tahmin edilmez.</summary>
+    [Fact]
+    public async Task PerModelParametersAreSent()
+    {
+        var fake = new FakeAi();
+        await Make(AiProvider.OpenAi, fake, model: "gpt-6.1-terra").TranslateAsync("Run!");
+        var openAi = JsonNode.Parse(fake.Requests[0].Body)!;
+        Assert.Equal("gpt-6.1-terra", openAi["model"]!.GetValue<string>());
+        Assert.Equal("none", openAi["reasoning_effort"]!.GetValue<string>());
+
+        await Make(AiProvider.Claude, fake, model: "claude-sonnet-5-5").TranslateAsync("Run!");
+        var claude = JsonNode.Parse(fake.Requests[1].Body)!;
+        Assert.Equal("claude-sonnet-5-5", claude["model"]!.GetValue<string>());
+        Assert.Equal("low", claude["output_config"]!["effort"]!.GetValue<string>());
+        Assert.Equal("between_tools", claude["thinking"]!["type"]!.GetValue<string>());
+
+        await Make(AiProvider.Gemini, fake, model: "gemini-3.6-flash").TranslateAsync("Run!");
+        Assert.Contains("/models/gemini-3.6-flash:generateContent", fake.Requests[2].Request.RequestUri!.AbsoluteUri);
+        Assert.Equal("LOW", JsonNode.Parse(fake.Requests[2].Body)!["generationConfig"]!["thinkingConfig"]!["thinkingLevel"]!.GetValue<string>());
+    }
+
+    /// <summary>Listede olmayan kayıtlı model (eski ayar, elle yazılmış ad, listeden çıkarılan model) varsayılana döner.</summary>
+    [Fact]
+    public async Task UnknownModelFallsBackToDefault()
+    {
+        var fake = new FakeAi();
+        await Make(AiProvider.OpenAi, fake, model: "gpt-4o").TranslateAsync("Run!");
+        Assert.Equal("gpt-6-luna", JsonNode.Parse(fake.Requests[0].Body)!["model"]!.GetValue<string>());
+        Assert.Equal("gemini-3.5-flash-lite", AiProvider.Gemini.Model("").Id);
+        Assert.Equal("claude-haiku-5-5", AiProvider.Claude.Model(null).Id);
+        Assert.Equal("gemini:gemini-3.5-flash-lite", AiProvider.Gemini.EngineId("gemini-3.5-flash-lite"));
+        Assert.Equal("openai:gpt-6-luna", AiProvider.OpenAi.EngineId(AiProvider.OpenAi.DefaultModel().Id));
+    }
+
+    /// <summary>
+    /// Liste Mac ile ortak dosyadan (core/Sources/CouchSubsCore/Resources/ai-models.json) gömülür; her hizmette önerilen
+    /// hızlı model ilk sıradadır.
+    /// </summary>
+    [Fact]
+    public void CatalogIsTheSharedFile()
+    {
+        var file = Path.Combine(RepoRoot(), "core", "Sources", "CouchSubsCore", "Resources", "ai-models.json");
+        var parsed = AiModel.Parse(File.ReadAllText(file));
+        Assert.Equal(["claude", "gemini", "openai"], parsed.Keys.Order());
+        Assert.Equal(parsed.Keys.Order(), AiProviders.Cloud.Select(p => p.Id()).Order());
+        // Yerel modelin listesi yoktur; model adını kullanıcı yazar.
+        Assert.Empty(AiProvider.Local.Models());
+        Assert.Equal("qwen2.5:7b", AiProvider.Local.DefaultModel().Id);
+        foreach (var provider in AiProviders.Cloud)
+        {
+            Assert.Equal(parsed[provider.Id()], provider.Models());
+            Assert.True(provider.Models().Count >= 2);
+            Assert.Equal("Fast and cheap (recommended)", provider.DefaultModel().Label);
+            Assert.Equal(provider.Models().Count, provider.Models().Select(m => m.Id).Distinct().Count());
+            // Etiketler ortak metin dosyasında çevrilmiş olmalı.
+            Assert.NotEqual(provider.DefaultModel().Label, Localizer.ForLanguage("tr")[provider.DefaultModel().Label]);
+        }
+        Assert.Equal(new AiModel("gemini-3.5-flash-lite", "Fast and cheap (recommended)", FreeTier: true, RequestsPerMinute: 15),
+                     AiProvider.Gemini.DefaultModel());
+        Assert.Equal("disabled", AiProvider.Claude.DefaultModel().Thinking);
+    }
+
+    private static string RepoRoot([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, "..", "..", ".."));
+
+    // --- Yerel model (Ollama, LM Studio) ---
+
+    private static AiTranslator MakeLocal(FakeAi fake, string baseUrl = LocalAiServer.OllamaUrl, string model = "qwen2.5:7b", string key = "",
+                                          ITextTranslator? local = null) =>
+        new(AiProvider.Local, key, model, local ?? new FakeLocal(), new HttpClient(fake), budget: new RequestBudget(1000),
+            server: LocalAiServer.Create(baseUrl, model));
+
+    /// <summary>OpenAI uyumlu en sade istek: system + user, temperature, max_tokens, stream false; bulut hizmetine özel alan gitmez.</summary>
+    [Fact]
+    public async Task LocalRequest()
+    {
+        var fake = new FakeAi();
+        Assert.Equal("KRATOS: [tr] We go now.", await MakeLocal(fake).TranslateAsync("KRATOS: We go now."));
+        var (request, body) = fake.Requests[0];
+        Assert.Equal("http://127.0.0.1:11434/v1/chat/completions", request.RequestUri!.AbsoluteUri);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("application/json", request.Content!.Headers.ContentType!.MediaType);
+        // Anahtar boşsa Authorization başlığı hiç gitmez.
+        Assert.Null(request.Headers.Authorization);
+        var json = JsonNode.Parse(body)!.AsObject();
+        // Ollama'da düşünme kapalı (#295).
+        Assert.False(json["think"]!.GetValue<bool>());
+        Assert.Equal("none", json["reasoning_effort"]!.GetValue<string>());
+        Assert.Equal(["keep_alive", "max_tokens", "messages", "model", "reasoning_effort", "stream", "temperature", "think"], json.Select(p => p.Key).Order());
+        // Model bellekte kalır; uzun sessizlikten sonra ilk satır yükleme beklemez (#306).
+        Assert.Equal("24h", json["keep_alive"]!.GetValue<string>());
+        // Aynı satır her seferinde aynı çevrilsin (#306).
+        Assert.Equal(0, json["temperature"]!.GetValue<double>());
+        Assert.Equal("qwen2.5:7b", json["model"]!.GetValue<string>());
+        Assert.Equal(AiRequest.LocalTemperature, json["temperature"]!.GetValue<double>());
+        Assert.Equal(AiRequest.MaxOutputTokens, json["max_tokens"]!.GetValue<int>());
+        Assert.False(json["stream"]!.GetValue<bool>());
+        var messages = json["messages"]!.AsArray();
+        Assert.Equal(["system", "user"], messages.Select(m => m!["role"]!.GetValue<string>()));
+        Assert.Equal(AiRequest.SystemPrompt, messages[0]!["content"]!.GetValue<string>());
+        Assert.EndsWith("[\"We go now.\"]", User(fake, 0));
+    }
+
+    /// <summary>LM Studio adresi ve isteğe bağlı anahtar (yalnız doluysa Bearer olarak gider).</summary>
+    [Fact]
+    public async Task LocalRequestWithKeyAndLmStudio()
+    {
+        var fake = new FakeAi();
+        await MakeLocal(fake, LocalAiServer.LmStudioUrl, "qwen2.5-7b-instruct", " lm-key ").TranslateAsync("Run!");
+        var (request, body) = fake.Requests[0];
+        Assert.Equal("http://127.0.0.1:1234/v1/chat/completions", request.RequestUri!.AbsoluteUri);
+        Assert.Equal("Bearer lm-key", Assert.Single(request.Headers.GetValues("Authorization")));
+        var json = JsonNode.Parse(body)!.AsObject();
+        Assert.Equal("qwen2.5-7b-instruct", json["model"]!.GetValue<string>());
+        // Düşünme alanları ve keep_alive yalnız Ollama'ya gider.
+        Assert.False(json.ContainsKey("think"));
+        Assert.False(json.ContainsKey("reasoning_effort"));
+        Assert.False(json.ContainsKey("keep_alive"));
+        Assert.Equal(0, json["temperature"]!.GetValue<double>());
+    }
+
+    /// <summary>Ek talimat (#306) bütün yapay zekâ hizmetlerinde sistem talimatının sonuna eklenir; boşsa hiçbir şey değişmez.</summary>
+    [Theory]
+    [InlineData(AiProvider.Gemini)]
+    [InlineData(AiProvider.OpenAi)]
+    [InlineData(AiProvider.Claude)]
+    [InlineData(AiProvider.Local)]
+    public void InstructionIsAppendedToSystemPrompt(AiProvider provider)
+    {
+        static string System(AiProvider provider, string? instruction)
+        {
+            var request = AiRequest.Build(provider, "k", provider.DefaultModel(), ["Run!"], [], instruction: instruction);
+            var json = JsonNode.Parse(request.Content!.ReadAsStringAsync().Result)!;
+            return provider switch
+            {
+                AiProvider.Gemini => json["systemInstruction"]!["parts"]![0]!["text"]!.GetValue<string>(),
+                AiProvider.Claude => json["system"]!.GetValue<string>(),
+                _ => json["messages"]![0]!["content"]!.GetValue<string>(),
+            };
+        }
+        Assert.Equal(AiRequest.SystemPrompt, System(provider, null));
+        Assert.Equal(AiRequest.SystemPrompt, System(provider, "   \n "));
+        Assert.Equal(AiRequest.SystemPrompt + "\n\nTranslate swear words without softening them.",
+                     System(provider, "  Translate swear words without softening them.\n"));
+    }
+
+    [Fact]
+    public void InstructionIsLimited()
+    {
+        Assert.Null(AiRequest.Instruction(null));
+        Assert.Null(AiRequest.Instruction("  "));
+        Assert.Equal(AiRequest.MaxInstructionLength, AiRequest.Instruction(new string('a', 5000))!.Length);
+        Assert.Null(AiRequest.InstructionTag(""));
+        Assert.Equal(AiRequest.InstructionTag("Be blunt."), AiRequest.InstructionTag(" Be blunt. "));
+        Assert.NotEqual(AiRequest.InstructionTag("Be blunt."), AiRequest.InstructionTag("Be polite."));
+    }
+
+    /// <summary>Talimat değişince önbellekteki eski çeviri dönmez; talimat yoksa eski kayıtlar geçerli kalır.</summary>
+    [Fact]
+    public async Task InstructionSeparatesCache()
+    {
+        var cache = new TranslationCache();
+        var fake = new FakeAi();
+        AiTranslator Make(string? instruction) => new(AiProvider.OpenAi, Secret, null, new FakeLocal(), new HttpClient(fake), cache,
+                                                      new RequestBudget(1000), instruction: instruction);
+        await Make(null).TranslateAsync("Run!");
+        Assert.Single(fake.Requests);
+        await Make("").TranslateAsync("Run!");
+        Assert.Single(fake.Requests);
+        await Make("Be blunt.").TranslateAsync("Run!");
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.EndsWith("\n\nBe blunt.", JsonNode.Parse(fake.Requests[1].Body)!["messages"]![0]!["content"]!.GetValue<string>());
+        await Make("Be blunt.").TranslateAsync("Run!");
+        Assert.Equal(2, fake.Requests.Count);
+        await Make("Be polite.").TranslateAsync("Run!");
+        Assert.Equal(3, fake.Requests.Count);
+    }
+
+    /// <summary>Ayarlarda elle yazılmış "localhost" istekte 127.0.0.1 olur (Windows'ta IPv6 gecikmesi, #295); başka adrese dokunulmaz.</summary>
+    [Theory]
+    [InlineData("http://localhost:11434/v1", "http://127.0.0.1:11434/v1/chat/completions")]
+    [InlineData("LOCALHOST:11434", "http://127.0.0.1:11434/v1/chat/completions")]
+    [InlineData("https://localhost:8443/api/v1", "https://127.0.0.1:8443/api/v1/chat/completions")]
+    [InlineData("http://127.0.0.1:11434/v1", "http://127.0.0.1:11434/v1/chat/completions")]
+    [InlineData("http://192.168.1.20:11434/v1", "http://192.168.1.20:11434/v1/chat/completions")]
+    [InlineData("http://localhost.example.com:11434/v1", "http://localhost.example.com:11434/v1/chat/completions")]
+    [InlineData("http://[::1]:11434/v1", "http://[::1]:11434/v1/chat/completions")]
+    public void LocalhostIsSentAsIPv4(string text, string expected) =>
+        Assert.Equal(expected, LocalAiServer.Create(text, "m")!.ChatUrl.AbsoluteUri);
+
+    [Fact]
+    public void LocalhostDefaultAndShownAddress()
+    {
+        Assert.Equal("http://127.0.0.1:11434/v1", LocalAiServer.OllamaUrl);
+        // Kullanıcıya gösterilen adres yazdığı gibi kalır.
+        Assert.Equal("http://localhost:11434", LocalAiServer.Create("localhost:11434", "m")!.Address);
+    }
+
+    /// <summary>Eski Ollama düşünmeyi kapatan alanı 400 ile reddederse alansız yeniden denenir; sonraki isteklerde hiç gönderilmez.</summary>
+    [Fact]
+    public async Task OldOllamaRejectingThinkFieldFallsBack()
+    {
+        var fake = new FakeAi((request, body) => body.Contains("\"reasoning_effort\"", StringComparison.Ordinal)
+            ? new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("""{"error":{"message":"invalid reasoning value: \"none\" (must be \"high\", \"medium\", or \"low\")"}}"""),
+            }
+            : Echo(request, body));
+        var translator = MakeLocal(fake);
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.Null(translator.LastError);
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.False(JsonNode.Parse(fake.Requests[0].Body)!["think"]!.GetValue<bool>());
+        Assert.False(JsonNode.Parse(fake.Requests[1].Body)!.AsObject().ContainsKey("think"));
+        Assert.False(JsonNode.Parse(fake.Requests[1].Body)!.AsObject().ContainsKey("reasoning_effort"));
+        // Oturum boyunca hatırlanır: yeni çevirmen de alanı göndermez, tek istek gider.
+        await MakeLocal(fake).TranslateAsync("Hide!");
+        Assert.Equal(3, fake.Requests.Count);
+        Assert.False(JsonNode.Parse(fake.Requests[2].Body)!.AsObject().ContainsKey("think"));
+    }
+
+    /// <summary>Kullanıcının yazdığı adres düzeltilir: şema, "/v1", sondaki "/" ve yapıştırılmış "/chat/completions".</summary>
+    [Theory]
+    [InlineData("http://localhost:11434/v1", "http://localhost:11434/v1")]
+    [InlineData("  http://localhost:11434/v1/  ", "http://localhost:11434/v1")]
+    [InlineData("localhost:11434", "http://localhost:11434/v1")]
+    [InlineData("http://127.0.0.1:1234", "http://127.0.0.1:1234/v1")]
+    [InlineData("http://localhost:1234/v1/chat/completions", "http://localhost:1234/v1")]
+    [InlineData("https://ai.example.com/openai/v1", "https://ai.example.com/openai/v1")]
+    [InlineData("", null)]
+    [InlineData("ftp://localhost:11434", null)]
+    [InlineData("http://", null)]
+    [InlineData("local host", null)]
+    public void LocalServerAddress(string text, string? expected) =>
+        Assert.Equal(expected, LocalAiServer.Normalize(text)?.AbsoluteUri);
+
+    [Fact]
+    public void LocalServerDetails()
+    {
+        Assert.Null(LocalAiServer.Create(LocalAiServer.OllamaUrl, "  "));
+        var server = LocalAiServer.Create("localhost:11434", " qwen2.5:7b ")!;
+        Assert.Equal("qwen2.5:7b", server.Model);
+        Assert.Equal("http://localhost:11434", server.Address);
+        Assert.Equal(LocalAiServerKind.Ollama, server.Kind);
+        Assert.Equal(LocalAiServerKind.LmStudio, LocalAiServer.Create(LocalAiServer.LmStudioUrl, "m")!.Kind);
+        Assert.Equal(LocalAiServerKind.Other, LocalAiServer.Create("http://192.168.1.20:8080/v1", "m")!.Kind);
+        // Yazılan model adı listeye bakılmadan kullanılır; boşsa varsayılan.
+        Assert.Equal("llama3.1:8b", AiProvider.Local.Model("llama3.1:8b").Id);
+        Assert.Equal("qwen2.5:7b", AiProvider.Local.Model(" ").Id);
+        Assert.Null(RequestBudget.Shared(AiProvider.Local, AiProvider.Local.DefaultModel()));
+    }
+
+    /// <summary>Önbellekteki motor adında sunucu ve model vardır; farklı yerel modellerin çevirileri karışmaz (Mac ile aynı ad).</summary>
+    [Fact]
+    public void LocalEngineIdIncludesServerAndModel()
+    {
+        var ollama = LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b")!;
+        Assert.Equal("local:127.0.0.1:11434/qwen2.5:7b", ollama.EngineId);
+        var named = LocalAiServer.Create("http://localhost:11434/v1", "qwen2.5:7b")!;
+        Assert.Equal("local:localhost:11434/qwen2.5:7b", named.EngineId);
+        Assert.Equal(named.EngineId, LocalAiServer.Create("http://LOCALHOST:11434/v1/", "qwen2.5:7b")!.EngineId);
+        Assert.NotEqual(ollama.EngineId, LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:14b")!.EngineId);
+        Assert.NotEqual(ollama.EngineId, LocalAiServer.Create(LocalAiServer.LmStudioUrl, "qwen2.5:7b")!.EngineId);
+        Assert.NotEqual(ollama.EngineId, LocalAiServer.Create("http://192.168.1.20:11434/v1", "qwen2.5:7b")!.EngineId);
+        // Bulut hizmetlerinin adları değişmez.
+        Assert.DoesNotContain(ollama.EngineId, AiProviders.Cloud.Select(p => p.EngineId(p.DefaultModel().Id)));
+    }
+
+    /// <summary>Düşünen yerel modeller yanıtın başına &lt;think&gt;…&lt;/think&gt; koyar; yalnız sonrası okunur.</summary>
+    [Fact]
+    public async Task LocalThinkingIsSkipped()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, "<think>\nThe user wants [\"x\"] translated…\n</think>\n\n[\"Koş!\"]"));
+        Assert.Equal("Koş!", await MakeLocal(fake).TranslateAsync("Run!"));
+        Assert.Equal(["Gidelim."], AiRequest.Translations("<think>…</think>Gidelim.", 1));
+    }
+
+    /// <summary>Sunucu kapalıysa ya da model indirilmemişse o satır ücretsiz çeviriyle gelir, durum bildirilir.</summary>
+    [Fact]
+    public async Task LocalFailuresFallBack()
+    {
+        var down = MakeLocal(new FakeAi((_, _) => throw new HttpRequestException("Connection refused")));
+        Assert.Equal("yerel: Run!", await down.TranslateAsync("Run!"));
+        Assert.Equal(OnlineKeyState.Unreachable, down.LastError);
+
+        // Ollama'nın indirilmemiş model yanıtı.
+        var missing = MakeLocal(new FakeAi((_, _) => Json("""{"error":{"message":"model \"qwen2.5:7b\" not found, try pulling it first","type":"api_error"}}""", HttpStatusCode.NotFound)));
+        Assert.Equal("yerel: Run!", await missing.TranslateAsync("Run!"));
+        Assert.Equal(OnlineKeyState.ModelRejected, missing.LastError);
+    }
+
+    /// <summary>"Bağlantıyı dene": anahtarsız çalışır; sunucunun hatası olduğu gibi döner.</summary>
+    [Fact]
+    public async Task LocalTestWorksWithoutKey()
+    {
+        var fake = new FakeAi();
+        var server = LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b");
+        var result = await AiTranslator.TestAsync(AiProvider.Local, "", "qwen2.5:7b", new HttpClient(fake), server: server);
+        Assert.Equal(new AiTestResult(OnlineKeyState.Valid, "KRATOS: [tr] We go now. [tr] Stay close, boy."), result);
+        Assert.Null(fake.Requests[0].Request.Headers.Authorization);
+
+        // Model zamanında yanıt vermedi; yerel modelde bu da "sunucu açık mı, model yüklendi mi" iletisini gösterir.
+        var down = new FakeAi((_, _) => throw new TaskCanceledException("timeout"));
+        Assert.Equal(OnlineKeyState.Busy,
+                     (await AiTranslator.TestAsync(AiProvider.Local, "", "qwen2.5:7b", new HttpClient(down), server: server)).State);
+    }
+
+    /// <summary>Yerel modelde buluttan uzun beklenir; deneme modeli belleğe yükleyeceği için daha da uzun.</summary>
+    [Fact]
+    public void LocalTimeouts()
+    {
+        Assert.Equal(AiTranslator.Timeout, AiTranslator.ClientFor(AiProvider.Gemini).Timeout);
+        Assert.Equal(AiTranslator.LocalTimeout, AiTranslator.ClientFor(AiProvider.Local).Timeout);
+        Assert.True(AiTranslator.LocalTimeout > AiTranslator.Timeout);
+        Assert.True(AiTranslator.LocalTestTimeout > AiTranslator.LocalTimeout);
+    }
+
+    /// <summary>Son gösterilen 3 satır ve çevirileri bağlam olarak gider; satırın kendisi ve tekrar okunan satır girmez.</summary>
+    [Fact]
+    public async Task ContextIsTheLastThreeShownLinesWithTranslations()
+    {
+        var fake = new FakeAi();
+        var translator = Make(AiProvider.Claude, fake);
+        foreach (var line in new[] { "One.", "Two.", "Two.", "Three.", "Four.", "Five." }) await translator.TranslateAsync(line);
+        Assert.Equal(5, fake.Requests.Count);
+        Assert.DoesNotContain("Previous subtitles", User(fake, 0));
+        Assert.Contains("English: One.\nTurkish: [tr] One.", User(fake, 1));
+        Assert.Contains("English: Two.\nTurkish: [tr] Two.\nEnglish: Three.\nTurkish: [tr] Three.\nEnglish: Four.\nTurkish: [tr] Four.", User(fake, 4));
+        Assert.DoesNotContain("English: One.", User(fake, 4));
+        Assert.DoesNotContain("English: Five.", User(fake, 4));
+    }
+
+    [Fact]
+    public async Task ContextDoesNotCrossGameChanges()
+    {
+        string? game = "First game";
+        var fake = new FakeAi();
+        var translator = WithGame(fake, new TranslationCache(), () => game);
+
+        await translator.TranslateAsync("This belongs to the first game.");
+        game = "Second game";
+        var secondTranslation = await translator.TranslateAsync("This belongs to the second game.");
+
+        Assert.StartsWith("Game: Second game\n", User(fake, 1));
+        Assert.DoesNotContain("English: This belongs to the first game.", User(fake, 1));
+
+        await translator.TranslateAsync("Another line here.");
+        Assert.Contains($"English: This belongs to the second game.\nTurkish: {secondTranslation}", User(fake, 2));
+    }
+
+    [Fact]
+    public async Task SeveralSentencesGoAsOneArray()
+    {
+        var fake = new FakeAi();
+        var translator = Make(AiProvider.Gemini, fake);
+        const string line = "We go now. Stay close.\nATREUS: Yes, father.";
+        Assert.Equal("[tr] We go now. [tr] Stay close.\nATREUS: [tr] Yes, father.", await translator.TranslateAsync(line));
+        Assert.Single(fake.Requests);
+        Assert.EndsWith("[\"We go now.\",\"Stay close.\",\"Yes, father.\"]", User(fake, 0));
+        Assert.Equal("ATREUS", translator.SpokenLines(line)[^1].Speaker);
+    }
+
+    // --- Yanıt ---
+
+    [Fact]
+    public void ReplyParsing()
+    {
+        Assert.Equal(["Gidelim.", "Yakın dur."], AiRequest.Translations("```json\n[\"Gidelim.\", \"Yakın dur.\"]\n```", 2));
+        Assert.Equal(["Gidelim."], AiRequest.Translations("“Gidelim.”", 1));
+        Assert.Throws<AiException>(() => AiRequest.Translations("[\"Tek\"]", 2));
+        Assert.Throws<AiException>(() => AiRequest.Translations("Gidelim. Yakın dur.", 2));
+        Assert.Throws<AiException>(() => AiRequest.Text(AiProvider.Gemini, """{"promptFeedback":{"blockReason":"OTHER"}}"""));
+        Assert.Equal("Koş!", AiRequest.Text(AiProvider.OpenAi, """{"choices":[{"message":{"content":"Koş!"}}]}"""));
+    }
+
+    /// <summary>Tırnaksız dizi (#27): bazı yerel modeller <c>[Hareket etmemiz lazım.]</c> döndürür; köşeli parantezler ekranda kalmaz.</summary>
+    [Fact]
+    public void UnquotedArrayForOneSentence()
+    {
+        Assert.Equal(["Hareket etmemiz lazım."], AiRequest.Translations("[Hareket etmemiz lazım.]", 1));
+        Assert.Equal(["Dur, bekle, gitme."], AiRequest.Translations("[Dur, bekle, gitme.]", 1));
+        Assert.Equal(["Geri çekil lan!"], AiRequest.Translations("<think>\nKısa bir cümle.\n</think>\n[Geri çekil lan!]", 1));
+        Assert.Equal(["Yerinden kıpırdama."], AiRequest.Translations("```json\n[Yerinden kıpırdama.]\n```", 1));
+        // İçi tırnaklı ama kaçışsız: JSON değil, yine de dış katman soyulur.
+        Assert.Equal(["Ona \"dur\" dedim."], AiRequest.Translations("[\"Ona \"dur\" dedim.\"]", 1));
+        // Köşeli parantez yalnız başta: düz metin olduğu gibi kalır.
+        Assert.Equal(["[gülüyor] Hadi gidelim."], AiRequest.Translations("[gülüyor] Hadi gidelim.", 1));
+    }
+
+    /// <summary>Yerel modellerin bitiş işaretleri (<c>&lt;/s&gt;</c>, <c>&lt;|im_end|&gt;</c>) ekranda kalmaz; sondaki fazla virgül diziyi bozmaz (#27).</summary>
+    [Fact]
+    public void ControlTokensAndTrailingComma()
+    {
+        Assert.Equal(["Yere yat!"], AiRequest.Translations("[\"Yere yat!\"]</s>", 1));
+        Assert.Equal(["Yere yat!"], AiRequest.Translations("[Yere yat!]</s>", 1));
+        Assert.Equal(["Defol buradan!"], AiRequest.Translations("Defol buradan!<|im_end|>", 1));
+        Assert.Equal(["Bir.", "İki."], AiRequest.Translations("<s>[\"Bir.\", \"İki.\",]<|eot_id|>", 2));
+        Assert.Equal(["<b> etiketi kalır"], AiRequest.Translations("[\"<b> etiketi kalır\"]", 1));
+    }
+
+    [Fact]
+    public void UnquotedArrayForSeveralSentences()
+    {
+        Assert.Equal(["Satır bir.", "Satır iki."], AiRequest.Translations("[Satır bir., Satır iki.]", 2));
+        Assert.Equal(["Gidelim.", "Yakın dur."], AiRequest.Translations("[\n  Gidelim.,\n  Yakın dur.\n]", 2));
+        Assert.Equal(["Koş!", "Hemen!"], AiRequest.Translations("<think>…</think>[Koş!, Hemen!]", 2));
+        // Sayı tutmazsa parti her zamanki geri dönüşe gider.
+        Assert.Throws<AiException>(() => AiRequest.Translations("[Satır bir.]", 2));
+        Assert.Throws<AiException>(() => AiRequest.Translations("[Bir., İki., Üç.]", 2));
+    }
+
+    /// <summary>Cümle içi virgül bölünmez: önce cümle sonundan sonra gelen virgül denenir, düz virgül yalnız sayı tam tutarsa.</summary>
+    [Fact]
+    public void UnquotedArrayKeepsCommasInsideSentences()
+    {
+        Assert.Equal(["Evet, efendim.", "Hayır, gitmiyorum."], AiRequest.Translations("[Evet, efendim., Hayır, gitmiyorum.]", 2));
+        Assert.Equal(["Dur, bekle, gitme!", "Tamam."], AiRequest.Translations("[Dur, bekle, gitme!, Tamam.]", 2));
+        Assert.Equal(["Sakin ol, dostum.", "Ben hallederim, merak etme."],
+                     AiRequest.Translations("[Sakin ol, dostum.\nBen hallederim, merak etme.]", 2));
+        Assert.Throws<AiException>(() => AiRequest.Translations("[Dur, bekle, gitme.]", 2));
+        Assert.Equal(["Hey", "Sen"], AiRequest.Translations("[Hey, Sen]", 2));
+    }
+
+    /// <summary>Tırnaksız yanıtla birden çok cümle yerel çeviriye düşmez.</summary>
+    [Fact]
+    public async Task UnquotedReplyIsUsedInsteadOfFallback()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, "[Gidelim., Yakın dur.]"));
+        Assert.Equal("Gidelim. Yakın dur.", await MakeLocal(fake).TranslateAsync("We go now. Stay close."));
+    }
+
+    /// <summary>"Ekranı çevir"in tek isteği de tırnaksız yanıtı okur; oyun adı orada da gider.</summary>
+    [Fact]
+    public async Task ScreenRequestReadsUnquotedReplyAndSendsGame()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, "[Haritayı aç., Kamptan ayrıl.]"));
+        var translator = new AiTranslator(AiProvider.Local, "", "qwen2.5:7b", new FakeLocal(), new HttpClient(fake),
+                                          budget: new RequestBudget(1000), server: LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b"),
+                                          game: () => "Ghost of Yōtei");
+        Assert.Equal(new[] { "Haritayı aç.", "Kamptan ayrıl." }, await translator.TranslateAllAsync(["Open the map.", "Leave the camp."]));
+        Assert.StartsWith("Game: Ghost of Yōtei\n\n", User(fake, 0));
+    }
+
+    /// <summary>Oyun biliniyorsa (paket eşleşmesi) istemde "Game:" satırı olarak gider; bilinmiyorsa hiç gitmez.</summary>
+    [Fact]
+    public async Task GameNameIsSentWhenKnown()
+    {
+        var fake = new FakeAi();
+        string? game = null;
+        var translator = new AiTranslator(AiProvider.Local, "", "qwen2.5:7b", new FakeLocal(), new HttpClient(fake),
+                                          budget: new RequestBudget(1000), server: LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b"),
+                                          game: () => game);
+        await translator.TranslateAsync("Sit tight.");
+        Assert.DoesNotContain("Game:", User(fake, 0));
+        game = "Grand Theft Auto V";
+        await translator.TranslateAsync("I'll handle the plastic.");
+        Assert.StartsWith("Game: Grand Theft Auto V\n\n", User(fake, 1));
+    }
+
+    /// <summary>
+    /// Model cümleyi çevirmeden geri verirse cümle yerel çeviriyle yeniden denenir ve yanıt önbelleğe yazılmaz (#245:
+    /// qwen2.5:3b "You think I'm on the run?" cümlesini olduğu gibi döndürdü, hat onu Türkçe sanıp göstermedi). Yerel
+    /// çeviri de aynı kalırsa (ad) modelin yanıtı kalır ve önbelleğe yazılır.
+    /// </summary>
+    [Fact]
+    public async Task EchoedSentenceIsRetriedLocallyAndNotCached()
+    {
+        var fake = new FakeAi((request, body) => Wrap(request, UserText(request, body).Split('\n')[^1]));
+        var local = new FakeLocal();
+        var translator = MakeLocal(fake, local: local);
+        Assert.Equal("Tommy: yerel: You think I'm on the run?", await translator.TranslateAsync("Tommy: You think I'm on the run?"));
+        Assert.Equal(["You think I'm on the run?"], local.Calls);
+        await translator.TranslateAsync("Tommy: You think I'm on the run?");
+        Assert.Equal(2, fake.Requests.Count);
+
+        var names = MakeLocal(fake, local: new EchoLocal());
+        Assert.Equal("Thomas Angelo.", await names.TranslateAsync("Thomas Angelo."));
+        await names.TranslateAsync("Thomas Angelo.");
+        Assert.Equal(3, fake.Requests.Count);
+    }
+
+    /// <summary>
+    /// Model dizide cümleyi boş bırakırsa (#296: bozuk OCR okumasında Index-Translate 9B boş döndü) cümle yerel çeviriyle
+    /// denenir; yerel çeviri de boşsa cümle olduğu gibi kalır. İki durumda da boş yanıt önbelleğe yazılmaz.
+    /// </summary>
+    [Fact]
+    public async Task EmptyItemIsRetriedLocallyAndNotCached()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, "[\"\"]"));
+        var local = new FakeLocal();
+        var translator = MakeLocal(fake, local: local);
+        Assert.Equal("yerel: Doesn't 00k good.", await translator.TranslateAsync("Doesn't 00k good."));
+        Assert.Equal(["Doesn't 00k good."], local.Calls);
+        await translator.TranslateAsync("Doesn't 00k good.");
+        Assert.Equal(2, fake.Requests.Count);
+
+        var blank = MakeLocal(fake, local: new BlankLocal());
+        Assert.Equal("Doesn't 00k good.", await blank.TranslateAsync("Doesn't 00k good."));
+        await blank.TranslateAsync("Doesn't 00k good.");
+        Assert.Equal(4, fake.Requests.Count);
+    }
+
+    private sealed class BlankLocal : ITextTranslator
+    {
+        public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult("");
+    }
+
+    private sealed class EchoLocal : ITextTranslator
+    {
+        public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult(text);
+    }
+
+    [Fact]
+    public async Task PlainTextReplyForOneSentence()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, "Koş!"));
+        Assert.Equal("Koş!", await Make(AiProvider.OpenAi, fake).TranslateAsync("Run!"));
+    }
+
+    [Fact]
+    public void FailureMapping()
+    {
+        Assert.Equal(OnlineKeyState.Invalid, AiRequest.Failure(HttpStatusCode.Unauthorized, ""));
+        Assert.Equal(OnlineKeyState.Invalid, AiRequest.Failure(HttpStatusCode.Forbidden, ""));
+        Assert.Equal(OnlineKeyState.Invalid, AiRequest.Failure(HttpStatusCode.BadRequest,
+            """{"error":{"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}"""));
+        Assert.Equal(OnlineKeyState.QuotaExceeded, AiRequest.Failure(HttpStatusCode.TooManyRequests, """{"error":{"code":"insufficient_quota"}}"""));
+        Assert.Equal(OnlineKeyState.QuotaExceeded, AiRequest.Failure(HttpStatusCode.BadRequest,
+            """{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low"}}"""));
+        Assert.Equal(OnlineKeyState.ModelRejected, AiRequest.Failure(HttpStatusCode.NotFound, ""));
+        Assert.Equal(OnlineKeyState.ModelRejected, AiRequest.Failure(HttpStatusCode.BadRequest, "unknown model"));
+        // Hizmete ulaşıldı ama yoğun ya da arızalı: internet hatası değildir.
+        Assert.Equal(OnlineKeyState.Busy, AiRequest.Failure((HttpStatusCode)529, ""));
+        Assert.Equal(OnlineKeyState.Busy, AiRequest.Failure(HttpStatusCode.InternalServerError, ""));
+        Assert.Equal(OnlineKeyState.Busy, AiRequest.Failure(HttpStatusCode.ServiceUnavailable,
+            """{"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}"""));
+        Assert.Equal(OnlineKeyState.Busy, AiRequest.Failure(HttpStatusCode.GatewayTimeout, ""));
+        Assert.Equal(OnlineKeyState.Busy, AiRequest.Failure(HttpStatusCode.RequestTimeout, ""));
+        Assert.Equal(OnlineKeyState.Unreachable, AiRequest.Failure(HttpStatusCode.Redirect, ""));
+    }
+
+    // --- Hata ve yerel çeviri ---
+
+    /// <summary>Kota biterse o satır yerel modelle çevrilir, bir süre hizmet denenmez, hata durumu bildirilir.</summary>
+    [Fact]
+    public async Task FallsBackAndPausesOnError()
+    {
+        var fake = new FakeAi((_, _) => Json("""{"error":{"message":"quota"}}""", HttpStatusCode.TooManyRequests));
+        var local = new FakeLocal();
+        var cache = new TranslationCache();
+        var translator = Make(AiProvider.Gemini, fake, local, cache);
+        var reported = new List<OnlineKeyState?>();
+        translator.FailureChanged += reported.Add;
+        Assert.Equal("yerel: Run!", await translator.TranslateAsync("Run!"));
+        Assert.Equal("yerel: Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Single(fake.Requests);
+        Assert.Equal(["Run!", "Hide!"], local.Calls);
+        Assert.Equal(OnlineKeyState.QuotaExceeded, translator.LastError);
+        Assert.Equal([OnlineKeyState.QuotaExceeded], reported);
+        // Yerel çeviri bu motorun önbelleğine yazılmaz.
+        Assert.False(cache.TryGet("Run!", out _));
+    }
+
+    // Hata beklemesi HTTP'yi durdurur; bütün cümle parçaları önbellekteyse yerel motor gerekmez.
+    [Theory]
+    [InlineData("server")]
+    [InlineData("timeout")]
+    [InlineData("invalid-reply")]
+    [InlineData("daily-quota")]
+    [InlineData("minute-quota")]
+    public async Task CachedSentencesSurviveServicePauseWithoutLocalWork(string failure)
+    {
+        var fake = new FakeAi((_, _) => failure switch
+        {
+            "timeout" => throw new TaskCanceledException("timeout"),
+            "invalid-reply" => Json("{}"),
+            "daily-quota" => Json(RateLimitBody("GenerateRequestsPerDayPerProjectPerModel-FreeTier"), HttpStatusCode.TooManyRequests),
+            "minute-quota" => Json(RateLimitBody(PerMinute), HttpStatusCode.TooManyRequests),
+            _ => Json("{}", HttpStatusCode.ServiceUnavailable),
+        });
+        var cache = new TranslationCache();
+        cache.Store("Run!", "Koş!");
+        cache.Store("Hide!", "Saklan!");
+        var local = new FakeLocal();
+        var translator = Make(AiProvider.Gemini, fake, local, cache);
+        Assert.Equal("yerel: Wait!", await translator.TranslateAsync("Wait!"));
+        var error = translator.LastError;
+        Assert.Equal("KRATOS: Koş! Saklan!", await translator.TranslateAsync("KRATOS: Run! Hide!"));
+        Assert.Single(fake.Requests);
+        Assert.Equal(["Wait!"], local.Calls);
+        Assert.Equal(error, translator.LastError); // Önbellek başarısı hizmetin düzeldiğini kanıtlamaz.
+        Assert.Equal("KRATOS", translator.SpokenLines("KRATOS: Run! Hide!").Last().Speaker);
+        // Tek bir parça eksikse mevcut geri dönüş sürer; yeni HTTP isteği ya da yapay bekleme yok.
+        Assert.Equal("yerel: Run! Jump!", await translator.TranslateAsync("Run! Jump!"));
+        Assert.Equal(["Wait!", "Run! Jump!"], local.Calls);
+        Assert.Single(fake.Requests);
+        Assert.False(cache.TryGet("Run! Jump!", out _));
+    }
+
+    [Fact]
+    public async Task RecordedRequestTimingsMatchLocalBudgetFallbackAndRecovery()
+    {
+        // 09:53:00'a göre ms. Kayıttaki 15 Gemini isteğini izleyen OPUS/Gemini geçişleri.
+        var timeline = new (int At, bool Cloud)[] {
+            (21734, true), (30010, true), (35159, true), (36602, true), (37585, true),
+            (38121, true), (40015, true), (43233, true), (45500, true), (49720, true),
+            (51248, true), (54432, true), (56567, true), (60607, true), (63772, true),
+            (68160, false), (76612, false), (77354, false), (80223, false), (81879, true),
+            (82560, false), (87568, false), (88425, false), (88661, false), (93364, true), (98714, true),
+        };
+        var time = DateTimeOffset.UnixEpoch;
+        var fake = new FakeAi();
+        var local = new FakeLocal();
+        var translator = Make(AiProvider.Gemini, fake, local, budget: new RequestBudget(15, () => time));
+        for (var i = 0; i < timeline.Length; i++)
+        {
+            time = DateTimeOffset.UnixEpoch.AddMilliseconds(timeline[i].At);
+            var source = $"Line number {i}.";
+            var result = await translator.TranslateAsync(source);
+            Assert.Equal((timeline[i].Cloud ? "[tr] " : "yerel: ") + source, result);
+            Assert.Equal(!timeline[i].Cloud, translator.LastLineWasRateLimited);
+            Assert.Null(translator.LastError);
+        }
+        Assert.Equal(18, fake.Requests.Count);
+        Assert.Equal(8, local.Calls.Count);
+    }
+
+    /// <summary>Yerel modelde hata sonrası bekleme kısadır: beklerken satır yedeğe düşer, bekleme bitince model yeniden denenir.</summary>
+    [Fact]
+    public async Task LocalPausesBrieflyAfterError()
+    {
+        var down = true;
+        var fake = new FakeAi((request, body) => down ? throw new HttpRequestException("kapalı") : Echo(request, body));
+        var local = new FakeLocal();
+        var translator = new AiTranslator(AiProvider.Local, "", "qwen2.5:7b", local, new HttpClient(fake), budget: new RequestBudget(1000),
+                                          server: LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b"))
+        { ErrorPause = TimeSpan.FromMilliseconds(200) };
+        Assert.Equal("yerel: Run!", await translator.TranslateAsync("Run!"));
+        down = false;
+        Assert.Equal("yerel: Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Single(fake.Requests);
+        await Task.Delay(300);
+        Assert.Equal("[tr] Go!", await translator.TranslateAsync("Go!"));
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.Equal(["Run!", "Hide!"], local.Calls);
+    }
+
+    /// <summary>Hata sonrası bekleme: yerel modelde birkaç saniye, bulut hizmetlerinde (kota) bir dakika.</summary>
+    [Fact]
+    public void ErrorPauseIsShortOnlyForLocalModel()
+    {
+        var local = new AiTranslator(AiProvider.Local, "", "qwen2.5:7b", new FakeLocal(), new HttpClient(new FakeAi(Echo)),
+                                     server: LocalAiServer.Create(LocalAiServer.OllamaUrl, "qwen2.5:7b"));
+        Assert.Equal(AiTranslator.LocalRetryAfter, local.ErrorPause);
+        Assert.True(AiTranslator.LocalRetryAfter <= TimeSpan.FromSeconds(10));
+        var cloud = new AiTranslator(AiProvider.Gemini, "anahtar", null, new FakeLocal(), new HttpClient(new FakeAi(Echo)));
+        Assert.Equal(TimeSpan.FromMinutes(1), cloud.ErrorPause);
+    }
+
+    [Fact]
+    public async Task TimeoutFallsBack()
+    {
+        // Zaman aşımı: hizmete ulaşıldı ama yanıt zamanında gelmedi; "internet bağlantınızı denetleyin" denmez.
+        var fake = new FakeAi((_, _) => throw new TaskCanceledException("timeout"));
+        var translator = Make(AiProvider.Claude, fake);
+        var probe = new TranslationProbe();
+        TranslationProbe.Current = probe;
+        try { Assert.Equal("yerel: Run!", await translator.TranslateAsync("Run!")); }
+        finally { TranslationProbe.Current = null; }
+        Assert.Equal(OnlineKeyState.Busy, translator.LastError);
+        // Günlükte ücretsiz yedeğe düşmenin nedeni görünür (Mac ile aynı).
+        Assert.Contains("ücretsiz yedek: claude hizmet durumu: Busy", probe.Outcome());
+
+        // Bağlantı kurulamadıysa (DNS, ağ yok) gerçekten ulaşılamamıştır.
+        var offline = Make(AiProvider.Claude, new FakeAi((_, _) => throw new HttpRequestException("No such host is known.")));
+        Assert.Equal("yerel: Run!", await offline.TranslateAsync("Run!"));
+        Assert.Equal(OnlineKeyState.Unreachable, offline.LastError);
+    }
+
+    // --- Ücretsiz katman ---
+
+    /// <summary>Varsayılan Gemini modeli ücretsiz anahtarla çalışır ve dakikalık hakkı vardır; ücretli hizmetlerde hak yoktur.</summary>
+    [Fact]
+    public void DefaultGeminiModelIsFreeTier()
+    {
+        var model = AiProvider.Gemini.DefaultModel();
+        Assert.True(model.FreeTier);
+        Assert.NotNull(model.RequestsPerMinute);
+        Assert.All(AiProvider.Gemini.Models(), m => Assert.True(m.FreeTier && m.RequestsPerMinute > 0));
+        Assert.True(AiProvider.Gemini.HasFreeTier());
+        Assert.False(AiProvider.OpenAi.HasFreeTier());
+        Assert.False(AiProvider.Claude.HasFreeTier());
+        Assert.Null(RequestBudget.Shared(AiProvider.Claude, AiProvider.Claude.DefaultModel()));
+        var shared = RequestBudget.Shared(AiProvider.Gemini, model);
+        Assert.Equal(model.RequestsPerMinute, shared?.PerMinute);
+        // Hat yeniden kurulsa da aynı hak kullanılır.
+        Assert.Same(shared, RequestBudget.Shared(AiProvider.Gemini, model));
+        // Eski listede yeni alanlar olmayabilir.
+        var old = AiModel.Parse("""{"gemini":[{"id":"g","label":"L"}]}""")["gemini"][0];
+        Assert.Equal(new AiModel("g", "L"), old);
+        Assert.False(old.FreeTier);
+    }
+
+    [Fact]
+    public void GeminiPaidKeysSkipTheFreeTierBudgetAndFreeKeysStayIsolated()
+    {
+        var model = AiProvider.Gemini.DefaultModel();
+        var free = RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "free-key-one");
+        Assert.NotNull(free);
+        Assert.Same(free, RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "free-key-one"));
+        Assert.NotSame(free, RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "free-key-two"));
+        var paid = RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "paid-key", paidTier: true);
+        Assert.NotNull(paid);
+        Assert.NotSame(paid, RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "paid-key"));
+        Assert.Equal(int.MaxValue, paid.PerMinute);
+        paid.Lower(7); // the provider's real 429 limit still applies
+        Assert.Equal(7, paid.PerMinute);
+        Assert.Same(paid, RequestBudget.Shared(AiProvider.Gemini, model, apiKey: "paid-key", paidTier: true));
+    }
+
+    /// <summary>Kayan bir dakikalık pencere: hak bitince istek verilmez, en eski istek pencereden çıkınca yeniden verilir.</summary>
+    [Fact]
+    public void RequestBudgetSlidingWindow()
+    {
+        var time = new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+        var budget = new RequestBudget(3, () => time);
+        Assert.True(budget.TryTake());
+        time += TimeSpan.FromSeconds(20);
+        Assert.True(budget.TryTake());
+        Assert.True(budget.TryTake());
+        Assert.False(budget.TryTake());
+        time += TimeSpan.FromSeconds(39);
+        Assert.False(budget.TryTake());
+        time += TimeSpan.FromSeconds(1); // ilk istek 60 sn önceydi
+        Assert.True(budget.TryTake());
+        Assert.False(budget.TryTake());
+        budget.Lower(1);
+        Assert.Equal(1, budget.PerMinute);
+        budget.Lower(50); // yükseltmez
+        Assert.Equal(1, budget.PerMinute);
+        budget.Lower(0);
+        Assert.Equal(1, budget.PerMinute);
+    }
+
+    /// <summary>Hak bitince istek gönderilmez, satır yerel çeviriyle gelir; hata bildirilmez, önbellekteki satır yine gelir.</summary>
+    [Fact]
+    public async Task OverBudgetFallsBackSilently()
+    {
+        var fake = new FakeAi();
+        var translator = Make(AiProvider.Gemini, fake, budget: new RequestBudget(1));
+        var reported = new List<OnlineKeyState?>();
+        translator.FailureChanged += reported.Add;
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.False(translator.LastLineWasRateLimited);
+        Assert.Equal("yerel: Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.True(translator.LastLineWasRateLimited);
+        Assert.Single(fake.Requests);
+        Assert.Null(translator.LastError);
+        Assert.Empty(reported);
+        // Önbellekteki satır hak harcamadan gelir.
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.Single(fake.Requests);
+    }
+
+    /// <summary>Bir altyazının bütün cümleleri tek istekle gider; hak cümle başına değil istek başına sayılır.</summary>
+    [Fact]
+    public async Task WholeSubtitleUsesOneRequestOfTheBudget()
+    {
+        var fake = new FakeAi();
+        var translator = Make(AiProvider.Gemini, fake, budget: new RequestBudget(1));
+        Assert.Equal("[tr] We go now. [tr] Stay close. [tr] Run!", await translator.TranslateAsync("We go now. Stay close. Run!"));
+        Assert.Single(fake.Requests);
+    }
+
+    /// <summary>Dakikalık 429: uyarı çıkmaz, kısa beklenir, bildirilen daha düşük sınıra inilir.</summary>
+    [Fact]
+    public async Task PerMinuteRateLimitIsSilentAndLowersTheBudget()
+    {
+        var fake = new FakeAi((_, _) => Json(RateLimitBody(PerMinute), HttpStatusCode.TooManyRequests));
+        var budget = new RequestBudget(15);
+        var translator = Make(AiProvider.Gemini, fake, budget: budget);
+        var reported = new List<OnlineKeyState?>();
+        translator.FailureChanged += reported.Add;
+        Assert.Equal("yerel: Run!", await translator.TranslateAsync("Run!"));
+        Assert.Equal("yerel: Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Single(fake.Requests);
+        Assert.Null(translator.LastError);
+        Assert.Empty(reported);
+        Assert.True(translator.LastLineWasRateLimited);
+        Assert.Equal(5, budget.PerMinute);
+    }
+
+    /// <summary>Günlük sınır dolunca kullanıcıya söylenir (dakikalık beklemeyle geçmez).</summary>
+    [Fact]
+    public async Task PerDayLimitIsReported()
+    {
+        var fake = new FakeAi((_, _) => Json(RateLimitBody("GenerateRequestsPerDayPerProjectPerModel-FreeTier", "1000"), HttpStatusCode.TooManyRequests));
+        var translator = Make(AiProvider.Gemini, fake);
+        var reported = new List<OnlineKeyState?>();
+        translator.FailureChanged += reported.Add;
+        await translator.TranslateAsync("Run!");
+        Assert.Equal([OnlineKeyState.QuotaExceeded], reported);
+    }
+
+    [Fact]
+    public void RateLimitParsing()
+    {
+        Assert.Equal(new AiRateLimit(TimeSpan.FromSeconds(37.5), 10),
+                     AiRequest.RateLimit(HttpStatusCode.TooManyRequests, RateLimitBody(PerMinute, "10", "37.5s")));
+        // Token sınırı da dakikalıktır ama istek sınırını bildirmez.
+        Assert.Equal(new AiRateLimit(TimeSpan.FromSeconds(3), null),
+                     AiRequest.RateLimit(HttpStatusCode.TooManyRequests, RateLimitBody("GenerateContentInputTokensPerModelPerMinute-FreeTier", "250000")));
+        Assert.Null(AiRequest.RateLimit(HttpStatusCode.TooManyRequests, RateLimitBody("GenerateRequestsPerDayPerProjectPerModel-FreeTier")));
+        Assert.Null(AiRequest.RateLimit(HttpStatusCode.TooManyRequests, """{"error":{"message":"quota"}}"""));
+        Assert.Null(AiRequest.RateLimit(HttpStatusCode.BadRequest, RateLimitBody(PerMinute)));
+        Assert.Null(AiRequest.RateLimit(HttpStatusCode.TooManyRequests, ""));
+        // Ayrıntısız 429 eskisi gibi kota hatasıdır.
+        Assert.Equal(OnlineKeyState.QuotaExceeded, AiRequest.Failure(HttpStatusCode.TooManyRequests, ""));
+    }
+
+    /// <summary>
+    /// "Dene" dakikalık sınıra takılırsa anahtar geçerlidir, hizmet şu an yoğundur (kaydedilir); "bakiye kalmadı" denmez.
+    /// Günlük sınır ise kota hatasıdır.
+    /// </summary>
+    [Fact]
+    public async Task TestReportsRateLimitAsBusy()
+    {
+        var fake = new FakeAi((_, _) => Json(RateLimitBody(PerMinute), HttpStatusCode.TooManyRequests));
+        var result = await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(fake));
+        Assert.Equal(OnlineKeyState.Busy, result.State);
+
+        var daily = new FakeAi((_, _) => Json(RateLimitBody("GenerateRequestsPerDayPerProjectPerModel-FreeTier"), HttpStatusCode.TooManyRequests));
+        Assert.Equal(OnlineKeyState.QuotaExceeded, (await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(daily))).State);
+    }
+
+    /// <summary>"Dene"de Gemini'nin 503 "overloaded" yanıtı ve zaman aşımı yoğunluktur, internet hatası değildir.</summary>
+    [Fact]
+    public async Task TestReportsOverloadAndTimeoutAsBusy()
+    {
+        var overloaded = new FakeAi((_, _) => Json("""{"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}""",
+                                                   HttpStatusCode.ServiceUnavailable));
+        Assert.Equal(OnlineKeyState.Busy, (await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(overloaded))).State);
+        var slow = new FakeAi((_, _) => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout"));
+        Assert.Equal(OnlineKeyState.Busy, (await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(slow))).State);
+        var offline = new FakeAi((_, _) => throw new HttpRequestException("No such host is known."));
+        Assert.Equal(OnlineKeyState.Unreachable, (await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(offline))).State);
+    }
+
+    // --- Önbellek ---
+
+    /// <summary>Önceki oturumda çevrilen satır ve cümleler hizmete hiç gitmez; yalnız yeni cümle gönderilir.</summary>
+    [Fact]
+    public async Task PersistentCacheAcrossSessions()
+    {
+        var file = Path.Combine(Path.GetTempPath(), "couchsubs-ai-" + Guid.NewGuid().ToString("N"), "cache.jsonl");
+        try
+        {
+            await Make(AiProvider.OpenAi, new FakeAi(), cache: new TranslationCache(file)).TranslateAsync("KRATOS: We go now. Stay close.");
+
+            var fake = new FakeAi();
+            var translator = Make(AiProvider.OpenAi, fake, cache: new TranslationCache(file));
+            Assert.Equal("KRATOS: [tr] We go now. [tr] Stay close.", await translator.TranslateAsync("KRATOS: We go now. Stay close."));
+            Assert.Empty(fake.Requests);
+            Assert.Equal("[tr] Stay close. [tr] Run!", await translator.TranslateAsync("Stay close. Run!"));
+            Assert.Single(fake.Requests);
+            Assert.EndsWith("[\"Run!\"]", User(fake, 0));
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(file)!, recursive: true);
+        }
+    }
+
+    // --- Deneme ve anahtarın gizliliği ---
+
+    [Fact]
+    public async Task TestTranslatesTheSample()
+    {
+        var result = await AiTranslator.TestAsync(AiProvider.Gemini, Secret, null, new HttpClient(new FakeAi()));
+        Assert.Equal(new AiTestResult(OnlineKeyState.Valid, "KRATOS: [tr] We go now. [tr] Stay close, boy."), result);
+    }
+
+    /// <summary>Anahtar hiçbir hata metninde ya da durumda görünmez.</summary>
+    [Fact]
+    public async Task KeyNeverAppearsInErrors()
+    {
+        var rejecting = new FakeAi((_, _) => Json($$$"""{"error":{"message":"Incorrect API key provided: {{{Secret}}}"}}""",HttpStatusCode.Unauthorized));
+        foreach (var provider in Enum.GetValues<AiProvider>())
+        {
+            var result = await AiTranslator.TestAsync(provider, Secret, null, new HttpClient(rejecting));
+            Assert.Equal(new AiTestResult(OnlineKeyState.Invalid), result);
+            Assert.DoesNotContain(Secret, result.ToString());
+        }
+        Assert.DoesNotContain(Secret, new AiException(OnlineKeyState.Invalid).ToString());
+
+        var timeout = new FakeAi((_, _) => throw new TaskCanceledException("timeout"));
+        Assert.Equal(OnlineKeyState.Busy, (await AiTranslator.TestAsync(AiProvider.OpenAi, Secret, null, new HttpClient(timeout))).State);
+        Assert.Equal(OnlineKeyState.Invalid, (await AiTranslator.TestAsync(AiProvider.Claude, "  ", null)).State);
+    }
+
+    // "Ekranı çevir" (Mac'teki AITranslationTests ile aynı durumlar).
+
+    /// <summary>Yerel model kurulu değil: yapay zekâ motorunun yedeği yoktur (bkz. AppController.MakeTranslator).</summary>
+    private static AiTranslator MakeWithoutFallback(AiProvider provider, FakeAi fake, RequestBudget budget) =>
+        new(provider, Secret, null, null, new HttpClient(fake), budget: budget);
+
+    /// <summary>Birbirine benzemeyen yazılar (benzer satırları yazı tanıma çöpü sayan süzgece takılmasın).</summary>
+    private static readonly string[] ScreenTexts =
+    [
+        "Find the blacksmith.", "Open the world map", "Collect three iron bars", "Talk to the old hunter", "Leave the camp quietly",
+        "Upgrade your shield", "Rest at the campfire", "Follow the river north", "Climb the broken tower", "Defeat the wolf pack",
+        "Search the abandoned mine", "Light the signal fire", "Cross the frozen lake", "Return to the village", "Repair the bridge",
+        "Escort the merchant safely", "Hunt a wild boar", "Read the ancient runes", "Unlock the hidden vault", "Sharpen your axe",
+    ];
+
+    /// <summary>İki sütun, satırlar arası boşluk geniş: her satır ayrı grup.</summary>
+    private static Reading Screen(int count) => new([.. Enumerable.Range(0, count).Select(index =>
+    {
+        var top = 0.02 + index / 2 * 0.09;
+        var left = index % 2 == 0 ? 0.05 : 0.55;
+        return new TextLine(ScreenTexts[index], new TextBox(left, top, left + 0.35, top + 0.03));
+    })]);
+
+    /// <summary>
+    /// Bildirilen hata (Gemini seçiliyken "Ekranı çevir" hiçbir şey göstermiyordu): parça başına istek gidince 20 satırlık
+    /// ekran dakikada 15 isteklik hakkı bitiriyor, yerel çeviri kurulu değilse bütün ekran hata veriyordu. Yerel çeviri
+    /// yokken hak artık satırı düşürmez; istek yine gönderilir (429 gelirse hizmetin beklemesi uygulanır).
+    /// </summary>
+    [Fact]
+    public async Task ScreenOneRequestPerParagraphWithoutLocalStillSendsEveryParagraph()
+    {
+        var fake = new FakeAi();
+        var translator = MakeWithoutFallback(AiProvider.Gemini, fake, new RequestBudget(15));
+        foreach (var text in ScreenTexts) Assert.Equal("[tr] " + text, await translator.TranslateAsync(text));
+        Assert.Equal(ScreenTexts.Length, fake.Requests.Count);
+    }
+
+    /// <summary>Düzeltme: ekranın bütün parçaları tek istekte gider ve hepsi çevrilir; canlı altyazı dakikalık hakkı bitirmiş olsa da.</summary>
+    [Fact]
+    public async Task ScreenIsTranslatedInOneRequestEvenWhenTheBudgetIsUsedUp()
+    {
+        var fake = new FakeAi();
+        var budget = new RequestBudget(15);
+        for (var i = 0; i < 15; i++) Assert.True(budget.TryTake());
+        var translator = MakeWithoutFallback(AiProvider.Gemini, fake, budget);
+        var reported = new List<int>();
+        var items = await ScreenTranslation.TranslateAsync(Screen(20), translator, shown => reported.Add(shown.Count));
+        Assert.Single(fake.Requests);
+        Assert.Equal(ScreenTexts.Select(text => "[tr] " + text).Order(), items.Select(item => item.Translation).Order());
+        Assert.Equal(new[] { 20 }, reported);
+        var config = JsonNode.Parse(fake.Requests[0].Body)!["generationConfig"]!;
+        Assert.Equal(AiRequest.ScreenOutputTokens, config["maxOutputTokens"]!.GetValue<int>());
+        // Çevrilenler önbelleğe girer: yeniden basınca istek gitmez.
+        await ScreenTranslation.TranslateAsync(Screen(20), translator);
+        Assert.Single(fake.Requests);
+    }
+
+    /// <summary>Kalabalık ekran birkaç isteğe bölünür; sıra korunur.</summary>
+    [Fact]
+    public async Task CrowdedScreenIsSplitIntoBatches()
+    {
+        var fake = new FakeAi();
+        var texts = Enumerable.Range(0, AiTranslator.ScreenBatch + 5).Select(i => $"Line {i} of the menu").ToList();
+        var result = await Make(AiProvider.Gemini, fake).TranslateAllAsync(texts);
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.Equal(texts.Select(text => "[tr] " + text), result);
+    }
+
+    /// <summary>Hizmet çeviremezse parçalar yerel çeviriyle gelir ve hata bildirilir; yerel çeviri de yoksa hata yukarı çıkar.</summary>
+    [Fact]
+    public async Task ScreenFailureFallsBackOrThrows()
+    {
+        var failing = new FakeAi((_, _) => Json("{}", HttpStatusCode.InternalServerError));
+        var translator = Make(AiProvider.Gemini, failing);
+        var reported = new List<OnlineKeyState?>();
+        translator.FailureChanged += reported.Add;
+        Assert.Equal(new[] { "yerel: Open the map", "yerel: Leave the camp" }, await translator.TranslateAllAsync(["Open the map", "Leave the camp"]));
+        Assert.Equal(new OnlineKeyState?[] { OnlineKeyState.Busy }, reported);
+
+        var alone = MakeWithoutFallback(AiProvider.Claude, failing, new RequestBudget(1000));
+        var error = await Assert.ThrowsAsync<TranslatorException>(() => ScreenTranslation.TranslateAsync(Screen(3), alone));
+        Assert.Equal(TranslatorStatus.NeedsDownload, error.Status);
+        Assert.Equal(OnlineKeyState.Busy, alone.LastError);
+    }
+
+    /// <summary>Yanıttaki dizi eksikse parçalar karışmaz: hepsi yerel çeviriye düşer.</summary>
+    [Fact]
+    public async Task ScreenReplyWithWrongCountFallsBack()
+    {
+        var fake = new FakeAi((request, _) => Wrap(request, """["[tr] bir"]"""));
+        Assert.Equal(new[] { "yerel: One thing", "yerel: Another thing" }, await Make(AiProvider.OpenAi, fake).TranslateAllAsync(["One thing", "Another thing"]));
+    }
+
+    // --- Yerel çeviri yokken ---
+
+    private static AiTranslator WithoutLocal(FakeAi fake, RequestBudget budget) =>
+        new(AiProvider.Gemini, Secret, null, null, new HttpClient(fake), budget: budget);
+
+    /// <summary>
+    /// Dakikalık hak uygulamanın temkinli tahminidir. Yerel çeviri yokken (inmemiş) hak bitince satır denenmeden düşüyordu;
+    /// ara sahnede satırların yarısı hiç çevrilmiyordu. İstek yine gönderilmeli.
+    /// </summary>
+    [Fact]
+    public async Task OverBudgetWithoutLocalStillSendsRequest()
+    {
+        var fake = new FakeAi();
+        var translator = WithoutLocal(fake, new RequestBudget(1));
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.Equal("[tr] Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.False(translator.LastLineWasRateLimited);
+    }
+
+    /// <summary>Yerel çeviri hata verirse de (motor açılamadı) hak bitince istek gönderilir.</summary>
+    [Fact]
+    public async Task OverBudgetWithFailingLocalStillSendsRequest()
+    {
+        var fake = new FakeAi();
+        var translator = new AiTranslator(AiProvider.Gemini, Secret, null, new FailingLocal(), new HttpClient(fake), budget: new RequestBudget(1));
+        Assert.Equal("[tr] Run!", await translator.TranslateAsync("Run!"));
+        Assert.Equal("[tr] Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Equal(2, fake.Requests.Count);
+    }
+
+    /// <summary>Hata sonrası bir dakikalık beklemede yerel çeviri yoksa hizmet yine denenir; satır düşmez.</summary>
+    [Fact]
+    public async Task ErrorPauseWithoutLocalStillTriesService()
+    {
+        var calls = 0;
+        var fake = new FakeAi((request, body) => ++calls == 1 ? throw new HttpRequestException("down") : Echo(request, body));
+        var translator = WithoutLocal(fake, new RequestBudget(1000));
+        await Assert.ThrowsAsync<TranslatorException>(() => translator.TranslateAsync("Run!"));
+        Assert.Equal("[tr] Hide!", await translator.TranslateAsync("Hide!"));
+        Assert.Equal(2, fake.Requests.Count);
+    }
+
+    /// <summary>Hizmetin dakikalık 429'undan sonraki kısa bekleme yerel çeviri olmasa da korunur.</summary>
+    [Fact]
+    public async Task PerMinuteRateLimitPauseHoldsWithoutLocal()
+    {
+        var fake = new FakeAi((_, _) => Json(RateLimitBody(PerMinute), HttpStatusCode.TooManyRequests));
+        var translator = WithoutLocal(fake, new RequestBudget(1000));
+        await Assert.ThrowsAsync<TranslatorException>(() => translator.TranslateAsync("Run!"));
+        await Assert.ThrowsAsync<TranslatorException>(() => translator.TranslateAsync("Hide!"));
+        Assert.Single(fake.Requests);
+    }
+
+    private sealed class FailingLocal : ITextTranslator
+    {
+        public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default) =>
+            throw new TranslatorException(TranslatorStatus.EngineFailed);
+    }
+}
