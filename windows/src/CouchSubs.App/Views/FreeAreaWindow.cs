@@ -51,7 +51,7 @@ public sealed class FreeAreaWindow : Window
     {
         this.controller = controller;
         this.frame = frame;
-        Title = "CouchSubs";
+        Title = "Dilmaç";
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         WindowState = WindowState.Maximized;

@@ -15,7 +15,7 @@ namespace CouchSubs.App;
 internal static class CrashHandler
 {
     internal static string Folder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "cokme");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dilmac", "cokme");
 
     /// <summary>Özetin başına yazılan satırlar.</summary>
     internal static string Header

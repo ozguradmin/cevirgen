@@ -305,7 +305,7 @@ public sealed record UserSettings
     /// Gelişmiş: bozuk okunan satırın daha iyi okuma için en çok bekletileceği süre (ms; 0: beklenmez). Eski kayıtlar
     /// varsayılanla açılır.
     /// </summary>
-    public int MisreadWaitMs { get; init; } = SubtitlePipeline.PackWaitMs;
+    public int MisreadWaitMs { get; init; } = 400;
     /// <summary>Gelişmiş: yarım görünen satırın tamamı için en çok bekletileceği süre (ms; 0: beklenmez).</summary>
     public int PartialWaitMs { get; init; } = SubtitlePipeline.CleanWaitMs;
     public string SourceLanguage { get; init; } = "en";
@@ -315,7 +315,7 @@ public sealed record UserSettings
     /// <summary>Windows CTranslate2 CPU iç işlemlerinin iş parçacığı sayısı; eski ayarlarda 2.</summary>
     public int CpuTranslationThreads { get; init; } = CpuThreadOptions.Default;
     /// <summary>Değişmeyen altyazı bölgesinde tam OCR okumasını en fazla iki kare yeniden kullan.</summary>
-    public bool FastSubtitleDetection { get; init; }
+    public bool FastSubtitleDetection { get; init; } = true;
     /// <summary>GTA 6'da ekrandaki telefon açılınca yazılarını otomatik çevirir (deneysel).</summary>
     public bool AutoReadGamePhone { get; init; }
     /// <summary>
@@ -387,7 +387,7 @@ public sealed record UserSettings
     /// </summary>
     public bool GameAreaPresets { get; init; }
     /// <summary>Altyazı okuyucusu. Gelişmiş seçili ama modeli inmemişse Windows'unki kullanılır.</summary>
-    public OcrEngine OcrEngine { get; init; } = OcrEngine.Windows;
+    public OcrEngine OcrEngine { get; init; } = OcrEngine.Advanced;
     public DubbingSettings Dubbing { get; init; } = new();
     /// <summary>
     /// Açıksa çeviri <see cref="OnlineEngine"/> ile yapılır (anahtarı kayıtlıysa); kapalıysa ya da hizmete ulaşılamazsa
@@ -428,7 +428,7 @@ public sealed record UserSettings
     /// <summary>Kullanım verisi: telefonlardaki gibi kimliğe bağlanmayan kullanım istatistikleri gönderilir (bkz. <see cref="UsageStats"/>).</summary>
     public bool UsageData { get; init; } = UsageStats.EnabledByDefault;
     /// <summary>Kullanım verisi bilgi notu gösterildi (ilk açılışta bir kez). Eski ayar dosyalarında yoktur (false).</summary>
-    public bool UsageNoticeSeen { get; init; }
+    public bool UsageNoticeSeen { get; init; } = true;
     /// <summary>Altyazıdaki konuşan adı ("ARTHUR: …") çeviride gösterilir; kapalıysa yalnız Türkçe cümle görünür.</summary>
     public bool ShowSpeakerNames { get; init; } = true;
     /// <summary>

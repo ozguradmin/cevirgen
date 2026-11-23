@@ -62,7 +62,7 @@ public class UsageStatsTests
     {
         var recorder = new Recorder();
         var file = IdFile();
-        using var stats = new UsageStats(Config, file, "1", "Windows 10.0", handler: recorder);
+        using var stats = new UsageStats(Config, file, "1", "Windows 10.0", enabled: true, handler: recorder);
         for (var i = 0; i < 30; i++) stats.Record(UsageStats.Event.Screen("home"));
         await stats.FlushAsync();
         Assert.Equal(2, recorder.Requests.Count);
@@ -72,7 +72,7 @@ public class UsageStatsTests
         var id = first["client_id"]!.GetValue<string>();
         Assert.True(Guid.TryParse(id, out _));
         Assert.Equal(id, File.ReadAllText(file));
-        using var again = new UsageStats(Config, file, "1", "Windows 10.0", handler: recorder);
+        using var again = new UsageStats(Config, file, "1", "Windows 10.0", enabled: true, handler: recorder);
         again.Record(UsageStats.Event.PackHit("gta6"));
         await again.FlushAsync();
         Assert.Equal(id, JsonNode.Parse(recorder.Requests[2].Body)!["client_id"]!.GetValue<string>());
@@ -94,7 +94,7 @@ public class UsageStatsTests
     public async Task TurningOffDropsWaitingEvents()
     {
         var recorder = new Recorder();
-        using var stats = new UsageStats(Config, IdFile(), "1", "x", handler: recorder);
+        using var stats = new UsageStats(Config, IdFile(), "1", "x", enabled: true, handler: recorder);
         stats.Record(UsageStats.Event.Screen("home"));
         stats.SetEnabled(false);
         await stats.FlushAsync();
@@ -111,7 +111,7 @@ public class UsageStatsTests
         Assert.Null(UsageStats.Config.FromBuild(typeof(UsageStatsTests).Assembly, _ => null));
         var recorder = new Recorder();
         var file = IdFile();
-        using var stats = new UsageStats(null, file, "1", "x", handler: recorder);
+        using var stats = new UsageStats(null, file, "1", "x", enabled: true, handler: recorder);
         Assert.False(stats.IsConfigured);
         stats.Record(UsageStats.Event.Screen("home"));
         await stats.FlushAsync();
@@ -132,7 +132,7 @@ public class UsageStatsTests
     public async Task NetworkErrorKeepsEventsQuietly()
     {
         var recorder = new Recorder { Fails = true };
-        using var stats = new UsageStats(Config, IdFile(), "1", "x", handler: recorder);
+        using var stats = new UsageStats(Config, IdFile(), "1", "x", enabled: true, handler: recorder);
         stats.Record(UsageStats.Event.Screen("home"));
         await stats.FlushAsync();
         Assert.Single(stats.Queued);
@@ -145,7 +145,7 @@ public class UsageStatsTests
     [Fact]
     public void QueueIsBounded()
     {
-        using var stats = new UsageStats(Config, IdFile(), "1", "x", handler: new Recorder());
+        using var stats = new UsageStats(Config, IdFile(), "1", "x", enabled: true, handler: new Recorder());
         for (var i = 0; i < UsageStats.MaxQueue + 10; i++) stats.Record(UsageStats.Event.PackHit("p" + i));
         Assert.Equal(UsageStats.MaxQueue, stats.Queued.Count);
         Assert.Equal(UsageStats.Event.PackHit("p10"), stats.Queued[0]);

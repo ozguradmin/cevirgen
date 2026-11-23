@@ -48,7 +48,7 @@ public sealed class TrayPopup : Window
         tile.SetResourceReference(Border.BorderBrushProperty, "raisedEdgeBrush");
         detail.SetResourceReference(TextBlock.ForegroundProperty, "textSecondaryBrush");
         var names = new StackPanel { Margin = Sp.T("s", "0", "s", "0"), VerticalAlignment = VerticalAlignment.Center };
-        names.Children.Add(new TextBlock { Text = "CouchSubs", FontSize = 15, FontWeight = FontWeights.SemiBold });
+        names.Children.Add(new TextBlock { Text = "Dilmaç", FontSize = 15, FontWeight = FontWeights.SemiBold });
         names.Children.Add(detail);
         var head = new DockPanel();
         DockPanel.SetDock(tile, Dock.Left);
@@ -101,7 +101,7 @@ public sealed class TrayPopup : Window
 
         icon = new System.Windows.Forms.NotifyIcon
         {
-            Text = "CouchSubs",
+            Text = "Dilmaç",
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? System.Reflection.Assembly.GetEntryAssembly()!.Location),
         };
         icon.MouseUp += (_, e) =>

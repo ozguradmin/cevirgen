@@ -280,7 +280,7 @@ internal sealed class XboxStreamSession(XboxBridge bridge, XboxConsole console, 
         browserEnded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         window.Closed += (_, _) => browserEnded?.TrySetResult(true);
         window.Show();
-        var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "xbox-webview");
+        var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dilmac", "xbox-webview");
         var options = new CoreWebView2EnvironmentOptions("--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows");
         var environment = await CoreWebView2Environment.CreateAsync(null, profile, options);
         await browser.EnsureCoreWebView2Async(environment);

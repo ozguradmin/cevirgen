@@ -26,7 +26,7 @@ public sealed class DesignGallery : UserControl
         titleBar.ColumnDefinitions.Add(new ColumnDefinition());
         var brand = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         brand.Children.Add(new CouchLogo());
-        brand.Children.Add(new TextBlock { Text = "CouchSubs", FontWeight = FontWeights.Bold, Margin = Sp.T("s", "0", "0", "0"), VerticalAlignment = VerticalAlignment.Center });
+        brand.Children.Add(new TextBlock { Text = "Dilmaç", FontWeight = FontWeights.Bold, Margin = Sp.T("s", "0", "0", "0"), VerticalAlignment = VerticalAlignment.Center });
         titleBar.Children.Add(brand);
         var tabs = Group("TabGroup", "TopTab", [text["Home"], text["History"], text["Settings"]], 0);
         Grid.SetColumn(tabs, 1);

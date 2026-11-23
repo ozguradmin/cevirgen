@@ -22,9 +22,8 @@ public partial class AboutWindow : Window
         Closed += (_, _) => ThemeManager.Changed -= ShowLogo;
     }
 
-    /// <summary>Enmera logosu: koyu temada beyaz, açık temada siyah.</summary>
-    private void ShowLogo() =>
-        EnmeraLogo.Source = new BitmapImage(new Uri($"pack://application:,,,/Assets/enmera-{(ThemeManager.IsDark ? "white" : "black")}.png"));
+    /// <summary>Dilmaç: üst projenin yayıncı logosu gösterilmez.</summary>
+    private void ShowLogo() { }
 
     public static void Open(Window? owner) => OwnedWindow.Show(owner, () => new AboutWindow());
 

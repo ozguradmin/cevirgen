@@ -19,7 +19,8 @@ namespace CouchSubs.Core;
 /// </summary>
 public sealed class UsageStats : IDisposable
 {
-    public const bool EnabledByDefault = true;
+    /// <remarks>Dilmaç: kullanım verisi kapalı; ölçüm yapılandırması da derlemede yoktur.</remarks>
+    public const bool EnabledByDefault = false;
     public const string Endpoint = "https://www.google-analytics.com/mp/collect";
     /// <summary>Measurement Protocol bir istekte en çok 25 olay alır.</summary>
     public const int BatchSize = 25;

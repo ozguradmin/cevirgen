@@ -530,11 +530,11 @@
                     <c:Card>
                         <c:SpacedStack>
                             <c:SwitchRow x:Name="GamePacks" Content="{t:T 'Use game packs'}" Checked="OnGamePacks" Unchecked="OnGamePacks" />
-                            <c:SwitchRow x:Name="SharePool" Content="{t:T 'Send the English subtitles read to the shared pool'}"
+                            <c:SwitchRow x:Name="SharePool" Visibility="Collapsed" Content="{t:T 'Send the English subtitles read to the shared pool'}"
                                          Description="{t:T 'Only the game\'s English text is sent, anonymously. It is used to make better Turkish translations for everyone.'}"
                                          Checked="OnSharePool" Unchecked="OnSharePool" />
                             <!-- Kullanım verisi: telefonlardaki Profil › Kullanım verisi ile aynı ad ve açıklama; ölçüm yoksa gizli. -->
-                            <StackPanel x:Name="UsageDataRow">
+                            <StackPanel x:Name="UsageDataRow" Visibility="Collapsed">
                                 <c:SwitchRow x:Name="UsageData" Content="{t:T 'Usage data'}" Description="{t:T 'Error and usage statistics'}"
                                              Checked="OnUsageData" Unchecked="OnUsageData" />
                             </StackPanel>
@@ -658,6 +658,7 @@
                                     </ComboBox>
                                 </c:Unit>
                                 <c:SwitchRow x:Name="Bold" Content="{t:T 'Bold text'}" Checked="OnBold" Unchecked="OnBold" />
+                                <c:SwitchRow x:Name="Outline" Content="Yazı kenarlığı" Description="Yazının çevresine siyah kenarlık; zemin kapalıyken parlak sahnelerde okunur kalır." Checked="OnOutline" Unchecked="OnOutline" />
                                 <c:SwitchRow x:Name="StackPrevious" Content="{t:T 'Keep previous lines above in fast dialogue'}"
                                              Description="{t:T 'When off, each new line replaces the previous one. Needs TV app 0.9.16 or later.'}"
                                              Checked="OnStackPrevious" Unchecked="OnStackPrevious" />

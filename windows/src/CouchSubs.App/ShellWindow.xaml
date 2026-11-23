@@ -9,7 +9,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:CouchSubs.App.Controls"
         xmlns:t="clr-namespace:CouchSubs.App.Theme"
-        Title="CouchSubs" Icon="Assets/CouchSubs.ico"
+        Title="Dilmaç" Icon="Assets/Dilmac.ico"
         Width="{DynamicResource size.windowWidth}" Height="{DynamicResource size.windowHeight}"
         Background="{DynamicResource windowBackgroundBrush}" Foreground="{DynamicResource textPrimaryBrush}"
         TextElement.Foreground="{DynamicResource textPrimaryBrush}" WindowStartupLocation="CenterScreen">
@@ -38,7 +38,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                     <!-- Üst çubukta logo durağan (boşta ≤ %2 işlemci; Mac ile aynı). -->
                     <c:CouchLogo Animated="False" />
-                    <TextBlock Text="CouchSubs" FontWeight="Bold" FontSize="15" Margin="{t:Sp 's,0,0,0'}" VerticalAlignment="Center" />
+                    <TextBlock Text="Dilmaç" FontWeight="Bold" FontSize="15" Margin="{t:Sp 's,0,0,0'}" VerticalAlignment="Center" />
                 </StackPanel>
                 <Border x:Name="Tabs" Grid.Column="1" Style="{StaticResource TabGroup}" VerticalAlignment="Center" Background="{DynamicResource glassFillBrush}"
                         BorderBrush="{DynamicResource glassBorderBrush}">

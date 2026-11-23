@@ -10,9 +10,9 @@
     <!-- Yalnız tepsi simgesi (NotifyIcon) için; WinForms türleri tam adla kullanılır. -->
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>CouchSubs</AssemblyName>
+    <AssemblyName>Dilmac</AssemblyName>
     <RootNamespace>CouchSubs.App</RootNamespace>
-    <ApplicationIcon>Assets\CouchSubs.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Dilmac.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <!-- Velopack kurulum ve güncelleme kancaları WPF başlamadan çalışmalı (Program.Main). -->
@@ -57,11 +57,9 @@
     <EmbeddedResource Include="..\..\..\design\yeni-arayuz\tasarim.json" LogicalName="tasarim.json" />
     <!-- Alt reklam bandı (Cebbin, Gramla, Bakkal): Mac ile ortak liste ve simgeler (Services/AdCatalog.cs). -->
     <EmbeddedResource Include="..\..\..\design\yeni-arayuz\reklamlar.json" LogicalName="reklamlar.json" />
-    <Resource Include="..\..\..\design\yeni-arayuz\reklam\*.png" Link="Assets\reklam\%(Filename)%(Extension)" />
     <!-- Açılır reklamın görseli (reklamlar.json › popups; Mac aynı dosyayı okur). -->
-    <Resource Include="..\..\..\design\yeni-arayuz\reklam\*.jpg" Link="Assets\reklam\%(Filename)%(Extension)" />
     <!-- ShellWindow.xaml pencere simgesi olarak bunu okur; ApplicationIcon yalnız exe simgesidir. -->
-    <Resource Include="Assets\CouchSubs.ico" />
+    <Resource Include="Assets\Dilmac.ico" />
   </ItemGroup>
 
   <!-- TV uygulaması paketleri (scripts/package-tv.sh, package-tizen.sh ve Android derlemesi üretir); geliştirici modu açık TV'ye kurulur. -->

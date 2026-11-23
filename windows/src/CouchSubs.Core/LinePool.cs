@@ -20,9 +20,11 @@ namespace CouchSubs.Core;
 public sealed class LinePool : IDisposable
 {
     /// <summary>Açık; ayarlarda kullanıcı kapatabilir (kapatınca kuyruk da silinir).</summary>
-    public const bool EnabledByDefault = true;
+    /// <remarks>Dilmaç: ortak havuz kapalı; CouchSubs'ın havuz sunucusu Dilmaç'a ait değildir.</remarks>
+    public const bool EnabledByDefault = false;
     /// <summary>Sunucu adresi; denemede <c>COUCHSUBS_POOL_URL</c> ortam değişkeniyle değiştirilir.</summary>
-    public static readonly Uri DefaultEndpoint = new("https://couchsubs-pool.enmera.workers.dev/v1/lines");
+    /// <remarks>Dilmaç: kendi havuz sunucumuz yok; ".invalid" alan adı hiçbir yere çözülmez (RFC 2606).</remarks>
+    public static readonly Uri DefaultEndpoint = new("https://pool.dilmac.invalid/v1/lines");
     public const int BatchSize = 200;
     public const int MaxQueue = 5000;
     public const int MaxLength = 300;

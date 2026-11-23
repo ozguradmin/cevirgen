@@ -29,7 +29,7 @@ public sealed class IntroView : UserControl
     private readonly Rectangle bar2 = Part(222, 186, 196, 50, 25, Color.FromRgb(0xF5, 0xB8, 0x3D));
     private readonly Canvas seat = new() { Width = 640, Height = 494 };
     private readonly Ellipse glow = new() { Width = 520, Height = 300 };
-    private readonly TextBlock word = new() { Text = "CouchSubs", FontSize = 34, FontWeight = FontWeights.Bold, Foreground = Light, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly TextBlock word = new() { Text = "Dilmaç", FontSize = 34, FontWeight = FontWeights.Bold, Foreground = Light, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly StackPanel by = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly StackPanel cta = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "m", "0", "0") };
 
@@ -50,9 +50,14 @@ public sealed class IntroView : UserControl
         foreach (var (x, y, w, h, r) in new[] { (70.0, 440.0, 40.0, 44.0, 12.0), (530, 440, 40, 44, 12), (10, 196, 112, 254, 56), (518, 196, 112, 254, 56), (10, 324, 620, 126, 56) })
             seat.Children.Add(Part(x, y, w, h, r, Color.FromRgb(0xF3, 0xEE, 0xE4)));
         logo.Children.Add(seat);
+        // Dilmaç: koltuk çizimi yerine Dilmaç logosu.
+        logo.Children.Clear();
+        var mark = new Controls.CouchLogo { Width = 420, Height = 420 };
+        Canvas.SetLeft(mark, 110);
+        Canvas.SetTop(mark, 20);
+        logo.Children.Add(mark);
 
-        by.Children.Add(new TextBlock { Text = Localizer.Current["by"], FontFamily = (FontFamily)Application.Current.FindResource("MonoFont"), FontSize = 11, Foreground = Faint, VerticalAlignment = VerticalAlignment.Center });
-        by.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/Assets/enmera-white.png")), Height = 11, Opacity = 0.75, Margin = Sp.T("xs", "0", "0", "0") });
+        by.Children.Add(new TextBlock { Text = "CouchSubs tabanlı · açık kaynak (AGPL-3.0)", FontFamily = (FontFamily)Application.Current.FindResource("MonoFont"), FontSize = 11, Foreground = Faint, VerticalAlignment = VerticalAlignment.Center });
 
         var start = new Button { Content = Localizer.Current["Let's Get Started"], HorizontalAlignment = HorizontalAlignment.Center };
         start.SetResourceReference(StyleProperty, "WidePrimaryButton");

@@ -54,6 +54,7 @@ public partial class SettingsView : UserControl
         BackgroundOpacity.Value = settings.Style.Background;
         BackgroundShape.SelectedItem = BackgroundShape.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Style.BackgroundShape.ToString());
         Bold.IsChecked = settings.Style.Bold;
+        Outline.IsChecked = settings.Style.Outline;
         StackPrevious.IsChecked = settings.Style.StackPrevious;
         MisreadWait.Value = settings.MisreadWaitMs / 1000.0;
         PartialWait.Value = settings.PartialWaitMs / 1000.0;
@@ -542,7 +543,7 @@ public partial class SettingsView : UserControl
     private async void OnOpenTvPairing(object sender, RoutedEventArgs e)
     {
         try { await controller.OpenTvPairingAsync(); }
-        catch (Exception error) { MessageBox.Show(Host, error.Message, "CouchSubs"); }
+        catch (Exception error) { MessageBox.Show(Host, error.Message, "Dilmaç"); }
     }
 
     private void OnRenewAccessKey(object sender, RoutedEventArgs e) => controller.RotateSubtitleKey();
@@ -1523,6 +1524,10 @@ public partial class SettingsView : UserControl
 
     private void OnBold(object sender, RoutedEventArgs e) =>
         Update(s => s with { Style = s.Style with { Bold = Bold.IsChecked == true } });
+
+    /// <summary>Dilmaç: TV'deki yazının siyah kenarlığı.</summary>
+    private void OnOutline(object sender, RoutedEventArgs e) =>
+        Update(s => s with { Style = s.Style with { Outline = Outline.IsChecked == true } });
 
     private void OnMisreadWait(object sender, RoutedPropertyChangedEventArgs<double> e)
     {

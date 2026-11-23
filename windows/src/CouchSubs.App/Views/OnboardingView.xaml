@@ -35,7 +35,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                 <c:CouchLogo />
-                <TextBlock Text="CouchSubs" FontWeight="Bold" FontSize="15" Margin="{t:Sp 's,0,0,0'}" VerticalAlignment="Center" />
+                <TextBlock Text="Dilmaç" FontWeight="Bold" FontSize="15" Margin="{t:Sp 's,0,0,0'}" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel x:Name="Dots" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" />
             <Button x:Name="LaterButton" Grid.Column="2" Style="{StaticResource LinkButton}" HorizontalAlignment="Right" VerticalAlignment="Center"

@@ -25,7 +25,10 @@ public sealed class Localizer
     public string Language => language;
 
     public string this[string key] =>
-        Catalog.Value.TryGetValue(key, out var values) && values.TryGetValue(language, out var value) ? value : key;
+        Brand(Catalog.Value.TryGetValue(key, out var values) && values.TryGetValue(language, out var value) ? value : key);
+
+    /// <summary>Dilmaç: arayüz metinlerinde uygulamanın adı.</summary>
+    public static string Brand(string text) => text.Replace("CouchSubs", "Dilmaç");
 
     /// <summary>xcstrings biçim belirteçlerini (%@, %lld, %1$@ …) verilen değerlerle doldurur.</summary>
     public string Format(string key, params object[] args) => Fill(this[key], args);

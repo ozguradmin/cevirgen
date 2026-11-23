@@ -22,7 +22,9 @@ internal sealed class Updater : IUpdater
         { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 2 * 1024 * 1024 });
 
     public bool CanUpdateItself => manager.IsInstalled;
-    public Uri DownloadPage { get; } = new("https://couchsubs.enmeraapps.com/#indir");
+    /// <summary>Dilmaç: güncelleme kanalı henüz yok; açılınca depo adresi buraya yazılır ve UpdatesEnabled true yapılır.</summary>
+    public const bool UpdatesEnabled = false;
+    public Uri DownloadPage { get; } = new("https://github.com/yorulmazsinan/couchsubs");
     public UpdateAttemptJournal? Attempts { get; } =
         new(UpdateAttemptJournal.DefaultPath, AppVersion.Current(typeof(Updater).Assembly));
 
@@ -37,6 +39,8 @@ internal sealed class Updater : IUpdater
 
     public async Task<string?> CheckAsync()
     {
+        // Dilmaç: kendi güncelleme kanalımız açılana dek güncelleme denetlenmez (CouchSubs sürümleri Dilmaç değildir).
+        if (!UpdatesEnabled) return null;
         if (!manager.IsInstalled) return await LatestTagAsync();
         pending = await manager.CheckForUpdatesAsync();
         return pending?.TargetFullRelease.Version.ToString();
@@ -69,7 +73,7 @@ internal sealed class Updater : IUpdater
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("CouchSubs");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Dilmac");
             using var document = System.Text.Json.JsonDocument.Parse(
                 await http.GetStringAsync("https://api.github.com/repos/yorulmazsinan/couchsubs/releases/latest"));
             var tag = document.RootElement.GetProperty("tag_name").GetString()?.TrimStart('v');

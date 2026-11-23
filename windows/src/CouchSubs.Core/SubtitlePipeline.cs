@@ -411,7 +411,9 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         var cleaned = seen.WithoutButtonPrompts().WithoutOcrNoise();
         // GTA ekran yazısı (silah adı, plaka, tabela, menü) altyazı değildir; konuşmaya yapışsa da çevrilmez.
         if (DropsScreenText?.Invoke() == true) cleaned = cleaned.WithoutScreenText();
-        var rows = cleaned.JoiningRows();
+        // Dilmaç: tuş ipucu, yazı tanıma onu simgenin yerinden ikiye bölse de birleşik satır üstünden de denetlenir
+        // ("Press" + "to scope out the deal" ayrı ayrı ipucuna benzemiyor, çevrilip tuşun üstünü örtüyordu).
+        var rows = cleaned.JoiningRows().WithoutButtonPrompts();
         bool missionMoved;
         CropRegion? missionRegion;
         lock (gate)
@@ -1151,7 +1153,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     }
 
     /// <summary>Satır ekrandan kalktıktan sonra gelen çevirinin TV'de kalacağı süre (TV uygulamasıyla aynı kural).</summary>
-    public static int ReadingTime(string text) => Math.Min(8000, 2000 + (text.Length * 60));
+    /// <remarks>Dilmaç: oyundaki altyazı gidince çeviri de hemen gitsin; geç gelen çeviri yalnız 0,5 sn görünür.</remarks>
+    public static int ReadingTime(string text) => 500;
 
     private async Task Translate(Request request, CancellationToken token)
     {

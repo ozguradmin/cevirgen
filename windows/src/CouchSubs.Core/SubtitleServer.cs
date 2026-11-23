@@ -48,16 +48,17 @@ public enum SubtitleBackgroundShape
 /// <param name="NameHex">"Tek Renk"te adların rengi.</param>
 /// <param name="CharacterColors">"Karaktere Göre"de seçilen renkler (küçük harfli ad → "#RRGGBB").</param>
 /// <param name="NameOnly">Konuşan rengi yalnız adı boyar (yeni arayüz). TV'ye <c>nameOnly</c>.</param>
+/// <param name="Outline">Dilmaç: yazının çevresine siyah kenarlık (zeminsiz okunurluk). TV'ye <c>outline</c>.</param>
 /// <param name="HdmiInput">Kurulumda seçilen TV girişi (1–4); yoksa null. TV'ye <c>hdmiInput</c>.</param>
 public sealed record SubtitleStyle(
-    int FontSize = 46,
+    int FontSize = 32,
     int BottomPercent = 7,
-    SubtitlePlacement Placement = SubtitlePlacement.Cover,
-    int Background = 90,
-    bool Bold = false,
+    SubtitlePlacement Placement = SubtitlePlacement.Above,
+    int Background = 0,
+    bool Bold = true,
     SubtitleTextColor TextColor = SubtitleTextColor.White,
     TvDisplayMode DisplayMode = TvDisplayMode.Auto,
-    bool StackPrevious = true,
+    bool StackPrevious = false,
     SubtitleBackgroundShape BackgroundShape = SubtitleBackgroundShape.Fit,
     string BackgroundColor = SubtitleStyle.DefaultBackgroundColor,
     string? TextHex = null,
@@ -65,7 +66,8 @@ public sealed record SubtitleStyle(
     string? NameHex = null,
     IReadOnlyDictionary<string, string>? CharacterColors = null,
     bool NameOnly = false,
-    int? HdmiInput = null)
+    int? HdmiInput = null,
+    bool Outline = true)
 {
     public const string DefaultBackgroundColor = "#101014";
 
@@ -966,6 +968,7 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
                 _ => "inApp",
             },
             ["fontSize"] = style.FontSize,
+            ["outline"] = style.Outline,
             ["placement"] = style.Placement.ToString().ToLowerInvariant(),
             ["setApart"] = setApart,
             ["stackPrevious"] = style.StackPrevious,

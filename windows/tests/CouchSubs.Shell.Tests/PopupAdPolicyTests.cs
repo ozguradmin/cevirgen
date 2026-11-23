@@ -39,17 +39,14 @@ public class PopupAdPolicyTests
         Assert.Null(PopupAdPolicy.Pick(Array.Empty<PopupAdEntry>(), Now));
     }
 
-    /// <summary>Uygulamayla gelen dosyada Enmera'nın dikey görseli var ve tıklanınca Enmera Commerce sayfası açılır.</summary>
+    /// <summary>Dilmaç: uygulamayla gelen reklam listesi boş; üst projenin reklamları gösterilmez.</summary>
     [Fact]
-    public void ShippedCatalogHasEnmeraImage()
+    public void ShippedCatalogHasNoUpstreamAds()
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);
         while (folder is not null && !File.Exists(Path.Combine(folder.FullName, "design", "yeni-arayuz", "reklamlar.json"))) folder = folder.Parent;
         Assert.NotNull(folder);
         var design = Path.Combine(folder!.FullName, "design", "yeni-arayuz");
-        var ad = Assert.Single(PopupAdPolicy.Parse(File.ReadAllText(Path.Combine(design, "reklamlar.json"))));
-        Assert.Equal("enmera.com.tr", ad.Link.Host);
-        Assert.True(File.Exists(Path.Combine(design, "reklam", ad.Image)));
-        Assert.Same(ad, PopupAdPolicy.Pick(new[] { ad }, Now));
+        Assert.Empty(PopupAdPolicy.Parse(File.ReadAllText(Path.Combine(design, "reklamlar.json"))));
     }
 }

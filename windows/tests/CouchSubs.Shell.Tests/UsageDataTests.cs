@@ -28,7 +28,7 @@ public class UsageDataTests
     {
         var handler = new CountingHandler();
         var usage = new UsageStats(UsageStats.Config.Create("G-TEST", "secret"), Path.Combine(Path.GetTempPath(), "usage-" + Guid.NewGuid(), "usage-id"),
-            "1.0", "Windows 10.0", handler: handler);
+            "1.0", "Windows 10.0", enabled: usageData, handler: handler);
         var services = new FakeServices { Usage = usage };
         var store = new MemoryStore();
         store.Save(StoreKeys.AccountId, Enumerable.Repeat((byte)1, 8).ToArray());
@@ -36,7 +36,7 @@ public class UsageDataTests
         store.Save(StoreKeys.Tv, new LgTv("LG TV", "127.0.0.1"));
         store.Save(StoreKeys.TvKey, "tv-key");
         var settings = new MemorySettings();
-        settings.Save(new UserSettings { UsageData = usageData });
+        settings.Save(new UserSettings { UsageData = usageData, UsageNoticeSeen = false });
         return (AppControllerTests.Make(services, store, settings), usage, handler);
     }
 

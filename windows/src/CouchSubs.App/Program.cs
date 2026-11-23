@@ -65,7 +65,7 @@ public static class Program
                 // Arayüz açılamadı: düzeltilmiş sürüm varsa kurulup uygulama yeniden başlar (RescueUpdate).
                 RescueUpdate.TryNow();
                 // WPF'in kendisi yüklenemiyor olabilir; ileti Windows'un kendi penceresiyle gösterilir.
-                MessageBoxW(IntPtr.Zero, message, "CouchSubs", 0x10 | 0x10000);
+                MessageBoxW(IntPtr.Zero, message, "Dilmaç", 0x10 | 0x10000);
             }
             return 3;
         }

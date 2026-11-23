@@ -1440,22 +1440,26 @@
     </Style>
     <!-- Logo: tasarım SVG'si (viewBox 192 280 640 464); kanepe ve iki nefes alan amber çubuk. -->
     <Style TargetType="c:CouchLogo">
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="26" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="c:CouchLogo">
                     <Viewbox Stretch="Uniform">
-                        <Canvas Width="640" Height="464">
-                            <Rectangle Canvas.Left="90" Canvas.Top="10" Width="460" Height="320" RadiusX="52" RadiusY="52" Fill="{DynamicResource logoBackBrush}" />
-                            <Rectangle x:Name="Bar1" Canvas.Left="175" Canvas.Top="82" Width="290" Height="50" RadiusX="25" RadiusY="25" Fill="{DynamicResource accentBrush}" />
-                            <Rectangle x:Name="Bar2" Canvas.Left="222" Canvas.Top="156" Width="196" Height="50" RadiusX="25" RadiusY="25" Fill="{DynamicResource accentBrush}" />
-                            <Rectangle Canvas.Left="70" Canvas.Top="410" Width="40" Height="44" RadiusX="12" RadiusY="12" Fill="{DynamicResource logoSeatBrush}" />
-                            <Rectangle Canvas.Left="530" Canvas.Top="410" Width="40" Height="44" RadiusX="12" RadiusY="12" Fill="{DynamicResource logoSeatBrush}" />
-                            <Rectangle Canvas.Left="10" Canvas.Top="166" Width="112" Height="254" RadiusX="56" RadiusY="56" Fill="{DynamicResource logoSeatBrush}" />
-                            <Rectangle Canvas.Left="518" Canvas.Top="166" Width="112" Height="254" RadiusX="56" RadiusY="56" Fill="{DynamicResource logoSeatBrush}" />
-                            <Rectangle Canvas.Left="10" Canvas.Top="294" Width="620" Height="126" RadiusX="56" RadiusY="56" Fill="{DynamicResource logoSeatBrush}" />
+                        <!-- Dilmaç logosu: konuşma balonu ve iki altyazı çizgisi (design/dilmac/logo.svg). -->
+                        <Canvas Width="1024" Height="1024">
+                            <Rectangle Canvas.Left="32" Canvas.Top="32" Width="960" Height="960" RadiusX="224" RadiusY="224">
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#14B8A6" Offset="0" />
+                                        <GradientStop Color="#6366F1" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                            <Path Fill="White" Data="M232,300 L792,300 A72,72 0 0 1 864,372 L864,620 A72,72 0 0 1 792,692 L492,692 L360,804 L360,692 L232,692 A72,72 0 0 1 160,620 L160,372 A72,72 0 0 1 232,300 Z" />
+                            <Rectangle x:Name="Bar1" Canvas.Left="300" Canvas.Top="420" Width="424" Height="56" RadiusX="28" RadiusY="28" Fill="#0F172A" />
+                            <Rectangle x:Name="Bar2" Canvas.Left="380" Canvas.Top="516" Width="264" Height="56" RadiusX="28" RadiusY="28" Fill="#14B8A6" />
                         </Canvas>
                     </Viewbox>
                     <ControlTemplate.Triggers>
