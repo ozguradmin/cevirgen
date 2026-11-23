@@ -1,4 +1,28 @@
-<p align="center"><img src="design/logo-1024.png" width="120" alt="CouchSubs"></p>
+<p align="center"><img src="design/dilmac/logo-256.png" width="120" alt="Dilmaç"></p>
+
+# Dilmaç
+
+**Oyunlar için canlı Türkçe altyazı.** Dilmaç, PS5 ya da Xbox oyununun ekranındaki İngilizce altyazıyı okur, Türkçeye
+çevirir ve TV'de oyunun üstünde gösterir. Altyazısı olan her oyunda çalışır.
+
+> **Dilmaç, [CouchSubs](https://github.com/yorulmazsinan/couchsubs)'ın değiştirilmiş bir sürümüdür.**
+> CouchSubs © 2026 Sinan Yorulmaz, GNU AGPL-3.0. Dilmaç, CouchSubs v0.1.0-beta.88 üzerine 23 Kasım 2026'dan itibaren
+> değiştirilmiştir; değişikliklerin tamamı git geçmişinde, özeti [NOTICE](NOTICE) dosyasındadır. Dilmaç, CouchSubs'ın
+> yazarı ya da yayıncısı ile bağlantılı değildir ve onlar tarafından onaylanmamıştır.
+
+## Dilmaç'ta neler farklı
+
+- Çeviri, üst üste yığılan İngilizce satırların hepsinin üstüne yerleşir; satırların üstüne binmez.
+- Tuş ipuçları ("Press ⓧ to …") çevrilip tuşun üstü örtülmez.
+- Oyundaki altyazı gidince Türkçesi de hemen gider (geç gelen çeviri yalnız 0,5 sn).
+- Yeni varsayılan görünüm: İngilizcenin üstünde, zeminsiz, kalın ve kenarlıklı beyaz yazı.
+- Reklam, ortak havuza gönderim ve kullanım ölçümü yok; CouchSubs sunucularına hiçbir şey gitmez.
+- Yeni ad, logo ve renkler.
+
+Aşağıdaki belgeler CouchSubs'tan gelir; yer yer CouchSubs adı geçer.
+
+---
+
 
 # CouchSubs
 
