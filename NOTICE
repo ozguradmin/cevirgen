@@ -14,3 +14,28 @@ requires you to, among other things:
     (section 5a);
   - license the whole work under the AGPL-3.0 and provide its source code
     (sections 5c and 6).
+
+----------------------------------------------------------------------------
+Dilmaç
+
+Dilmaç is a modified version of CouchSubs.
+Based on CouchSubs by Sinan Yorulmaz (https://github.com/yorulmazsinan/couchsubs),
+version v0.1.0-beta.88, modified from 2026-11-23 onwards.
+
+Dilmaç is licensed under the GNU Affero General Public License version 3, like
+CouchSubs. The full history of changes is in this repository's git log; the
+first commit is the unmodified upstream source.
+
+Main changes (2026-11-23):
+  - New name, logo and colors; separate data folder (%LOCALAPPDATA%\Dilmac).
+  - Upstream ads, shared-pool uploads, usage statistics and the upstream update
+    channel are removed or disabled; Dilmaç sends nothing to CouchSubs servers.
+  - Translation is placed above the whole stacked English subtitle block.
+  - Button hints split by the text recognizer are recognised and not covered.
+  - Late translations stay on screen for 0.5 s instead of 2-8 s.
+  - New default look (above the subtitle, no background, bold, outlined text).
+  - Optional black text outline on the TV.
+
+"CouchSubs" and its logo belong to their author; Dilmaç is not affiliated
+with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or
+Microsoft. Game translation packs of CouchSubs are not part of Dilmaç.
