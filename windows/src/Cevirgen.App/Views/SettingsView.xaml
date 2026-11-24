@@ -606,7 +606,7 @@
                     <c:Card Title="Tanılama">
                         <c:SpacedStack Gap="m">
                             <c:SwitchRow x:Name="DiagnosticsOn" Content="Tanılama kaydı"
-                                         Description="Çeviri sürerken 5 saniyede bir o anki görüntü (1280 px) ve alanların bilgisi bu bilgisayara kaydedilir; oturum başına en çok 400 kare. 30 dakika sonra ya da uygulama yeniden açılınca kendiliğinden kapanır. Kayıtlar 3 gün sonra silinir ve hiçbir yere gönderilmez."
+                                         Description="Çeviri sürerken 5 saniyede bir ve ek alanlardaki yazı her değiştiğinde o anki görüntü, alanın kırpıntısı ve okunan satırlar bu bilgisayara kaydedilir; oturum başına en çok 1500 kare. 30 dakika sonra ya da uygulama yeniden açılınca kendiliğinden kapanır. Kayıtlar 3 gün sonra silinir ve hiçbir yere gönderilmez."
                                          Checked="OnDiagnostics" Unchecked="OnDiagnostics" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="Klasörü aç" Style="{StaticResource OutlineButton}" VerticalAlignment="Center"

@@ -3542,6 +3542,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                     Log = SubtitleLog.Write, SubtitleEcho = SubtitleEcho,
                     // Çevirgen: ek alanların ve ekran yazısının çevirileri ortak havuza; PS5'in Uzaktan Oynatma bildirimi ipucuna.
                     Translated = OnRegionTranslated, RemotePlayNoticeSeen = OnRemotePlayNoticeSeen,
+                    // Çevirgen: tanılama kaydı açıkken ek alanın her yeni okuması kareyle saklanır.
+                    AreaReadChanged = OnAreaReadChanged,
                 };
             }
             // Okunup yazısız ya da gürültülü çıkan otomatik alan dedektöre bildirilir (o görüntüde yeniden önerilmez).

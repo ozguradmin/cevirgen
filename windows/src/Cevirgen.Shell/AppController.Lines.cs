@@ -37,8 +37,11 @@ public sealed partial class AppController
     }
 
     /// <summary>Ek alanın ya da ekran yazısının yeni çevirisi: kullanıcının ek alanları ve hazır alanlar "extra", kendiliğinden bulunanlar "screen".</summary>
-    private void OnRegionTranslated(WatchedArea area, string english, string translation) =>
+    private void OnRegionTranslated(WatchedArea area, string english, string translation)
+    {
+        lastAreaTranslations[area.Id] = (english, translation);
         OfferLine(english, translation, null, area.Auto ? LinePool.Area.Screen : LinePool.Area.Extra);
+    }
 
     /// <summary>
     /// O an çeviren motorun havuzdaki adı: "free" (ücretsiz yerel model), "deepl", "gemini:&lt;model&gt;", "openai:&lt;model&gt;",

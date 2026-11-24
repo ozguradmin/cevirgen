@@ -80,6 +80,8 @@ public sealed partial class RegionWatcher
     private sealed class State
     {
         public byte[]? Signature;
+        /// <summary>Çevirgen: son ham okumanın yazısı (tanılama yalnız değişince kare alır).</summary>
+        public string? RawText;
         public CropRegion? ReadRegion;
         public GamePhonePage? ReadPhonePage;
         public GamePhoneReader? PhoneReader;
@@ -219,6 +221,11 @@ public sealed partial class RegionWatcher
     public Action<WatchedArea, string, string>? Translated { get; set; }
     /// <summary>Çevirgen: alanda PS5'in Uzaktan Oynatma bildirimi okundu (satırları atılır; bkz. <see cref="RemotePlayNotice"/>).</summary>
     public Action? RemotePlayNoticeSeen { get; set; }
+    /// <summary>
+    /// Çevirgen: tanılama kaydı için: alanın ham okuması bir öncekinden farklı ve boş değil (alan, tam kare, alanın kırpıntısı,
+    /// okuma; kutular kırpıntıya göre). Okuma iş parçacığında çağrılır.
+    /// </summary>
+    public Action<WatchedArea, Frame, Frame, Reading>? AreaReadChanged { get; set; }
     public int Passes => Volatile.Read(ref passes);
     public int Reads => Volatile.Read(ref reads);
     public bool IsBusy => Volatile.Read(ref busy) == 1;
@@ -475,6 +482,16 @@ public sealed partial class RegionWatcher
         ReadMeasured?.Invoke(now() - clock);
         reading = RemotePlayNotice.Without(reading, out var remotePlay);
         if (remotePlay) RemotePlayNoticeSeen?.Invoke();
+        if (AreaReadChanged is { } onRead)
+        {
+            var raw = string.Join('\n', reading.Lines.Select(line => line.Text));
+            if (raw.Length > 0 && raw != state.RawText)
+            {
+                try { onRead(area, frame, crop, reading); }
+                catch (Exception error) when (error is not OutOfMemoryException) { Log?.Invoke($"tanılama: ek alan karesi alınamadı: {error.GetType().Name}"); }
+            }
+            state.RawText = raw;
+        }
         state.Signature = signature;
         state.LastReadCrop = crop;
         state.LastFullCheck = now();

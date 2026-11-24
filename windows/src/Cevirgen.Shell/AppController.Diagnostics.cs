@@ -73,4 +73,20 @@ public sealed partial class AppController
             gameSense.Current?.Name);
         _ = Task.Run(() => recorder.Record(frame, snapshot));
     }
+
+    /// <summary>Çevirgen: alan başına motorun son çevirisi (tanılama JSON'una yazılır).</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string English, string Turkish)> lastAreaTranslations = new();
+
+    /// <summary>Okuma iş parçacığından: ek alanın okuması değişti; tanılama açıksa kare, alan kırpıntısı ve okuma yazılır.</summary>
+    private void OnAreaReadChanged(WatchedArea area, Frame frame, Frame crop, Reading reading)
+    {
+        if (!diagnosticsOn || diagnostics is not { } recorder || demoMode) return;
+        var last = lastAreaTranslations.TryGetValue(area.Id, out var shown) ? shown : default;
+        var info = new AreaDiagnostic(DateTimeOffset.Now, area, reading, last.English, last.Turkish);
+        IReadOnlyList<WatchedArea> extra;
+        lock (regionGate) extra = watchedAreas;
+        var snapshot = new DiagnosticSnapshot(DateTimeOffset.Now, settings.Region, extra, pipeline?.LastRead, LastSource, LastTranslation,
+            gameSense.Current?.Name);
+        _ = Task.Run(() => recorder.RecordArea(frame, crop, info, snapshot));
+    }
 }
