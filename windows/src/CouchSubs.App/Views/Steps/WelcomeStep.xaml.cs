@@ -15,7 +15,6 @@ namespace CouchSubs.App.Views.Steps;
 public partial class WelcomeStep : UserControl
 {
     private readonly Dictionary<SetupPlatform, RadioButton> options = [];
-    private bool loading = true;
 
     public WelcomeStep()
     {
@@ -24,12 +23,9 @@ public partial class WelcomeStep : UserControl
         {
             Build();
             Controller.PropertyChanged += OnChanged;
-            loading = true;
-            AnonymousCount.IsChecked = Controller.AnonymousCount;
-            AnonymousCount.Description = AppController.AnonymousCountDisclosure;
-            // Açıklama ilk açılışta bir kez (kurulum Ayarlar'dan yeniden açıldıysa Ayarlar › Uygulama'da).
-            CountPanel.Visibility = Controller.PartialSetup ? Visibility.Collapsed : Visibility.Visible;
-            loading = false;
+            // Açıklama ilk açılışta bir kez (kurulum Ayarlar'dan yeniden açıldıysa Ayarlar › Uygulama'da); anahtar burada yok.
+            CountNote.Text = AppController.AnonymousCountOnboardingText;
+            CountNote.Visibility = Controller.PartialSetup ? Visibility.Collapsed : Visibility.Visible;
         };
         Unloaded += (_, _) => Controller.PropertyChanged -= OnChanged;
     }
@@ -107,17 +103,5 @@ public partial class WelcomeStep : UserControl
     {
         if (e.PropertyName == nameof(AppController.PendingPlatform) && options.TryGetValue(Controller.PendingPlatform, out var button))
             button.IsChecked = true;
-        if (e.PropertyName == nameof(AppController.Settings))
-        {
-            loading = true;
-            AnonymousCount.IsChecked = Controller.AnonymousCount;
-            loading = false;
-        }
-    }
-
-    private void OnAnonymousCount(object sender, RoutedEventArgs e)
-    {
-        if (loading || !IsLoaded) return;
-        Controller.AnonymousCount = AnonymousCount.IsChecked == true;
     }
 }

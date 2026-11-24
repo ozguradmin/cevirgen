@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using CouchSubs.App.Theme;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -39,6 +40,7 @@ public partial class SettingsView : UserControl
         controller.NoteScreen("settings");
         InitializeComponent();
         InstalledVersion.Text = Localizer.Current.Format("Installed version: %@", AppVersion.Current(typeof(SettingsView).Assembly));
+        NavVersion.Text = AppVersion.Current(Assembly.GetEntryAssembly() ?? typeof(SettingsView).Assembly);
         var settings = controller.Settings;
         DataContext = controller;
         MisreadWait.Value = settings.MisreadWaitMs / 1000.0;

@@ -16,6 +16,21 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Border BorderBrush="{DynamicResource borderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+            <!-- Sabit alt bilgi: listenin altında, kaymaz. Sürüm ve proje bağlantıları (Uygulama › Hakkında'dakiler de kalır). -->
+            <Border x:Name="NavFooter" DockPanel.Dock="Bottom" BorderBrush="{DynamicResource hairlineBrush}" BorderThickness="0,1,0,0" Padding="{t:Sp 'edge,s,l,m'}">
+                <StackPanel>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource mutedBrush}">
+                        <Run Text="Çevirgen" /> <Run x:Name="NavVersion" FontFamily="{StaticResource MonoFont}" />
+                    </TextBlock>
+                    <WrapPanel Margin="{t:Sp '0,xxs,0,0'}">
+                        <Button Content="GitHub'da aç" Style="{StaticResource TextLink}" Foreground="{DynamicResource mutedBrush}" Click="OnRepository"
+                                Margin="{t:Sp '0,0,m,0'}" ToolTip="github.com/ozguradmin/cevirgen" />
+                        <Button Content="Sorun bildir" Style="{StaticResource TextLink}" Foreground="{DynamicResource mutedBrush}" Click="OnReportIssue"
+                                ToolTip="github.com/ozguradmin/cevirgen/issues" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <Grid x:Name="NavHost" Margin="{t:Sp 'item,m'}" VerticalAlignment="Top">
                     <!-- Seçim zemini: seçili satırın konumuna kayar (SettingsView.MoveSelection). -->
@@ -34,6 +49,7 @@
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
+            </DockPanel>
         </Border>
         <!-- Eski menü kartının renk geçişi: Çevirgen'de kapalı (degrade yok). -->
         <c:NavGlow x:Name="Glow" Visibility="Collapsed" />

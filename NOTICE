@@ -71,6 +71,12 @@ Changes (2026-11-24, interface polish):
     (initialisms, ellipsis inside quotes); short lines translated with context
     keep their capital initial.
   - Turkish button and label texts in sentence case.
+  - Live screen: one notice strip above the TV preview (most important notice
+    first: blocking errors, then needed actions, then information); the game
+    picker is a searchable grid of cover tiles (remote covers from Çevirgen's own
+    config, user covers first); settings list shows version and project links;
+    a calm, non-dismissible support line after the first 20 translated lines;
+    anonymous count switch only in Settings.
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

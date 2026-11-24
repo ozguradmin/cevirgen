@@ -37,6 +37,7 @@ public partial class MainView : UserControl
         TextAlignment = TextAlignment.Center, Margin = Sp.T("0", "0", "0", "m"), Foreground = PerdeColors.Frozen(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF)),
     };
     private readonly Button startButton = new() { Content = "Çeviriyi başlat", HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly GamePickerView picker;
 
     public MainView(AppController controller)
     {
@@ -47,6 +48,9 @@ public partial class MainView : UserControl
         stage.Changed += ShowStage;
         emptyState = BuildEmptyState();
         Preview.Overlay = emptyState;
+        picker = new GamePickerView(controller) { Margin = Sp.T("xl", "l", "xl", "l") };
+        GameAsk.Children.Add(picker);
+        GameAsk.SizeChanged += (_, e) => picker.FitTo(e.NewSize.Width, e.NewSize.Height);
         controller.PropertyChanged += OnChanged;
         connectionWatch.Tick += async (_, _) => await controller.CheckConnectionsAsync();
         tick.Tick += (_, _) => OnTick();
@@ -71,7 +75,6 @@ public partial class MainView : UserControl
         StageArea.SizeChanged += (_, _) => FitPreview();
         StatsRow.SizeChanged += (_, _) => FitPreview();
         stage.Attach();
-        ShowCrash();
         Refresh();
         ShowGame();
         ShowFeed();
@@ -108,18 +111,19 @@ public partial class MainView : UserControl
             ShowFeed();
             ShowStats();
         }
-        if (e.PropertyName is nameof(AppController.NeedsXboxLink) or nameof(AppController.OffersReconnect) or nameof(AppController.ShowsOnTv)
-            or nameof(AppController.NeedsTv) or nameof(AppController.CanReconnectTv) or nameof(AppController.ShowTvAppUpdate)
-            or nameof(AppController.CanReinstallTvApp) or nameof(AppController.ShowTvOpenHint) or nameof(AppController.ShowTestTvHint)
-            or nameof(AppController.TvAppUpdating) or nameof(AppController.TvClients) or nameof(AppController.IsRunning)
-            or nameof(AppController.Settings) or nameof(AppController.CanStart) or nameof(AppController.DemoMode))
+        if (e.PropertyName is nameof(AppController.RemoteGames) or nameof(AppController.InstalledPacks) && controller.AskingGame)
+            picker.Refresh();
+        if (e.PropertyName is nameof(AppController.Support) or nameof(AppController.SupportUnlocked))
+            ShowSupport();
+        // Şerit yapısı değişmediyse yalnız iletileri yeniler; her durum değişikliğinde sorulur (ucuz).
+        if (e.PropertyName is not (nameof(AppController.History) or nameof(AppController.SessionStats) or nameof(AppController.MetricsText)))
             ShowNotices();
     }
 
-    /// <summary>Saniyede bir: sessizlik nedeni ve sayılar.</summary>
+    /// <summary>Saniyede bir: bildirimler (görüntü kaç sn'dir yok, sessizlik nedeni) ve sayılar.</summary>
     private void OnTick()
     {
-        ShowProblem();
+        ShowNotices();
         ShowStats();
     }
 
@@ -215,19 +219,6 @@ public partial class MainView : UserControl
 
     private void Refresh()
     {
-        var text = Localizer.Current;
-        var running = controller.IsRunning;
-        ModelCard.Visibility = controller.ModelInstalled ? Visibility.Collapsed : Visibility.Visible;
-        EngineCard.Visibility = controller.TranslatorStatus == TranslatorStatus.EngineFailed ? Visibility.Visible : Visibility.Collapsed;
-        // Çevrimiçi motor çeviremiyor; satırlar bu arada cihaz üstü modelle geliyor.
-        var issue = running ? controller.OnlineIssue : null;
-        OnlineCard.Visibility = issue is null ? Visibility.Collapsed : Visibility.Visible;
-        if (issue is { } state)
-        {
-            var engine = controller.Settings.OnlineEngine;
-            OnlineTitle.Text = text.Format("%@ is not translating right now", engine.DisplayName());
-            OnlineReason.Text = state.Describe(engine, text, controller.Settings.LocalAiServer) + " " + text["Meanwhile the free translation is used."];
-        }
         // Ekranı çevir düğmesinin kısayolu ipucunda (Ayarlar › Kısayollar).
         ScreenButton.ToolTip = HotkeyText.Title(controller.Settings, HotkeyAction.Screen, "Translate the screen (%@)");
         ShowTvMeta();
@@ -251,8 +242,8 @@ public partial class MainView : UserControl
     }
 
     /// <summary>
-    /// Başlıkta oyunun adı (çeviri sürerken; bilinmiyorsa "Oyun tanınmadı" ve "Seç"), "Hangi Oyun?" kartı ve oyunun kayıtlı
-    /// alanları.
+    /// Başlıkta oyunun adı (çeviri sürerken; bilinmiyorsa "Oyun tanınmadı" ve "Seç") ve "Hangi oyunu oynuyorsun?" seçicisi
+    /// (oyunun kayıtlı alanları bildirim şeridinde).
     /// </summary>
     private void ShowGame()
     {
@@ -265,10 +256,12 @@ public partial class MainView : UserControl
         var wasAsking = GameAsk.Visibility == Visibility.Visible;
         GameAsk.Visibility = asking ? Visibility.Visible : Visibility.Collapsed;
         Body.Opacity = asking ? 0.4 : 1;
-        if (asking && !wasAsking) Theme.Motion.EnterFrom((FrameworkElement)GameAsk.Children[0], 12, Theme.Motion.Page);
-        if (asking) ShowGameSuggestions();
-        else GameSearch.Text = "";
-        ShowAreaProfile(asking);
+        if (asking && !wasAsking)
+        {
+            picker.Open();
+            Theme.Motion.EnterFrom(picker, 12, Theme.Motion.Page);
+        }
+        else if (asking) picker.Refresh();
         ShowTvMeta();
     }
 
@@ -336,108 +329,285 @@ public partial class MainView : UserControl
     // ───── Bildirimler ─────
 
     /// <summary>Önceki çalışma yerel bir hatayla kapandıysa bir kez bildirilir (sonraki açılışta yinelenmez).</summary>
-    private void OnCrashChanged() => Dispatcher.BeginInvoke(ShowCrash);
+    private void OnCrashChanged() => Dispatcher.BeginInvoke(ShowNotices);
 
-    private void ShowCrash()
-    {
-        var show = Services.CrashWatch.Pending is not null;
-        CrashCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        if (show) Services.CrashWatch.MarkShown();
-    }
+    private bool ocrInstalling;
 
-    private void OnShowCrash(object sender, RoutedEventArgs e) => Services.CrashWatch.ShowInExplorer();
-
-    private void OnCopyCrash(object sender, RoutedEventArgs e)
-    {
-        if (Services.CrashWatch.CopySummary()) CrashCopyButton.Content = Localizer.Current["Copied"];
-    }
-
-    private void OnDismissCrash(object sender, RoutedEventArgs e)
-    {
-        Services.CrashWatch.Dismiss();
-        ShowCrash();
-    }
-
-    /// <summary>Konsol ve TV bildirimleri yalnız yapılacak bir şey varken görünür.</summary>
+    /// <summary>
+    /// Bildirim şeridi: görünen bildirimler en önemlisi başta (Shell: <see cref="LiveNotices"/>; hata &gt; yapılacak &gt; bilgi).
+    /// Saniyede bir ve durum değişince; yapı aynıysa yalnız iletiler yenilenir. Hata bildirimi varken destek alanı gizlenir.
+    /// </summary>
     private void ShowNotices()
     {
-        ConsoleCard.Visibility = controller.NeedsXboxLink || controller.OffersReconnect ? Visibility.Visible : Visibility.Collapsed;
-        var tvNeedsWork = controller.ShowsOnTv && (controller.NeedsTv || controller.CanReconnectTv && controller.IsRunning || controller.ShowTvAppUpdate
-            || controller.CanReinstallTvApp || controller.ShowTvOpenHint || controller.ShowTestTvHint || controller.TvAppUpdating);
-        TvCard.Visibility = tvNeedsWork ? Visibility.Visible : Visibility.Collapsed;
-        DemoButton.Visibility = !controller.CanStart && !controller.IsRunning && !controller.DemoMode ? Visibility.Visible : Visibility.Collapsed;
+        var crash = Services.CrashWatch.Pending is not null;
+        var kinds = controller.Notices(crash);
+        if (crash && kinds.Contains(LiveNoticeKind.Crash)) Services.CrashWatch.MarkShown();
+        var free = controller.Settings.Engine == TranslationEngine.Free;
+        // Boş hâlde sarı "Çeviriyi başlat" varken şeritteki düğme çerçeveli kalır (ekranda tek sarı düğme).
+        Strip.PrimaryAllowed = controller.IsRunning || controller.DemoMode || !controller.CanStart;
+        Strip.Show([.. kinds.Select(kind => Describe(kind, LiveNotices.Level(kind, free)))]);
+        ShowSupport();
+    }
+
+    /// <summary>Bildirimin iletisi, tek eylemi ve ayrıntısı (eski kartların metinleri ve düğmeleri).</summary>
+    private NoticeItem Describe(LiveNoticeKind kind, LiveNoticeLevel level)
+    {
+        var text = Localizer.Current;
+        switch (kind)
+        {
+            case LiveNoticeKind.EngineFailed:
+                return new(kind, level, text["The free translation engine could not start on this computer."], "Motoru değiştir",
+                    () => ShellWindow.Navigate(ShellTab.Translation), Details(["Çeviri sekmesinden Gemini (ücretsiz) ya da DeepL seç."]));
+            case LiveNoticeKind.ModelMissing:
+                if (controller.ModelDownloading)
+                    return new(kind, level, string.Create(CultureInfo.InvariantCulture, $"Çeviri modeli iniyor · %{Math.Round(controller.ModelProgress * 100):0}"),
+                        Signature: "model-downloading");
+                return new(kind, level, text["The translation model is not downloaded yet."], text["Download the model"], controller.StartModelDownload,
+                    Details([level == LiveNoticeLevel.Blocking
+                        ? "Ücretsiz çeviri bu model olmadan çalışmaz. Model bir kez iner (yaklaşık 475 MB), sonra internetsiz çalışır."
+                        : "Seçili motor çeviremediğinde satırlar bu modelle çevrilir. Model bir kez iner (yaklaşık 475 MB)."]));
+            case LiveNoticeKind.OcrMissing:
+                return new(kind, level, text["Text recognition for the game language is not installed on this computer."], text["Install text recognition"],
+                    InstallOcr, Details([text["Without it Windows reads the subtitles with your system language and the translation turns into nonsense. Install it once; Windows asks for permission."]],
+                        (text["Open Language and Region"], OpenLanguageSettings)), ActionEnabled: !ocrInstalling);
+            case LiveNoticeKind.Console:
+                return controller.NeedsXboxLink
+                    ? new(kind, level, $"{controller.ConsoleTitle}: {controller.Ps5StatusText}", controller.XboxLinkTitle, controller.LinkXbox)
+                    : new(kind, level, $"{controller.ConsoleTitle}: {controller.Ps5StatusText}", text["Connect Again"], () => controller.Reconnect());
+            case LiveNoticeKind.PictureStopped:
+            {
+                var gap = controller.LastFrameAt is { } last ? (int)(DateTime.UtcNow - last).TotalSeconds : 0;
+                return new(kind, level, text.Format("The PS5 picture hasn't arrived for %lld seconds.", gap), text["Reconnect Now"], () => controller.Reconnect(),
+                    Details([text["The connection may have weakened. CouchSubs is trying to reconnect; if it doesn't, check that you're on the same Wi-Fi network as the PS5 and using 5 GHz."]],
+                        (text["Open the Connection Test"], () => ShellWindow.Navigate(SettingsGroup.Devices))), Signature: "picture");
+            }
+            case LiveNoticeKind.Tv:
+                return DescribeTv(kind, level);
+            case LiveNoticeKind.Firewall:
+                return DescribeFirewall(kind, level);
+            case LiveNoticeKind.OnlineEngine:
+            {
+                var engine = controller.Settings.OnlineEngine;
+                var reason = controller.OnlineIssue is { } issue ? issue.Describe(engine, text, controller.Settings.LocalAiServer) + " " : "";
+                return new(kind, level, text.Format("%@ is not translating right now", engine.DisplayName()), "Çeviri ayarları",
+                    () => ShellWindow.Navigate(ShellTab.Translation), Details([reason + text["Meanwhile the free translation is used."]]));
+            }
+            case LiveNoticeKind.SubtitlesOff:
+                return new(kind, level, text["Game Subtitles Off?"], text["Draw the Area Manually"], ShellWindow.EditAreas,
+                    Details([text["CouchSubs reads the English subtitles on screen, not the audio. Turn on the game's own subtitles."]]));
+            case LiveNoticeKind.AreaProfileOffer:
+                return new(kind, level, text.Format("Saved areas for %@ are available. Use them?", controller.OfferedAreaProfileGame ?? ""), text["Use"],
+                    controller.UseOfferedAreaProfile, DismissLabel: text["No"], Dismiss: controller.DeclineOfferedAreaProfile);
+            case LiveNoticeKind.MenuOpen:
+            {
+                var on = controller.Settings is { AutoScreenText: true, ScreenTextMenus: true };
+                return new(kind, level, text["A menu is open in the game; there's no subtitle."], on ? null : text["Translate Menus Too (On-Screen Text)"],
+                    on ? null : () => controller.Settings = controller.Settings with { AutoScreenText = true, ScreenTextMenus = true },
+                    Details([text["We don't translate the text in the pause menu. The subtitles come back by themselves when you return to the game."]]));
+            }
+            case LiveNoticeKind.Crash:
+                return new(kind, level, text["CouchSubs closed unexpectedly last time."], text["Show crash record"], Services.CrashWatch.ShowInExplorer,
+                    Details([text["A crash record was saved on this computer. It stays here and is never sent anywhere on its own; you can add it when you report the problem."]],
+                        (text["Copy summary"], () => Services.CrashWatch.CopySummary())),
+                    DismissLabel: text["Close"], Dismiss: () =>
+                    {
+                        Services.CrashWatch.Dismiss();
+                        ShowNotices();
+                    });
+            case LiveNoticeKind.AreaProfileActive:
+                return new(kind, level, text.Format("Using the saved areas for %@.", controller.AreaProfileGame ?? ""), text["Undo"], controller.UndoAreaProfile);
+            case LiveNoticeKind.GpuFallback:
+                return new(kind, level, text["GPU could not be used; free translation is running on CPU."]);
+            case LiveNoticeKind.MainAccountTip:
+                return new(kind, level, "Kol kapanmasın: PS5'te oyunu ana hesabınla başlat, oynarken hesap değiştirme.", Details: Details(
+                    [text["To play without the connection dropping: 1. On the PS5, start the game with your MAIN account first. 2. Then start translating. 3. Don't switch users during the game; when you turn on the controller, choose your MAIN account. Don't play with the second account CouchSubs signs in with, or the controller will turn off by itself or won't work in the game."]]));
+            case LiveNoticeKind.AutoScreenText:
+                return new(kind, level, text["Automatic on-screen text translation is experimental; you can turn it on in Settings."]);
+            default:
+                return new(kind, level, "Kurulum bitmedi. Konsol olmadan örnek görüntülerle deneyebilirsin.", text["Try demo mode (no console needed)"],
+                    StartDemo, ActionEnabled: !controller.IsStarting);
+        }
     }
 
     /// <summary>
-    /// "Sorun Var" (HomeProblem): görüntü durdu, menü açık ya da oyunun altyazısı kapalı; çözüm düğmeleri işi yapar ya da
-    /// ilgili ayarı açar.
+    /// TV: güncelleniyor (ilerleme kartı ayrıntıda açık), eşleşmedi, uygulaması eski, çeviri sürerken bağlı değil ya da son deneme
+    /// altyazısı gitmedi. Diğer TV düğmeleri (yeniden kur, bağlan, değiştir) ayrıntıda.
     /// </summary>
-    private void ShowProblem()
+    private NoticeItem DescribeTv(LiveNoticeKind kind, LiveNoticeLevel level)
     {
         var text = Localizer.Current;
-        var now = DateTime.UtcNow;
-        var kind = HomeProblem.For(controller.IsRunning, controller.DemoMode, controller.LastFrameAt is { } at ? now - at : null,
-            controller.ScreenMenuOpen, controller.ShowsSubtitleOffTip);
-        ProblemCard.Visibility = kind == HomeProblemKind.None ? Visibility.Collapsed : Visibility.Visible;
-        if (kind == HomeProblemKind.None)
-        {
-            shownProblem = kind;
-            return;
-        }
-        var lastLine = controller.History.FirstOrDefault()?.Date;
-        var silent = HomeProblem.SilentSeconds(now, lastLine, controller.SessionStartedAt ?? now);
-        SilentFor.Text = controller.IsRunning ? text.Format("%lld s silent", silent) : text["Issue"];
-        var pictureGap = controller.LastFrameAt is { } last ? (int)(now - last).TotalSeconds : 0;
-        switch (kind)
-        {
-            case HomeProblemKind.PictureStopped:
-                ProblemTitle.Text = text.Format("The PS5 picture hasn't arrived for %lld seconds.", pictureGap);
-                ProblemText.Text = text["The connection may have weakened. CouchSubs is trying to reconnect; if it doesn't, check that you're on the same Wi-Fi network as the PS5 and using 5 GHz."];
-                break;
-            case HomeProblemKind.MenuOpen:
-                ProblemTitle.Text = text["A menu is open in the game; there's no subtitle."];
-                ProblemText.Text = text["We don't translate the text in the pause menu. The subtitles come back by themselves when you return to the game."];
-                break;
-            default:
-                ProblemTitle.Text = text["Game Subtitles Off?"];
-                ProblemText.Text = text["CouchSubs reads the English subtitles on screen, not the audio. Turn on the game's own subtitles."];
-                break;
-        }
-        if (kind == shownProblem) return;
-        shownProblem = kind;
-        ProblemFixes.Children.Clear();
-        switch (kind)
-        {
-            case HomeProblemKind.PictureStopped:
-                AddFix(text["Reconnect Now"], primary: true, () => controller.Reconnect());
-                AddFix(text["Open the Connection Test"], primary: false, () => ShellWindow.Navigate(SettingsGroup.Devices));
-                break;
-            case HomeProblemKind.MenuOpen:
-                var on = controller.Settings is { AutoScreenText: true, ScreenTextMenus: true };
-                AddFix(text["Translate Menus Too (On-Screen Text)"] + (on ? " · " + text["Completed"] : ""), primary: !on,
-                    () => controller.Settings = controller.Settings with { AutoScreenText = true, ScreenTextMenus = true });
-                break;
-            default:
-                AddFix(text["Draw the Area Manually"], primary: false, ShellWindow.EditAreas);
-                break;
-        }
+        if (controller.TvAppUpdating)
+            return new(kind, level, controller.ShowTvAppUpdateDone ? "TV uygulaması güncel." : "TV uygulaması güncelleniyor…",
+                controller.ShowTvAppUpdateDone ? text["Close"] : null, controller.ShowTvAppUpdateDone ? controller.DismissTvAppUpdate : null,
+                () => new Steps.TvAppCard(), AutoExpand: true);
+        if (controller.NeedsTv)
+            return new(kind, level, "TV eşleşmedi; altyazı TV'ye gidemiyor.", text["Connect TV"], () => controller.RunSetupStep(OnboardingStep.Tv));
+        if (controller.ShowTvAppUpdate)
+            return new(kind, level, controller.TvStatusText, text["Update the TV App"], UpdateTvApp, TvDetails());
+        if (controller.ShowTvOpenHint)
+            return new(kind, level, controller.TvStatusText, text["Open the TV App"], controller.RetryTvOpen, TvDetails());
+        return new(kind, level, "Deneme altyazısı TV'ye gitmedi: TV uygulaması bağlı değil.", text["Connect TV"],
+            () => controller.RunSetupStep(OnboardingStep.Tv), TvDetails());
     }
 
-    private HomeProblemKind shownProblem;
-
-    /// <summary>Çözüm düğmesi; ilki sarı.</summary>
-    private void AddFix(string label, bool primary, Action run)
+    private Func<FrameworkElement> TvDetails() => () =>
     {
-        var button = new Button { Content = label, Margin = Sp.T("0", "0", "xs", "xs") };
-        button.SetResourceReference(StyleProperty, primary ? "PrimaryButton" : "OutlineButton");
-        button.Click += (_, _) =>
+        var text = Localizer.Current;
+        var lines = new List<string>();
+        if (controller.ShowTvOpenHint && controller.TvOpenHintText.Length > 0) lines.Add(controller.TvOpenHintText);
+        if (controller.HasTvOpenReason) lines.Add(controller.TvOpenReasonText);
+        if (controller.ShowTestTvHint)
+            lines.Add(text["The test subtitle did not reach the TV because the TV app is not connected. Open CouchSubs on the TV. If the TV shows a 6-digit code, don't type it anywhere: approve it in the “Pair this TV?” window that opens on this computer, then test again."]);
+        var buttons = new List<(string, Action)>();
+        if (controller.CanReinstallTvApp) buttons.Add((text["Reinstall the TV App"], UpdateTvApp));
+        if (controller.CanReconnectTv) buttons.Add((text["Connect TV"], () => controller.RunSetupStep(OnboardingStep.Tv)));
+        if (controller.CanChangeTv) buttons.Add((text["Change the TV"], () => controller.RunSetupStep(OnboardingStep.Tv)));
+        return Details([.. lines], [.. buttons])();
+    };
+
+    /// <summary>Güvenlik duvarı (FirewallCard ile aynı metinler): izin düğmesi yalnız sorulabilirken.</summary>
+    private NoticeItem DescribeFirewall(LiveNoticeKind kind, LiveNoticeLevel level)
+    {
+        var text = Localizer.Current;
+        var prompt = controller.FirewallPrompt;
+        var running = controller.IsRunning;
+        var headline = prompt == FirewallPrompt.Allowed
+            ? text["Local-network permission is ready for Private networks."]
+            : text["Windows Firewall may be blocking the connection."];
+        var hint = prompt switch
         {
-            run();
-            shownProblem = HomeProblemKind.None;
-            ShowProblem();
+            FirewallPrompt.PublicNetwork => text["Permission applies only to Private networks. If this is your trusted home network, set it to Private in Windows Settings."],
+            FirewallPrompt.Working => text["Waiting for Windows…"],
+            FirewallPrompt.Failed => text["Local-network permission could not be verified. Approve the Windows prompt, or review existing blocking rules in Windows Firewall."],
+            FirewallPrompt.Allowed when running => text["Reconnecting…"],
+            FirewallPrompt.Allowed => text["Open Pair Device again on the PS5 and enter the new code."],
+            _ when running && controller.IsXbox => text["CouchSubs needs Windows Firewall permission for incoming connections from the TV."],
+            _ when running => text["CouchSubs needs incoming connections from the PS5 and the TV. Windows asks for permission once."],
+            _ => text["Allow CouchSubs, then open Pair Device again on the PS5 and enter the new code."],
         };
-        ProblemFixes.Children.Add(button);
+        var canAllow = prompt is FirewallPrompt.Offer or FirewallPrompt.Failed or FirewallPrompt.Working;
+        return new(kind, level, headline, canAllow ? text["Allow CouchSubs through Windows Firewall"] : null,
+            canAllow ? AllowFirewall : null, Details([hint]), ActionEnabled: prompt != FirewallPrompt.Working);
     }
+
+    private async void AllowFirewall() => await controller.AllowThroughFirewallAsync();
+
+    /// <summary>Ayrıntı: açıklama satırları ve çerçeveli ek düğmeler.</summary>
+    private static Func<FrameworkElement> Details(string[] lines, params (string Label, Action Run)[] buttons) => () =>
+    {
+        var panel = new StackPanel { MaxWidth = 720, HorizontalAlignment = HorizontalAlignment.Left };
+        foreach (var line in lines.Where(line => !string.IsNullOrWhiteSpace(line)))
+        {
+            var block = new TextBlock { Text = line, Margin = Sp.T("0", "0", "0", "xs") };
+            block.SetResourceReference(StyleProperty, "HintText");
+            panel.Children.Add(block);
+        }
+        if (buttons.Length > 0)
+        {
+            var row = new WrapPanel { Margin = Sp.T("0", "xxs", "0", "0") };
+            foreach (var (label, run) in buttons)
+            {
+                var button = new Button { Content = label, MinHeight = 32, Margin = Sp.T("0", "0", "xs", "xs") };
+                button.SetResourceReference(StyleProperty, "OutlineButton");
+                button.Click += (_, _) => run();
+                row.Children.Add(button);
+            }
+            panel.Children.Add(row);
+        }
+        return panel;
+    };
+
+    // ───── Destek ─────
+
+    /// <summary>
+    /// Destek alanı (dökümün altında): yeterince satır çevrildiyse ve hata bildirimi yoksa; tek satır, çerçeveli düğme,
+    /// isteğe bağlı simge. Kapatılamaz. Metin sunucudan değişebilir (<see cref="SupportSlot"/>).
+    /// </summary>
+    private void ShowSupport()
+    {
+        var slot = controller.Support;
+        var visible = SupportSlot.Visible(controller.SupportLines, Strip.TopLevel == LiveNoticeLevel.Blocking);
+        SupportRow.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+        SupportText.Text = slot.Text;
+        SupportButton.Content = slot.Button;
+        SupportButton.ToolTip = slot.Link.Host + slot.Link.AbsolutePath.TrimEnd('/');
+        if (SupportIcon.Tag as string != slot.IconFile)
+        {
+            SupportIcon.Tag = slot.IconFile;
+            SupportIcon.Source = slot.IconFile is { } file ? LoadIcon(file) : null;
+        }
+        SupportIcon.Visibility = SupportIcon.Source is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnSupport(object sender, RoutedEventArgs e) => controller.OpenSupport();
+
+    private static System.Windows.Media.Imaging.BitmapSource? LoadIcon(string file)
+    {
+        try
+        {
+            if (!System.IO.File.Exists(file)) return null;
+            var image = new System.Windows.Media.Imaging.BitmapImage();
+            image.BeginInit();
+            image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth = 40;
+            image.UriSource = new Uri(file);
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception error) when (error is System.IO.IOException or NotSupportedException or UnauthorizedAccessException or ArgumentException
+                                          or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private async void StartDemo()
+    {
+        try { await controller.StartDemoAsync(); }
+        catch (Exception error)
+        {
+            StartupGuard.Log("Deneme modu başlatılamadı", error);
+            StartupGuard.Show(Application.Current, StartupGuard.ErrorMessage(error));
+        }
+    }
+
+    private async void UpdateTvApp() => await controller.UpdateTvAppAsync();
+
+    /// <summary>
+    /// Oyun dilinin Windows yazı tanıma paketini yönetici izniyle kurar (Add-WindowsCapability), sonra okumayı
+    /// yeni paketle yeniden başlatır.
+    /// </summary>
+    private async void InstallOcr()
+    {
+        var language = controller.Settings.SourceLanguage;
+        var script = $"Get-WindowsCapability -Online | Where-Object {{ $_.Name -like 'Language.OCR~~~{language}-*' -and $_.State -ne 'Installed' }} | Select-Object -First 1 | Add-WindowsCapability -Online";
+        ocrInstalling = true;
+        ShowNotices();
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -WindowStyle Hidden -Command \"{script}\"")
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden,
+            });
+            if (process is not null) await process.WaitForExitAsync();
+            if (!controller.IsRunning) return;
+            controller.StopForRestart();
+            await controller.StartAsync();
+        }
+        catch (System.ComponentModel.Win32Exception) { /* izin verilmedi */ }
+        finally
+        {
+            ocrInstalling = false;
+            ShowNotices();
+        }
+    }
+
+    private static void OpenLanguageSettings() =>
+        Process.Start(new ProcessStartInfo("ms-settings:regionlanguage") { UseShellExecute = true });
 
     private void OnTranslationSettings(object sender, RoutedEventArgs e) => ShellWindow.Navigate(ShellTab.Translation);
 
@@ -455,120 +625,7 @@ public partial class MainView : UserControl
         catch (Exception error) { StartupGuard.Log("Deneme altyazısı gönderilemedi", error); }
     }
 
-    /// <summary>TV'siz kurulmuş uygulamada TV'yi sonradan bağlamak ya da TV'yi değiştirmek için sihirbazın TV adımı açılır.</summary>
-    private void OnConnectTv(object sender, RoutedEventArgs e) => controller.RunSetupStep(OnboardingStep.Tv);
-
-    /// <summary>TV uygulaması bağlı değil: bekçi TV uygulamasını beklemeden yeniden açmaya çalışır.</summary>
-    private void OnRetryTvOpen(object sender, RoutedEventArgs e) => controller.RetryTvOpen();
-    private void OnLinkXbox(object sender, RoutedEventArgs e) => controller.LinkXbox();
-
-    private void OnReconnect(object sender, RoutedEventArgs e) => controller.Reconnect();
-
-    // "Yeniden kur" ve "Güncelle" ana ekranda kurar (kart TV bildiriminin altında açılır); TV adımına gidilmez.
-    private async void OnReinstallTvApp(object sender, RoutedEventArgs e) => await controller.UpdateTvAppAsync();
-
-    private async void OnUpdateTvApp(object sender, RoutedEventArgs e) => await controller.UpdateTvAppAsync();
-
-    private void OnDismissTvAppUpdate(object sender, RoutedEventArgs e) => controller.DismissTvAppUpdate();
-
-    private void OnDownload(object sender, RoutedEventArgs e) => controller.StartModelDownload();
-
-    /// <summary>
-    /// Oyun dilinin Windows yazı tanıma paketini yönetici izniyle kurar (Add-WindowsCapability), sonra okumayı
-    /// yeni paketle yeniden başlatır.
-    /// </summary>
-    private async void OnInstallOcr(object sender, RoutedEventArgs e)
-    {
-        var language = controller.Settings.SourceLanguage;
-        var script = $"Get-WindowsCapability -Online | Where-Object {{ $_.Name -like 'Language.OCR~~~{language}-*' -and $_.State -ne 'Installed' }} | Select-Object -First 1 | Add-WindowsCapability -Online";
-        InstallOcr.IsEnabled = false;
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -WindowStyle Hidden -Command \"{script}\"")
-            {
-                UseShellExecute = true,
-                Verb = "runas",
-                WindowStyle = ProcessWindowStyle.Hidden,
-            });
-            if (process is not null) await process.WaitForExitAsync();
-            if (!controller.IsRunning) return;
-            controller.StopForRestart();
-            await controller.StartAsync();
-        }
-        catch (System.ComponentModel.Win32Exception) { /* izin verilmedi */ }
-        finally { InstallOcr.IsEnabled = true; }
-    }
-
-    private void OnLanguageSettings(object sender, RoutedEventArgs e) =>
-        Process.Start(new ProcessStartInfo("ms-settings:regionlanguage") { UseShellExecute = true });
-
     // ───── Oyun ─────
 
-    /// <summary>
-    /// Oyunun kayıtlı alanları: uygulandıysa "X için kayıtlı alanlar kullanılıyor · Geri al"; oyun yalnız paketten
-    /// tanındıysa "X için kayıtlı alanlar var. Kullanılsın mı? · Kullan / Hayır" (Mac, iPhone ve Android ile aynı).
-    /// </summary>
-    private void ShowAreaProfile(bool asking)
-    {
-        var text = Localizer.Current;
-        var offered = controller.OfferedAreaProfileGame;
-        var active = controller.AreaProfileGame;
-        AreaProfileRow.Visibility = controller.IsRunning && !asking && (offered ?? active) is not null ? Visibility.Visible : Visibility.Collapsed;
-        AreaProfileUse.Visibility = AreaProfileNo.Visibility = offered is not null ? Visibility.Visible : Visibility.Collapsed;
-        AreaProfileUndo.Visibility = offered is null && active is not null ? Visibility.Visible : Visibility.Collapsed;
-        AreaProfileText.Text = offered is not null ? text.Format("Saved areas for %@ are available. Use them?", offered)
-            : active is not null ? text.Format("Using the saved areas for %@.", active) : "";
-    }
-
-    private void OnUseAreaProfile(object sender, RoutedEventArgs e) => controller.UseOfferedAreaProfile();
-    private void OnDeclineAreaProfile(object sender, RoutedEventArgs e) => controller.DeclineOfferedAreaProfile();
-    private void OnUndoAreaProfile(object sender, RoutedEventArgs e) => controller.UndoAreaProfile();
-
-    /// <summary>Kapak rafı: en çok beş öneri; paketi olan "Paket Var", son oynanan "Son Oynanan"; seçili oyun sarı halkalı.</summary>
-    private void ShowGameSuggestions()
-    {
-        var text = Localizer.Current;
-        var typed = GameSearch.Text.Trim();
-        GameSearchHint.Visibility = typed.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        var suggestions = controller.GameSuggestions(typed).Take(5).ToList();
-        var last = controller.LastPlayedGame;
-        var shelf = GameCatalog.PackShelf(controller.InstalledPacks);
-        var chosen = controller.PlayedGame is { } played ? GameName.Key(played) : null;
-        GameList.Children.Clear();
-        foreach (var name in suggestions)
-        {
-            var hasPack = shelf.Any(item => item.Titles.Append(item.Title).Any(title => GameName.Key(title) == GameName.Key(name)));
-            var status = hasPack ? text["Pack Available"] : name == last ? text["Last Played"] : null;
-            var cover = new GameCover(name, status, GameName.Key(name) == chosen) { Margin = GameList.Children.Count == 0 ? new Thickness(0) : Sp.T("s", "0", "0", "0") };
-            cover.Click += (_, _) => controller.ChooseGame(name);
-            GameList.Children.Add(cover);
-        }
-    }
-
-    /// <summary>Kapak rafı yatay kayar (kaydırma çubuğu gizli): fare tekerleği rafı yana kaydırır.</summary>
-    private void OnShelfWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
-    {
-        GameShelf.ScrollToHorizontalOffset(GameShelf.HorizontalOffset - e.Delta / 2.0);
-        e.Handled = true;
-    }
-
     private void OnChangeGame(object sender, RoutedEventArgs e) => controller.AskGame();
-
-    private void OnDontAskGame(object sender, RoutedEventArgs e) => controller.DismissGame();
-
-    private void OnGameSearch(object sender, TextChangedEventArgs e) => ShowGameSuggestions();
-
-    private void OnGameSearchKey(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key != System.Windows.Input.Key.Enter || GameSearch.Text.Trim() is not { Length: > 0 } typed) return;
-        controller.ChooseGame(typed);
-        e.Handled = true;
-    }
-
-    /// <summary>"Listede Yok": yazılan ad kullanılır; bir şey yazılmadıysa arama kutusuna odaklanılır.</summary>
-    private void OnCustomGame(object sender, RoutedEventArgs e)
-    {
-        if (GameSearch.Text.Trim() is { Length: > 0 } typed) controller.ChooseGame(typed);
-        else GameSearch.Focus();
-    }
 }

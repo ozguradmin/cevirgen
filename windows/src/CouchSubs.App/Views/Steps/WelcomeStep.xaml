@@ -51,9 +51,8 @@
         <Border BorderBrush="{DynamicResource borderBrush}" BorderThickness="1" Margin="{t:Sp '0,l,0,0'}">
             <UniformGrid x:Name="Options" Rows="1" AutomationProperties.Name="Platform" />
         </Border>
-        <!-- Anonim kullanım sayımı: ne gönderildiği açıkça yazılır, buradan kapatılabilir (Ayarlar › Uygulama › Gizlilik). -->
-        <Border x:Name="CountPanel" BorderBrush="{DynamicResource borderBrush}" BorderThickness="0,1,0,0" Margin="{t:Sp '0,m,0,0'}" Padding="{t:Sp '0,s,0,0'}">
-            <c:SwitchRow x:Name="AnonymousCount" Content="Anonim kullanım sayımı" Checked="OnAnonymousCount" Unchecked="OnAnonymousCount" />
-        </Border>
+        <!-- Anonim kullanım sayımı: ne gönderildiği düz yazıyla açıkça yazılır; anahtar yalnız Ayarlar › Uygulama › Gizlilik'te. -->
+        <TextBlock x:Name="CountNote" FontSize="13" Foreground="{DynamicResource mutedBrush}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
+                   Margin="{t:Sp '0,m,0,0'}" LineHeight="19" LineStackingStrategy="BlockLineHeight" />
     </StackPanel>
 </UserControl>
