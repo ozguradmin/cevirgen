@@ -35,6 +35,8 @@ public static class StoreKeys
     public const string ClaudeKey = "claudeKey";
     /// <summary>Yerel model sunucusunun (Ollama, LM Studio) isteğe bağlı anahtarı.</summary>
     public const string LocalAiKey = "localAIKey";
+    /// <summary>Çevirgen: "Özel (OpenAI uyumlu)" motorun isteğe bağlı anahtarı (OpenRouter, Groq, Together …).</summary>
+    public const string CustomAiKey = "customAIKey";
     /// <summary>Kurulum sihirbazı bitti. TV'siz kurulumda (altyazı bilgisayar ekranında) ana ekranı bu açar.</summary>
     public const string SetupComplete = "setupComplete";
     /// <summary>İkinci hesabın PS5 giriş şifresi (4 hane, isteğe bağlı); PS5 isterse oturum açılırken gönderilir.</summary>
@@ -113,7 +115,9 @@ public readonly record struct DisplayArea(string Name, ScreenArea Area);
 /// TranslationEngine ile aynı).
 /// </summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TranslationEngine>))]
-public enum TranslationEngine { Free, DeepL, Gemini, OpenAi, Claude, Local }
+/// <c>Custom</c> (Çevirgen): kullanıcının yazdığı herhangi bir OpenAI uyumlu /v1/chat/completions adresi (OpenRouter, Groq,
+/// Together, LM Studio, Ollama …); adres, model adı ve isteğe bağlı anahtar kullanıcıdan.
+public enum TranslationEngine { Free, DeepL, Gemini, OpenAi, Claude, Local, Custom }
 
 /// <summary>Windows'taki ücretsiz OPUS-MT çevirisinin çalışacağı aygıt.</summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TranslationDevice>))]
@@ -138,7 +142,8 @@ public static class TranslationEngines
         TranslationEngine.Gemini => AiProvider.Gemini,
         TranslationEngine.OpenAi => AiProvider.OpenAi,
         TranslationEngine.Claude => AiProvider.Claude,
-        TranslationEngine.Local => AiProvider.Local,
+        // Özel uç nokta yerel modelle aynı OpenAI uyumlu istemciyle konuşur (adresi ayrı).
+        TranslationEngine.Local or TranslationEngine.Custom => AiProvider.Local,
         _ => null,
     };
 
@@ -152,7 +157,11 @@ public static class TranslationEngines
 
     /// <summary>Hizmetin adı (marka adı; çevrilmez). Yerel modelin adı çevrilir.</summary>
     public static string DisplayName(this TranslationEngine engine) =>
-        engine == TranslationEngine.Local ? Localizer.Current["Local model"] : engine.Provider()?.DisplayName() ?? "DeepL";
+        engine == TranslationEngine.Custom ? "Özel (OpenAI uyumlu)"
+        : engine == TranslationEngine.Local ? Localizer.Current["Local model"] : engine.Provider()?.DisplayName() ?? "DeepL";
+
+    /// <summary>OpenAI uyumlu sunucuyla çalışan motor mu (yerel model ya da özel uç nokta).</summary>
+    public static bool UsesServer(this TranslationEngine engine) => engine is TranslationEngine.Local or TranslationEngine.Custom;
 
     /// <summary>
     /// Çevrimiçi motor hatasının kullanıcıya söylenişi (ayarlar ve ana ekran aynı metni kullanır; Mac ile aynı). Yerel
@@ -161,6 +170,7 @@ public static class TranslationEngines
     public static string Describe(this OnlineKeyState state, TranslationEngine engine, Localizer text, LocalAiServer? server = null)
     {
         if (state == OnlineKeyState.KeychainWriteFailed) return text["The API key could not be saved to this computer's secure storage."];
+        if (engine == TranslationEngine.Custom) return state.DescribeCustom(server);
         if (engine == TranslationEngine.Local) return state.DescribeLocal(server, text);
         var name = engine.DisplayName();
         return state switch
@@ -195,6 +205,21 @@ public static class TranslationEngines
         };
     }
 
+    /// <summary>Özel (OpenAI uyumlu) uç noktanın hatası: ne olduğu ve ne yapılacağı, Türkçe.</summary>
+    public static string DescribeCustom(this OnlineKeyState state, LocalAiServer? server)
+    {
+        var address = server?.Address ?? "adres";
+        return state switch
+        {
+            OnlineKeyState.Valid => "Çalışıyor.",
+            OnlineKeyState.Invalid => $"{address} anahtarı kabul etmedi. Anahtarı hizmetin sayfasından yeniden kopyala.",
+            OnlineKeyState.QuotaExceeded => $"{address} kotanın ya da bakiyenin bittiğini söyledi. Hesabını kontrol et.",
+            OnlineKeyState.ModelRejected => $"{address} \"{server?.Model}\" modelini tanımadı. Model adını hizmetin listesindeki gibi yaz.",
+            OnlineKeyState.Busy => $"{address} meşgul ya da zamanında yanıt vermedi. Biraz sonra yeniden dene.",
+            _ => $"{address} adresine ulaşılamadı. Adresi (…/v1 ile biten) ve internet bağlantını kontrol et.",
+        };
+    }
+
     /// <summary>Şifreli depodaki anahtar adı; ücretsiz motorda null.</summary>
     public static string? StoreKey(this TranslationEngine engine) => engine switch
     {
@@ -203,6 +228,7 @@ public static class TranslationEngines
         TranslationEngine.OpenAi => StoreKeys.OpenAiKey,
         TranslationEngine.Claude => StoreKeys.ClaudeKey,
         TranslationEngine.Local => StoreKeys.LocalAiKey,
+        TranslationEngine.Custom => StoreKeys.CustomAiKey,
         _ => null,
     };
 }
@@ -411,6 +437,12 @@ public sealed record UserSettings
     public string LocalAiBaseUrl { get; init; } = LocalAiServer.OllamaUrl;
     public string LocalAiModel { get; init; } = LocalAiServer.DefaultModel;
     /// <summary>
+    /// Çevirgen: "Özel (OpenAI uyumlu)" motorun temel adresi (ör. https://openrouter.ai/api/v1) ve model adı
+    /// (ör. google/gemma-3-27b-it). Eski ayar dosyalarında yoktur; boş açılır (motor kurulmamış sayılır).
+    /// </summary>
+    public string CustomAiBaseUrl { get; init; } = "";
+    public string CustomAiModel { get; init; } = "";
+    /// <summary>
     /// Ayarlardaki "Ek talimat" (#306): yapay zekâ çevirmeninin (Gemini, OpenAI, Claude, yerel model) sistem talimatının
     /// sonuna eklenir; boşsa hiçbir şey değişmez. Eski ayar dosyalarında yoktur, boş açılır.
     /// </summary>
@@ -495,6 +527,29 @@ public sealed record UserSettings
     /// <summary>Yerel model sunucusu; adres geçersizse null.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public LocalAiServer? LocalAiServer => CouchSubs.Core.LocalAiServer.Create(LocalAiBaseUrl, AiProvider.Local.Model(LocalAiModel).Id);
+
+    /// <summary>Özel uç nokta; adres ya da model adı boş veya geçersizse null. Şemasız adrese https eklenir (bulut hizmetleri).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public LocalAiServer? CustomAiServer => CouchSubs.Core.LocalAiServer.Create(CustomUrl(CustomAiBaseUrl), CustomAiModel);
+
+    /// <summary>Kullanıcının yazdığı özel adres: şema yoksa https (localhost ve yerel ağ adreslerinde http).</summary>
+    public static string CustomUrl(string? text)
+    {
+        text = text?.Trim() ?? "";
+        if (text.Length == 0 || text.Contains("://", StringComparison.Ordinal)) return text;
+        var host = text.Split('/', ':')[0].ToLowerInvariant();
+        var local = host is "localhost" || host.StartsWith("127.", StringComparison.Ordinal) || host.StartsWith("192.168.", StringComparison.Ordinal)
+                    || host.StartsWith("10.", StringComparison.Ordinal) || host.EndsWith(".local", StringComparison.Ordinal);
+        return (local ? "http://" : "https://") + text;
+    }
+
+    /// <summary>Motorun OpenAI uyumlu sunucusu (yerel model ya da özel uç nokta); başka motorlarda null.</summary>
+    public LocalAiServer? ServerFor(TranslationEngine engine) => engine switch
+    {
+        TranslationEngine.Local => LocalAiServer,
+        TranslationEngine.Custom => CustomAiServer,
+        _ => null,
+    };
 
     /// <summary>Listede olmayan kayıtlı modeller (eski ayar ya da listeden çıkarılan model) varsayılana döner.</summary>
     public UserSettings WithCuratedModels() => Enum.GetValues<AiProvider>()
@@ -789,6 +844,9 @@ public interface ITranslationModel
     bool IsInstalled(string source, string target);
     Task DownloadAsync(string source, string target, IProgress<double> progress, CancellationToken cancellationToken);
     ITextTranslator Create(string source, string target);
+
+    /// <summary>Çevirgen: modelin indirme boyu (bayt; bilinmiyorsa 0). Kör testteki "Modeli indir · 475 MB" düğmesi.</summary>
+    long DownloadBytes => 0;
 
     /// <summary>İstenen GPU kullanılamayınca CPU'ya geçildiğinde bildirilir.</summary>
     event Action? GpuFallback { add { } remove { } }

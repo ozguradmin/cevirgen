@@ -10,6 +10,10 @@ namespace CouchSubs.Shell;
 public static class UpdateChannel
 {
     public const string Repository = "https://github.com/ozguradmin/cevirgen";
+    /// <summary>Kaynak kodu ve sürümler (Ayarlar › Uygulama).</summary>
+    public static readonly Uri RepositoryPage = new(Repository);
+    /// <summary>Sorun bildirme sayfası (Ayarlar › Uygulama; hata iletileri).</summary>
+    public static readonly Uri IssuesPage = new(Repository + "/issues");
     public const string LatestReleaseApi = "https://api.github.com/repos/ozguradmin/cevirgen/releases/latest";
     public const string ReleaseTagApi = "https://api.github.com/repos/ozguradmin/cevirgen/releases/tags/";
     public const bool Prerelease = false;

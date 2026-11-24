@@ -5,7 +5,7 @@ using CouchSubs.Core;
 
 namespace CouchSubs.Shell;
 
-/// <summary>Kör testin bir sütunu: motor ve kullanılabilir mi (bulut motorunda anahtar kayıtlı, yerel sunucuda adres geçerli).</summary>
+/// <summary>Kör testin bir sütunu: motor ve kullanılabilir mi (kör teste yalnız hazır motorlar girer; Ready hep true).</summary>
 public sealed record BlindTestColumn(TranslationEngine Engine, bool Ready);
 
 /// <summary>Bir motorun kör test çevirileri: satır başına çeviri (çevrilemeyen satır null), ortalama süre ve hata.</summary>
@@ -35,31 +35,30 @@ public static class BlindTest
     /// <summary>En çok bu kadar motor karşılaştırılır.</summary>
     public const int MaxColumns = 3;
 
-    /// <summary>Anahtarı olmayan sütunlar için önerilen motorlar, sırayla (ücretsiz kotası olanlar önce).</summary>
-    private static readonly TranslationEngine[] Suggested =
-        [TranslationEngine.Gemini, TranslationEngine.DeepL, TranslationEngine.OpenAi, TranslationEngine.Claude];
+    /// <summary>Hazır motorların sırası (seçili motor her zaman önce gelir).</summary>
+    private static readonly TranslationEngine[] Preferred =
+        [TranslationEngine.Gemini, TranslationEngine.DeepL, TranslationEngine.OpenAi, TranslationEngine.Claude, TranslationEngine.Custom, TranslationEngine.Local];
 
     /// <summary>
-    /// Sütunlar (henüz karıştırılmamış): ücretsiz yerel model hep; sonra kullanılabilen motorlar (seçili motor önce, sonra
-    /// Gemini, DeepL, OpenAI, Claude, yerel sunucu); üçe tamamlamak için anahtarı olmayan motorlar ("anahtar gerekli").
+    /// Sütunlar (henüz karıştırılmamış): yalnız hazır motorlar. Ücretsiz yerel model indiyse ilk; sonra seçili motor, sonra
+    /// Gemini, DeepL, OpenAI, Claude, özel uç nokta, yerel sunucu; en çok üç. Hazır olmayan motor sütun olmaz (eskiden bütün
+    /// satırları "çevrilemedi" olan sütunlar çıkıyordu); onların kurulumu motor listesindedir.
     /// </summary>
-    public static IReadOnlyList<BlindTestColumn> Columns(TranslationEngine selected, Func<TranslationEngine, bool> ready)
+    public static IReadOnlyList<BlindTestColumn> Columns(TranslationEngine selected, Func<TranslationEngine, bool> ready, bool freeReady = true)
     {
-        var columns = new List<BlindTestColumn> { new(TranslationEngine.Free, true) };
-        IEnumerable<TranslationEngine> order = [selected, .. Suggested, TranslationEngine.Local];
+        var columns = new List<BlindTestColumn>();
+        if (freeReady) columns.Add(new BlindTestColumn(TranslationEngine.Free, true));
+        IEnumerable<TranslationEngine> order = [selected, .. Preferred];
         foreach (var engine in order.Distinct())
         {
             if (columns.Count == MaxColumns) break;
-            if (engine != TranslationEngine.Free && columns.All(column => column.Engine != engine) && ready(engine))
-                columns.Add(new BlindTestColumn(engine, true));
-        }
-        foreach (var engine in Suggested)
-        {
-            if (columns.Count == MaxColumns) break;
-            if (columns.All(column => column.Engine != engine)) columns.Add(new BlindTestColumn(engine, false));
+            if (engine != TranslationEngine.Free && ready(engine)) columns.Add(new BlindTestColumn(engine, true));
         }
         return columns;
     }
+
+    /// <summary>Karşılaştırma için en az iki hazır motor gerekir.</summary>
+    public static bool CanCompare(IReadOnlyList<BlindTestColumn> columns) => columns.Count >= 2;
 
     /// <summary>Sütunların sırası karıştırılır (sınama için tohumlu rastgele).</summary>
     public static IReadOnlyList<BlindTestColumn> Shuffle(IReadOnlyList<BlindTestColumn> columns, Random random)
@@ -84,6 +83,7 @@ public static class BlindTest
         TranslationEngine.DeepL => "DeepL",
         TranslationEngine.OpenAi => "OpenAI",
         TranslationEngine.Claude => "Anthropic Claude",
+        TranslationEngine.Custom => "Özel (OpenAI uyumlu)",
         _ => "Yerel yapay zekâ sunucusu",
     };
 
@@ -95,6 +95,7 @@ public static class BlindTest
         TranslationEngine.DeepL => "ayda 500.000 karakter ücretsiz",
         TranslationEngine.OpenAi => "ücretli · kendi anahtarın",
         TranslationEngine.Claude => "ücretli · kendi anahtarın",
+        TranslationEngine.Custom => "OpenRouter, Groq, Together, LM Studio …",
         _ => "ücretsiz · kendi bilgisayarında",
     };
 

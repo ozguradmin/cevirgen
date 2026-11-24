@@ -12,7 +12,8 @@ public sealed class Ct2ModelStore
 {
     private const string ArchiveName = "opus-mt-en-tr.zip";
     private const string ArchiveUrl = "https://huggingface.co/Unbakedcookie/live-translator-models/resolve/50473df5681764ebdef107dd78f7d21da66c28a7/opus-mt-en-tr.zip";
-    private const long ArchiveSize = 474_595_937;
+    /// <summary>İndirilen arşivin boyu (bayt).</summary>
+    public const long ArchiveSize = 474_595_937;
     private const string ArchiveSha = "acabcdc3becfbf4d740c3012d6dc4e8a1ba6ed41a62a125c37f6c228667ff9b9";
     private static readonly string[] Required = ["model.bin", "config.json", ModelStore.SourceSpmFile, ModelStore.VocabFile];
     private readonly ModelStore archive;

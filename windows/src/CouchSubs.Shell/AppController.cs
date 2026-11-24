@@ -609,7 +609,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         get => isRunning;
         private set
         {
-            if (Set(ref isRunning, value, [nameof(Ps5StatusText), nameof(Ps5Tone), nameof(TvTone), nameof(ShowsMainAccountTip), nameof(ShowTvOpenHint)]))
+            if (Set(ref isRunning, value, [nameof(Ps5StatusText), nameof(Ps5Tone), nameof(TvTone), nameof(TvStatusText), nameof(SourceState), nameof(TvState), nameof(EngineState), nameof(ShowsMainAccountTip), nameof(ShowTvOpenHint)]))
                 RunningChangedForCount();
         }
     }
@@ -705,7 +705,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     public StatusTone TvTone => !HasTv ? StatusTone.Idle : tvAppOutdated is not null ? StatusTone.Warning : TvToneFor(tvClients, isRunning);
     public string TvStatusText => !HasTv ? text["Not set up"]
         : tvAppOutdated is { } outdated ? text.Format("TV app is out of date (%@ → %@)", outdated.Installed, outdated.Bundled)
-        : tvClients > 0 ? text["Connected"] : tvReconnecting ? text["Reconnecting…"] : text["Waiting for the TV app"];
+        : tvClients > 0 ? text["Connected"] : tvReconnecting ? text["Reconnecting…"]
+        // Çevirgen: çeviri durmuşken TV uygulaması beklenmez (çeviri başlayınca açılır); "bekleniyor" yalnız çeviri sürerken.
+        : !isRunning ? "Eşleşti · çeviri başlayınca TV'de açılır" : text["Waiting for the TV app"];
 
     /// <summary>
     /// TV bağlantısı çeviri sürerken koptu (TV alındı göndermeyi bıraktı ya da bağlantı kapandı): TV durumu "Bağlı" ya da
@@ -893,6 +895,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                                      || old.OpenAiModel != value.OpenAiModel
                                      || old.ClaudeModel != value.ClaudeModel
                                      || old.LocalAiBaseUrl != value.LocalAiBaseUrl || old.LocalAiModel != value.LocalAiModel
+                                     || old.CustomAiBaseUrl != value.CustomAiBaseUrl || old.CustomAiModel != value.CustomAiModel
                                      || old.AiInstruction != value.AiInstruction
                                      || old.TranslationDevice != value.TranslationDevice
                                      || old.CpuTranslationThreads != value.CpuTranslationThreads;
@@ -2147,7 +2150,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private void ShowScreenFailure(Exception error, ITextTranslator? translator)
     {
         server.Clear();
-        var reason = ScreenFailureReason(error, translator, settings.OnlineEngine, text, settings.LocalAiServer);
+        var reason = ScreenFailureReason(error, translator, settings.OnlineEngine, text, settings.ServerFor(settings.OnlineEngine));
         server.SendSubtitle(text.Format("Couldn't translate the screen: %@", reason), 6000);
     }
 
@@ -3662,9 +3665,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         // eşleşen paket değil, yoksa tek bir ortak satır adı başka oyuna geçirirdi (#27). Oyun bilinmiyorsa ad gitmez.
         Func<string?> game = () => gameSense.Current?.Name;
         ITextTranslator? online;
-        if (engine == TranslationEngine.Local && settings.LocalAiServer is { } server)
+        if (engine.UsesServer() && settings.ServerFor(engine) is { } server)
         {
-            // Yerel modelin anahtarı isteğe bağlıdır; önbellekte sunucu ve model ayrı tutulur.
+            // Yerel modelin ve özel uç noktanın anahtarı isteğe bağlıdır; önbellekte sunucu ve model ayrı tutulur.
             online = services.MakeLocalAiTranslator(server, store.Load<string>(storeKey) ?? "", fallback, game, AiInstructionWithGlossary);
         }
         else
@@ -3711,7 +3714,15 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     /// geçerli olmalıdır. Sunucu kapalıysa satırlar ücretsiz çeviriyle gelir ve ana ekranda uyarı çıkar.
     /// </summary>
     public bool IsReady(TranslationEngine engine) =>
-        engine == TranslationEngine.Local ? settings.LocalAiServer is not null : HasKey(engine);
+        engine.UsesServer() ? settings.ServerFor(engine) is not null : HasKey(engine);
+
+    /// <summary>
+    /// Kör testte sütun olabilir mi: anahtarı kayıtlı bulut motoru, adresi ve modeli yazılmış özel uç nokta. Yerel model
+    /// (Ollama) varsayılan adresle her zaman "ayarlı" görünür; kör teste yalnız kullanıcı seçtiyse girer (yoksa sunucusu
+    /// olmayan bilgisayarda bütün satırları "çevrilemedi" olan bir sütun çıkıyordu).
+    /// </summary>
+    public bool IsComparable(TranslationEngine engine) =>
+        engine == TranslationEngine.Local ? settings.Engine == engine && IsReady(engine) : IsReady(engine);
 
     /// <summary>Bu motorun anahtarı kayıtlı mı (anahtarın kendisi arayüze hiç dönmez).</summary>
     public bool HasKey(TranslationEngine engine) => engine.StoreKey() is { } storeKey && store.Load<string>(storeKey) is { Length: > 0 };
@@ -3769,14 +3780,28 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     /// yoksa kayıtlı anahtar kullanılır; yazılan anahtar sunucu kabul ettiyse şifreli depoya yazılır. Adres geçersizse
     /// sunucuya ulaşılamadı sayılır.
     /// </summary>
-    public async Task<AiTestResult> TestLocalAiAsync(string typed = "")
+    public Task<AiTestResult> TestLocalAiAsync(string typed = "") => TestServerAsync(TranslationEngine.Local, typed);
+
+    /// <summary>
+    /// Çevirgen: "Özel (OpenAI uyumlu)" motorun "Bağlantıyı dene"si: adrese örnek satır gönderilir. Çalışırsa (yazıldıysa)
+    /// anahtar şifreli depoya yazılır ve motor seçilir. Adres ya da model boşsa ulaşılamadı sayılır.
+    /// </summary>
+    public async Task<AiTestResult> TestCustomAiAsync(string typed = "")
     {
-        if (settings.LocalAiServer is not { } server) return new AiTestResult(OnlineKeyState.Unreachable);
+        var result = await TestServerAsync(TranslationEngine.Custom, typed);
+        SubtitleLog.Write($"özel motor denemesi: {settings.CustomAiServer?.Address ?? "adres yok"} {result.State}");
+        if (result.State == OnlineKeyState.Valid && settings.Engine != TranslationEngine.Custom) UseEngine(TranslationEngine.Custom);
+        return result;
+    }
+
+    private async Task<AiTestResult> TestServerAsync(TranslationEngine engine, string typed)
+    {
+        if (settings.ServerFor(engine) is not { } server || engine.StoreKey() is not { } storeKey) return new AiTestResult(OnlineKeyState.Unreachable);
         typed = typed.Trim();
-        var key = typed.Length > 0 ? typed : store.Load<string>(StoreKeys.LocalAiKey) ?? "";
+        var key = typed.Length > 0 ? typed : store.Load<string>(storeKey) ?? "";
         var result = await services.TestLocalAiAsync(server, key);
         if (typed.Length > 0 && result.State is OnlineKeyState.Valid or OnlineKeyState.QuotaExceeded or OnlineKeyState.ModelRejected or OnlineKeyState.Busy
-            && !SaveKey(TranslationEngine.Local, typed))
+            && !SaveKey(engine, typed))
             return new AiTestResult(OnlineKeyState.KeychainWriteFailed);
         return result;
     }
@@ -3785,7 +3810,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     {
         if (engine.StoreKey() is not { } storeKey) return;
         store.Remove(storeKey);
-        if (engine == TranslationEngine.Local)
+        if (engine.UsesServer())
         {
             // Yerel modelin anahtarı isteğe bağlıdır: anahtarsız çeviri sürer, hat anahtarsız yeniden kurulur.
             if (settings.Engine == engine && isRunning) MakePipeline();

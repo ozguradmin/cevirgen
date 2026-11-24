@@ -148,19 +148,24 @@ public sealed class CevirgenScreensTests
     // ───── Çeviri: kör test ─────
 
     [Fact]
-    public void BlindTestAlwaysHasTheFreeModelAndThreeColumns()
+    public void BlindTestHasOnlyReadyEnginesAtMostThree()
     {
+        // Yalnız ücretsiz model hazır: karşılaştırılacak ikinci motor yok (sütun "anahtar gerekli" ile doldurulmaz).
         var none = BlindTest.Columns(TranslationEngine.Free, _ => false);
-        Assert.Equal([TranslationEngine.Free, TranslationEngine.Gemini, TranslationEngine.DeepL], none.Select(c => c.Engine));
-        Assert.Equal([true, false, false], none.Select(c => c.Ready));
+        Assert.Equal([TranslationEngine.Free], none.Select(c => c.Engine));
+        Assert.False(BlindTest.CanCompare(none));
 
         var claude = BlindTest.Columns(TranslationEngine.Claude, engine => engine is TranslationEngine.Claude or TranslationEngine.DeepL);
         Assert.Equal([TranslationEngine.Free, TranslationEngine.Claude, TranslationEngine.DeepL], claude.Select(c => c.Engine));
         Assert.All(claude, column => Assert.True(column.Ready));
+        Assert.True(BlindTest.CanCompare(claude));
 
         var one = BlindTest.Columns(TranslationEngine.Free, engine => engine == TranslationEngine.OpenAi);
-        Assert.Equal([TranslationEngine.Free, TranslationEngine.OpenAi, TranslationEngine.Gemini], one.Select(c => c.Engine));
-        Assert.Equal([true, true, false], one.Select(c => c.Ready));
+        Assert.Equal([TranslationEngine.Free, TranslationEngine.OpenAi], one.Select(c => c.Engine));
+
+        // Ücretsiz model inmediyse sütun olmaz; seçili motor önce gelir; en çok üç.
+        var noFree = BlindTest.Columns(TranslationEngine.Custom, _ => true, freeReady: false);
+        Assert.Equal([TranslationEngine.Custom, TranslationEngine.Gemini, TranslationEngine.DeepL], noFree.Select(c => c.Engine));
 
         Assert.Equal(5, BlindTest.Lines.Count);
         Assert.Equal(["Motor A", "Motor B", "Motor C"], Enumerable.Range(0, 3).Select(BlindTest.HiddenName));

@@ -88,6 +88,7 @@ public static class LiveTranscript
         TranslationEngine.OpenAi => "OpenAI",
         TranslationEngine.Claude => "Claude",
         TranslationEngine.Local => "yerel model",
+        TranslationEngine.Custom => "özel motor",
         _ => "ücretsiz",
     };
 
