@@ -16,7 +16,9 @@ public sealed record PreviewAnchor(double? Bottom, double? Top, double? Center, 
 /// <summary>
 /// Çevirgen: Canlı ekrandaki TV önizlemesinin altyazı yerleşimi. TV uygulamasının (tv-webos/app.js › layout, applyStyle,
 /// outlineShadow) kurallarının aynısı, 1920 × 1080 TV ekranından önizlemenin genişliğine ölçeklenir: yazı boyu
-/// <c>FontSize × genişlik / 1920</c>; üst satırlar %80; kenarlık max(2, yazı/16) px. Arayüzden bağımsızdır; test edilir.
+/// <c>FontSize × genişlik / 1920</c>; üst satırlar %80; kenarlık <see cref="SubtitleStyle.OutlineWidth"/> TV pikseli.
+/// Oyun karesi de aynı genişliğe sığdırılır (<see cref="FrameRect"/>): karedeki İngilizce ile Türkçe arasındaki oran TV'deki
+/// gibidir. Arayüzden bağımsızdır; test edilir.
 /// </summary>
 public static class LivePreviewLayout
 {
@@ -34,13 +36,35 @@ public static class LivePreviewLayout
     public static double FontPx(SubtitleStyle style, double previewWidth, bool current = true) =>
         OverlayPlacement.FontSize(style.FontSize) * Scale(previewWidth) * (current ? 1 : 0.8);
 
-    /// <summary>Yazı kenarlığının kalınlığı (px): TV'de max(2, round(yazı/16)) TV pikseli, önizlemeye ölçekli; kapalıysa 0.</summary>
+    /// <summary>
+    /// Yazı kenarlığının kalınlığı (px): ayardaki kalınlık (TV pikseli, <see cref="SubtitleStyle.OutlinePx"/>), önizlemeye
+    /// ölçekli; üstteki küçük satırlarda TV'deki gibi max(1, round(k × 0,8)). Kapalıysa 0.
+    /// </summary>
     public static double OutlinePx(SubtitleStyle style, double previewWidth, bool current = true)
     {
-        if (!style.Outline) return 0;
-        var tvFont = OverlayPlacement.FontSize(style.FontSize) * (current ? 1 : 0.8);
-        return Math.Max(2, Math.Round(tvFont / 16)) * Scale(previewWidth);
+        var width = style.OutlinePx;
+        if (width <= 0) return 0;
+        var tv = current ? width : Math.Max(1, Math.Round(width * 0.8, MidpointRounding.AwayFromZero));
+        return tv * Scale(previewWidth);
     }
+
+    /// <summary>
+    /// Oyun karesinin önizlemedeki yeri: kare (<paramref name="frameWidth"/> × <paramref name="frameHeight"/> piksel) oranı
+    /// korunarak önizlemeye sığdırılır ve ortalanır (16:9 olmayan pencere karesinde yanlarda ya da üstte boşluk kalır;
+    /// TV de böyle gösterir). Kare yoksa bütün önizleme. Türkçe satırlar bu alanın genişliğine göre ölçeklenir.
+    /// </summary>
+    public static (double X, double Y, double Width, double Height) FrameRect(int frameWidth, int frameHeight, double previewWidth, double previewHeight)
+    {
+        if (frameWidth <= 0 || frameHeight <= 0 || previewWidth <= 0 || previewHeight <= 0) return (0, 0, Math.Max(0, previewWidth), Math.Max(0, previewHeight));
+        var scale = Math.Min(previewWidth / frameWidth, previewHeight / frameHeight);
+        var width = frameWidth * scale;
+        var height = frameHeight * scale;
+        return ((previewWidth - width) / 2, (previewHeight - height) / 2, width, height);
+    }
+
+    /// <summary>Karedeki bir pikselin önizlemedeki boyu (kare → önizleme); kare yoksa 0.</summary>
+    public static double FrameScale(int frameWidth, int frameHeight, double previewWidth, double previewHeight) =>
+        frameWidth <= 0 || frameHeight <= 0 ? 0 : FrameRect(frameWidth, frameHeight, previewWidth, previewHeight).Width / frameWidth;
 
     /// <summary>Zeminin saydamlığı (0–1; ayardaki koyuluk %).</summary>
     public static double BackgroundAlpha(SubtitleStyle style) => Math.Clamp(style.Background, 0, 100) / 100.0;
@@ -86,8 +110,8 @@ public static class LivePreviewLayout
             _ => "sabit yerde",
         };
         var parts = new List<string> { place, string.Create(CultureInfo.InvariantCulture, $"{OverlayPlacement.FontSize(style.FontSize):0} px") };
-        if (style.Outline)
-            parts.Add(string.Create(CultureInfo.InvariantCulture, $"kenarlık {Math.Max(2, Math.Round(OverlayPlacement.FontSize(style.FontSize) / 16)):0} px"));
+        if (style.OutlinePx > 0)
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"kenarlık {style.OutlinePx} px"));
         if (style.Background > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"zemin %{Math.Clamp(style.Background, 0, 100)}"));
         return string.Join(" · ", parts);
     }

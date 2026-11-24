@@ -140,9 +140,11 @@ public sealed partial class AppController
     /// iki dilli (her ipucunda İngilizce, sonra Türkçe). Zamanlar satırların gerçek ekrana geliş/kalkış anlarıdır,
     /// oturumun başına göre. Yazılan ipucu sayısını döner; dosya yazılamazsa IOException/UnauthorizedAccessException atar.
     /// </summary>
-    public int ExportSrt(string path, SrtExport.Kind kind = SrtExport.Kind.Turkish)
+    /// <param name="session">Geçmiş ekranında seçilen oturum (zamanlar onun başına göre); verilmezse son oturum.</param>
+    public int ExportSrt(string path, SrtExport.Kind kind = SrtExport.Kind.Turkish, HistorySession? session = null)
     {
-        var count = SrtExport.Write(path, SessionHistory, kind, sessionStartedAt);
+        var count = session is { } chosen ? SrtExport.Write(path, chosen.Entries, kind, chosen.Origin)
+            : SrtExport.Write(path, SessionHistory, kind, sessionStartedAt);
         SubtitleLog.Write($"SRT yazıldı ({(kind == SrtExport.Kind.Bilingual ? "iki dilli" : "Türkçe")}): {count} satır");
         return count;
     }
