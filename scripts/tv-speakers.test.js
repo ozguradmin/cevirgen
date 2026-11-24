@@ -10,7 +10,7 @@ const vm = require('node:vm');
 
 const sources = {
   tv: path.join(__dirname, '..', 'tv-webos', 'app.js'),
-  obs: path.join(__dirname, '..', 'core', 'Sources', 'CouchSubsCore', 'Resources', 'obs-overlay.html'),
+  obs: path.join(__dirname, '..', 'shared', 'resources', 'obs-overlay.html'),
 };
 
 // En küçük sahte DOM: paintSpeakers yalnız metin düğümü ve span ekler.

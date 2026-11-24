@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// OBS katmanının (core/Sources/CouchSubsCore/Resources/obs-overlay.html) gerçek Chromium yerleşimi.
+// OBS katmanının (shared/resources/obs-overlay.html) gerçek Chromium yerleşimi.
 // node --test scripts/obs-overlay.test.js — tarayıcı yolu: COUCHSUBS_TEST_BROWSER; ağ ve uygulama bağlantısı yok
 // (EventSource sahte, olaylar test içinden verilir).
 'use strict';
@@ -10,7 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
-const overlay = path.join(__dirname, '..', 'core', 'Sources', 'CouchSubsCore', 'Resources', 'obs-overlay.html');
+const overlay = path.join(__dirname, '..', 'shared', 'resources', 'obs-overlay.html');
 const browser = [process.env.COUCHSUBS_TEST_BROWSER, process.env.CHROME_BIN,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',

@@ -128,7 +128,7 @@ jobs:
         run: cmake --build build/native
 
       - name: Yerel testler
-        run: build/native/couchsubs_native_test.exe remoteplay/Tests/RemotePlayTests/Fixtures/sample-1080p.h264
+        run: build/native/couchsubs_native_test.exe windows/native/tests/sample-1080p.h264
 
       # Çökme kaydı (GitHub #587): kasıtlı erişim ihlalinde metin özeti ve küçük döküm yazılıyor mu. Türler: 0 çağıran iş
       # parçacığında geçersiz adrese yazma, 1 yerel iş parçacığında aynısı, 2 bırakılmış belleğe atlama (adres hiçbir

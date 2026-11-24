@@ -21,7 +21,7 @@ namespace CouchSubs.Core;
 /// iki sözcük) düşük güvenle de atılmaz; bu oturumda kesin altyazı okunan yükseklikteki blok
 /// (<see cref="SubtitleBand"/>) yalnız eğikse atılır. Atılan bloğun nedeni altyazı günlüğüne yazılır
 /// (<see cref="Reason"/>). Mac/iPhone (SceneText.swift) ve Android (SceneText.kt) aynı kuralları ve eşikleri uygular;
-/// ortak deneme dosyası core/Tests/CouchSubsCoreTests/Fixtures/scene-text.json.
+/// ortak deneme dosyası shared/fixtures/scene-text.json.
 /// </summary>
 public static class SceneText
 {

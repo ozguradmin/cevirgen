@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// İkinci ekran sayfasının (core/Sources/CouchSubsCore/Resources/second-screen.html) uçtan uca denemesi: gerçek
+// İkinci ekran sayfasının (shared/resources/second-screen.html) uçtan uca denemesi: gerçek
 // Chromium, sayfayı yerel bir HTTP sunucusundan anahtarlı adresle açar, /events akışından (SSE) gelen altyazıyı çizer.
 // node --test scripts/second-screen.test.js — tarayıcı yolu: COUCHSUBS_TEST_BROWSER; yalnız 127.0.0.1, internet yok.
 'use strict';
@@ -10,7 +10,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const page = path.join(__dirname, '..', 'core', 'Sources', 'CouchSubsCore', 'Resources', 'second-screen.html');
+const page = path.join(__dirname, '..', 'shared', 'resources', 'second-screen.html');
 const browser = [process.env.COUCHSUBS_TEST_BROWSER, process.env.CHROME_BIN,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',

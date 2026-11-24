@@ -11,7 +11,7 @@ namespace CouchSubs.Core;
 /// "Günlüğü Kopyala" (üst çubuk ve hata kutuları): %LOCALAPPDATA%\CouchSubs içindeki güncel günlükler (altyazi.log,
 /// remoteplay.log, tvinstall.log, hata.log ve diğer .log dosyaları, varsa .1 yedekleri) maskelenerek tek zip'e konur.
 /// Maskeleme kuralları Mac (core/LogShare.swift) ve Android (LogShare.kt) ile aynıdır ve ortak deneme dosyası
-/// core/Tests/CouchSubsCoreTests/Fixtures/log-redaction.json ile sınanır: hesap kimliği, e-posta, jeton, eşleştirme
+/// shared/fixtures/log-redaction.json ile sınanır: hesap kimliği, e-posta, jeton, eşleştirme
 /// anahtarı, parola, passphrase, API anahtarı ve uzun kimlik dizileri <c>***</c> olur; yerel IP, saat ve hata kodu kalır.
 /// </summary>
 public static class LogShare

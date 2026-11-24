@@ -8,7 +8,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// Harita görev/konum kartı: kartın tanınması, parçalarının ayrı çevrilmesi ve otomatik ekran yazısında türü. Kurallar
-/// ortak deneme dosyasından (core/Tests/CouchSubsCoreTests/Fixtures/mission-card.json; Mac MissionCardTests.swift ve
+/// ortak deneme dosyasından (shared/fixtures/mission-card.json; Mac MissionCardTests.swift ve
 /// Android MissionCardTest.kt aynı dosyayı okur).
 /// </summary>
 public class MissionCardTests

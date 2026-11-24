@@ -47,7 +47,7 @@ public class LocalizerTests
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "mac", "CouchSubs"))) dir = dir.Parent;
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "shared", "resources"))) dir = dir.Parent;
         return dir?.FullName ?? throw new DirectoryNotFoundException("depo kökü bulunamadı");
     }
 

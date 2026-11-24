@@ -11,7 +11,7 @@ namespace CouchSubs.Core;
 /// rakam bağlamındaki "S" ve yalnız "S"/"$"den oluşan sözcük "$"a döner (<see cref="Repair"/>); para ve ayraçlı sayılar
 /// ("$1,250", "2.5") çevirmene uydurma bir adla gider ve çeviriden sonra olduğu gibi yerine konur
 /// (<see cref="Protect"/>/<see cref="Restore"/>). Kurallar ortak deneme dosyasıyla sınanır
-/// (core/Tests/CouchSubsCoreTests/Fixtures/price-text.json; Mac: PriceText.swift, Android: PriceText.kt).
+/// (shared/fixtures/price-text.json; Mac: PriceText.swift, Android: PriceText.kt).
 /// </summary>
 public static partial class PriceText
 {

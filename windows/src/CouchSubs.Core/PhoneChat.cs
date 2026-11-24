@@ -11,7 +11,7 @@ namespace CouchSubs.Core;
 /// yaslıysa gelen ya da giden mesajdır. Sohbet listesinde kişi adları çevrilmez, son mesaj önizlemeleri çevrilir. Ana ekran
 /// (hava durumu, bildirim sayacı, simge ızgarası) sohbet değildir: yazıları yerinde çevrilir, uygulama adları çevrilmez. Mac/iPhone
 /// (PhoneChat.swift) ve Android (PhoneChat.kt) aynı kuralları ve eşikleri uygular; ortak deneme dosyası
-/// core/Tests/CouchSubsCoreTests/Fixtures/phone-chat.json.
+/// shared/fixtures/phone-chat.json.
 /// </summary>
 internal static class PhoneChat
 {

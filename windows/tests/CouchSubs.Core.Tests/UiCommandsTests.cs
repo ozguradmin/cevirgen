@@ -8,7 +8,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// Arayüz sözlüğü: tuş çubuğu komutu sözlükteki biçimiyle ("Hedef belirle"), menü etiketi özgünün biçimiyle Türkçe
-/// kurallarıyla ("İSTATİSTİKLER", "KIYAFETLER"). Ortak vakalar core/Tests/CouchSubsCoreTests/Fixtures/ui-commands.json
+/// kurallarıyla ("İSTATİSTİKLER", "KIYAFETLER"). Ortak vakalar shared/fixtures/ui-commands.json
 /// (Mac UiCommandsTests.swift ve Android UiCommandsTest.kt aynı dosyayı okur).
 /// </summary>
 public class UiCommandsTests

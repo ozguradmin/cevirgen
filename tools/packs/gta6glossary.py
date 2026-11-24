@@ -1,4 +1,4 @@
-# GTA 6 için başlangıç terim ve hitap sözlüğü: GTA V paketindeki (core/.../Resources/packs/gta-v.json.gz) çevirilerden,
+# GTA 6 için başlangıç terim ve hitap sözlüğü: GTA V paketindeki (shared/resources/packs/gta-v.json.gz) çevirilerden,
 # API'siz üretilir. Paket İngilizceyi taşımaz, yalnız anahtarı (canon SHA-256) taşır; burada bilinen İngilizce ifadelerin
 # anahtarı hesaplanıp paketteki Türkçesi okunur. Tek sözcüklük girişler bağlamsız olabileceğinden ("club" = "Sopa")
 # her terim için paketteki karşılık kanıt olarak yazılır, seçilen karşılık elle belirlenir (CHOICES).
@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as c
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "core/Sources/CouchSubsCore/Resources/packs/gta-v.json.gz"
+SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "shared/resources/packs/gta-v.json.gz"
 OUT = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).resolve().parent / "glossary/gta6.json"
 
 # (İngilizce, seçilen Türkçe, not). Türkçe None ise paketteki karşılık olduğu gibi alınır (noktalama atılır).

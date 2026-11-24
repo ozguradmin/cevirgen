@@ -56,10 +56,10 @@ güncellemesiyle gider; kuruluysa paket R2'ye yüklenince Mac, Windows, iPhone v
 3. Kuru plan: `python3 tools/packs/poolpack.py plan /tmp/gta6-pool.json --id gta-6 --out-dir /tmp/gta6`
    → temiz satır sayısı, en sık satırlar ve tahmini maliyet yazılır. Sözlüğü (`glossary/gta6.json`) gözden geçir.
 4. Onaydan sonra çeviri: `… plan /tmp/gta6-pool.json --id gta-6 --out-dir /tmp/gta6 --translate --limit 1000`.
-5. Denetim: `python3 tools/packs/fixcase.py core/Sources/CouchSubsCore/Resources/packs /tmp/gta6/gta-6.tr.json` ve en
+5. Denetim: `python3 tools/packs/fixcase.py shared/resources/packs /tmp/gta6/gta-6.tr.json` ve en
    sık 100 satıra göz at. İsteğe bağlı ikinci Claude denetimi: `python3 tools/packs/review.py gta-6 /tmp/gta6/gta-6.tr.json /tmp/gta6/gta-6.reviewed.json` (API maliyeti vardır; kullanılırsa 6. adımda `.tr.json` yerine `.reviewed.json` dosyasını ver).
-6. Paket: `python3 tools/packs/build.py /tmp/gta6/gta-6.tr.json core/Sources/CouchSubsCore/Resources/packs/gta-6.json.gz
-   gta-6 "Grand Theft Auto VI" "CouchSubs havuzu + Claude" core/Sources/CouchSubsCore/Resources/packs`
+6. Paket: `python3 tools/packs/build.py /tmp/gta6/gta-6.tr.json shared/resources/packs/gta-6.json.gz
+   gta-6 "Grand Theft Auto VI" "CouchSubs havuzu + Claude" shared/resources/packs`
 7. Dağıtım: uygulama sürümüne koy; paket sunucusu varsa `server/packs/README.md`'deki gibi R2'ye yükle ve index.json'u
    yenile (sürüm numarasını artır).
 8. Çevrilen satırları havuzda işaretle ki sonraki turda yeniden çevrilmesin (yönetici anahtarıyla, yazma yapar):

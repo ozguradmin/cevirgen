@@ -21,7 +21,7 @@ class CatalogAtomicTests(unittest.TestCase):
             doc = root / "design/yeni-arayuz/METINLER.md"
             doc.parent.mkdir(parents=True)
             doc.write_text("| EN | TR |\n| --- | --- |\n| Start game | Oyunu baslat|\n", encoding="utf-8")
-            catalog = root / "mac/CouchSubs/Resources/Localizable.xcstrings"
+            catalog = root / "shared/resources/Localizable.xcstrings"
             catalog.parent.mkdir(parents=True)
             original = ('{\n  "strings": {\n  },\n  "version": "1.0"\n}\n'
                         if empty_catalog else

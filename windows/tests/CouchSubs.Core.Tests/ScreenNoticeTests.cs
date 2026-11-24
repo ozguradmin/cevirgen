@@ -9,7 +9,7 @@ namespace CouchSubs.Core.Tests;
 /// <summary>
 /// Kullanıcı bildirimi (X, iki kişi, GTA 6): "Tam ekran" altyazı alanında sağ altta beliren mesaj önizlemesinin ve solda
 /// kayarak giren bildirimin çevirisi ekranın ortasına geliyordu. Örnekler ortak deneme dosyasından
-/// (core/Tests/CouchSubsCoreTests/Fixtures/screen-notice.json; Mac ScreenNoticeTests.swift ve Android ScreenNoticeTest.kt
+/// (shared/fixtures/screen-notice.json; Mac ScreenNoticeTests.swift ve Android ScreenNoticeTest.kt
 /// aynı dosyayı okur).
 /// </summary>
 public class ScreenNoticeTests

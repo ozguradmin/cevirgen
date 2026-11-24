@@ -23,8 +23,8 @@ couchsubs-ios/Config/GoogleService-Info.plist
 .claude/settings.local.json
 
 # Oyun paketleri ve topluluk katkı havuzu depoda değil (özel R2; scripts/fetch-packs.py indirir).
-core/Sources/CouchSubsCore/Resources/packs/*.json.gz
-core/Sources/CouchSubsCore/Resources/packs/*.json
+shared/resources/packs/*.json.gz
+shared/resources/packs/*.json
 tools/packs/katki/*.json.gz
 tools/packs/katki/GTA_HAVUZ_KATKI.md
 

@@ -12,7 +12,7 @@ namespace CouchSubs.Core;
 /// <summary>
 /// Oyun paketinin anahtarı: ekranda okunan İngilizce satırın sadeleştirilmiş hâlinin SHA-256'sının ilk 8 baytı (hex).
 /// Paketlerde İngilizce metin yoktur, yalnız bu anahtar ve Türkçesi. Mac'teki CouchSubsCore/GamePacks.swift ile
-/// birebir aynı adımlar; ortak deneme verisi core/Tests/CouchSubsCoreTests/Fixtures/golden-vectors.json.
+/// birebir aynı adımlar; ortak deneme verisi shared/fixtures/golden-vectors.json.
 /// </summary>
 public static class PackKey
 {
@@ -262,7 +262,7 @@ public sealed class GamePackLibrary(Func<IEnumerable<(string Name, byte[] Data)>
     /// <summary>Elle seçilen oyunun paketi (<see cref="loadedPacks"/> sırası); -1 paketi yok, null henüz aranmadı.</summary>
     private int? limited;
 
-    /// <summary>Uygulamaya gömülü paketler (core/Sources/CouchSubsCore/Resources/packs, ad: "packs/x.json.gz").</summary>
+    /// <summary>Uygulamaya gömülü paketler (shared/resources/packs, ad: "packs/x.json.gz").</summary>
     public static IEnumerable<(string Name, byte[] Data)> EmbeddedPacks()
     {
         var assembly = typeof(GamePackLibrary).Assembly;

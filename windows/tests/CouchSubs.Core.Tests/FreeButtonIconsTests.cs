@@ -32,7 +32,7 @@ public class FreeButtonIconsTests
         new(string.Join(' ', words.Select(word => word.Text)), new TextBox(words[0].Box.Left, 0.25, words[^1].Box.Right, 0.75), null, words);
 
     /// <summary>
-    /// Ortak vakalar core/Tests/CouchSubsCoreTests/Fixtures/free-button-icons.json (Mac FreeButtonIconsTests.swift ve
+    /// Ortak vakalar shared/fixtures/free-button-icons.json (Mac FreeButtonIconsTests.swift ve
     /// Android FreeButtonIconsTest.kt aynı dosyayı okur).
     /// </summary>
     [Fact]

@@ -58,7 +58,7 @@ jobs:
           printf '%s\n' "$files"
           match() { if grep -Eq "$1" <<< "$files"; then echo true; else echo false; fi; }
           wf='^\.github/workflows/pr-tests\.yml$'
-          res='^core/Sources/CouchSubsCore/Resources/'
+          res='^shared/resources/'
           frames='^testdata/frames/|^tools/frame-regression/|^scripts/regression[-_]frames'
           echo "windows=$(match "^windows/|^testdata/frames/|${res}|${wf}")" >> "$GITHUB_OUTPUT"
           # TVAppPairingLiveTests TV uygulamasının kendisini (tv-webos/app.js) Swift sunucusuyla eşleştirir.

@@ -8,7 +8,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// #827: aynı yazı aynı yerde tek kez çizilir. Kurallar ortak deneme dosyasından
-/// (core/Tests/CouchSubsCoreTests/Fixtures/screen-overlap.json; Mac ScreenOverlapTests.swift ve Android
+/// (shared/fixtures/screen-overlap.json; Mac ScreenOverlapTests.swift ve Android
 /// ScreenOverlapTest.kt aynı dosyayı okur).
 /// </summary>
 public class ScreenOverlapTests

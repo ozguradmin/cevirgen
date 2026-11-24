@@ -201,7 +201,7 @@ altyazıları ortak havuza gönder" (varsayılan açık) ve tek satırlık HintT
 Claude; her birinin altında kısa not); ücretli motorda kısa açıklama, model
 seçimi, gizli anahtar alanı ve "Kaydet ve dene" (ikincil), anahtar sayfası bağlantısı, kayıtlıysa "Anahtar kayıtlı" (DoneLabel) ile
 "Dene" ve "Anahtarı sil" (ikincil). Model yazılamaz; "Model" seçiminde yalnız ortak listedeki modeller
-(`core/Sources/CouchSubsCore/Resources/ai-models.json`) sade adlarıyla görünür. Sonuç HintText, hata ErrorText olur.
+(`shared/resources/ai-models.json`) sade adlarıyla görünür. Sonuç HintText, hata ErrorText olur.
 Ücretsiz motor seçiliyken altında "Daha iyi çeviri için ücretsiz Gemini anahtarı alın." ve "Ücretsiz anahtar al"
 (ikincil; Gemini'yi seçer ve anahtar sayfasını açar) durur; Gemini seçiliyken veri kullanımı ve dakikalık sınır HintText'i görünür.
 Çevrimiçi motor çeviri sırasında hata verirse ana ekranda uyarı karosu çıkar. Kurulumun son adımında ortak havuz

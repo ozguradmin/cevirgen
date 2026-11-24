@@ -6,7 +6,7 @@ namespace CouchSubs.Core;
 /// Konuşana göre renk (v2): oturum boyunca (çeviri başlayınca sıfırlanır) her kişiye bir renk. Yazı tanımanın yakın
 /// okuması aynı kişidir ("Mattia", "Mattla", "Mattia." aynı renk); yeni kişi, mümkünse başka kişilerin renginden ve renk
 /// ailesinden ayrı bir renk alır (iki mavi tonlu kişi yan yana karışmasın). Kurallar ve ortak test vektörü:
-/// scripts/speaker_colors_ref.py, docs/speaker-colors-vectors.json (Mac/iPhone ve Android aynı sırada aynı rengi verir).
+/// scripts/speaker_colors_ref.py, shared/fixtures/speaker-colors-vectors.json (Mac/iPhone ve Android aynı sırada aynı rengi verir).
 /// </summary>
 public sealed class SpeakerColorBook
 {

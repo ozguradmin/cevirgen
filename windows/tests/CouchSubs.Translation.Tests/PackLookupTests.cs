@@ -278,7 +278,7 @@ public class PackLookupTests
     }
 
     private static string Fixture(string name, [System.Runtime.CompilerServices.CallerFilePath] string source = "") =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", "..", "..", "core", "Tests", "CouchSubsCoreTests", "Fixtures", name));
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", "..", "..", "shared", "fixtures", name));
 
     /// <summary>Uygulamayla gelen Mafia paketinde konuşmacılı ve iki satırlı arama.</summary>
     [RealPackFact]

@@ -22,7 +22,7 @@ public static class AiProviders
 
     /// <summary>
     /// Seçilebilen modeller; ilki varsayılandır (hızlı ve ucuz). Liste Mac ile ortak <c>ai-models.json</c> dosyasından
-    /// gelir (core/Sources/CouchSubsCore/Resources, gömülü kaynak). Yerel modelde liste yoktur; model adını kullanıcı yazar.
+    /// gelir (shared/resources, gömülü kaynak). Yerel modelde liste yoktur; model adını kullanıcı yazar.
     /// </summary>
     public static IReadOnlyList<AiModel> Models(this AiProvider provider) =>
         AiModel.Catalog.TryGetValue(provider.Id(), out var models) ? models : [];

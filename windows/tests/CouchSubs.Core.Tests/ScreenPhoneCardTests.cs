@@ -7,7 +7,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// "Ekranı çevir": stil eşleşmeli yerinde çizim, GTA 6 telefon kartı ve yeniden basınca ekranın değişip değişmediği.
-/// Telefonun satır kuralları ortak deneme dosyasından (core/Tests/CouchSubsCoreTests/Fixtures/phone-chat.json; Mac
+/// Telefonun satır kuralları ortak deneme dosyasından (shared/fixtures/phone-chat.json; Mac
 /// ScreenPhoneCardTests.swift ve Android ScreenPhoneCardTest.kt aynı dosyayı okur).
 /// </summary>
 public class ScreenPhoneCardTests

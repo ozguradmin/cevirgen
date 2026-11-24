@@ -8,7 +8,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// Altyazı alanına düşen tabela ve tişört yazısı çevrilmez (X bildirimleri, beta.73, GTA 6). Örnekler ortak deneme
-/// dosyasından (core/Tests/CouchSubsCoreTests/Fixtures/scene-text.json; Mac SceneTextTests.swift ve Android
+/// dosyasından (shared/fixtures/scene-text.json; Mac SceneTextTests.swift ve Android
 /// SceneTextTest.kt aynı dosyayı okur).
 /// </summary>
 public class SceneTextTests

@@ -432,13 +432,13 @@ public class AiTranslatorTests
     }
 
     /// <summary>
-    /// Liste Mac ile ortak dosyadan (core/Sources/CouchSubsCore/Resources/ai-models.json) gömülür; her hizmette önerilen
+    /// Liste Mac ile ortak dosyadan (shared/resources/ai-models.json) gömülür; her hizmette önerilen
     /// hızlı model ilk sıradadır.
     /// </summary>
     [Fact]
     public void CatalogIsTheSharedFile()
     {
-        var file = Path.Combine(RepoRoot(), "core", "Sources", "CouchSubsCore", "Resources", "ai-models.json");
+        var file = Path.Combine(RepoRoot(), "shared", "resources", "ai-models.json");
         var parsed = AiModel.Parse(File.ReadAllText(file));
         Assert.Equal(["claude", "gemini", "openai"], parsed.Keys.Order());
         Assert.Equal(parsed.Keys.Order(), AiProviders.Cloud.Select(p => p.Id()).Order());

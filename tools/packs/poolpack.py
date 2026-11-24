@@ -19,7 +19,7 @@ import common as c
 from atomic_json import dump_atomic
 
 ROOT = HERE.parents[1]
-PACKS = ROOT / "core/Sources/CouchSubsCore/Resources/packs"
+PACKS = ROOT / "shared/resources/packs"
 TITLE_ID = re.compile(r"^[A-Z]{4}\d{5}(_\d{2})?$")
 LABEL = re.compile(r"^[-•\s]*([A-Z][A-Za-z .'’-]{1,28}?)\s*[•:]\s+(?=\S)")
 TURKISH = re.compile(r"[ğĞşŞıİ]")

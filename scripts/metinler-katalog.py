@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-only
 # Yeni arayüzün metinleri: design/yeni-arayuz/METINLER.md'deki "| EN | TR |" tablolarını ortak kataloğa
-# (mac/CouchSubs/Resources/Localizable.xcstrings; Mac, iPhone ve Windows okur) yazar.
+# (shared/resources/Localizable.xcstrings; Windows uygulaması gömülü kaynak olarak okur) yazar.
 #  - Katalogda olmayan anahtar en + tr ile eklenir (dosyanın geri kalanı yeniden biçimlenmez).
 #  - Katalogda Türkçesi farklı olan anahtar raporlanır, üzerine yazılmaz (eski ekranlar o metni kullanıyor olabilir).
 #  - Aynı İngilizce anahtar belgede iki farklı Türkçeyle geçerse hata.
@@ -10,7 +10,7 @@ import json, pathlib, re, sys, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOC = ROOT / "design" / "yeni-arayuz" / "METINLER.md"
-CATALOG = ROOT / "mac" / "CouchSubs" / "Resources" / "Localizable.xcstrings"
+CATALOG = ROOT / "shared" / "resources" / "Localizable.xcstrings"
 
 
 def rows():

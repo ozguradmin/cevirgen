@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Konuşana göre renk (v2) başvuru uygulaması ve ortak test vektörü. Windows, Mac/iPhone ve Android'deki
-# SpeakerColorBook aynı sırayla verilen adlara AYNI rengi vermek zorunda; testleri docs/speaker-colors-vectors.json'u okur.
+# SpeakerColorBook aynı sırayla verilen adlara AYNI rengi vermek zorunda; testleri shared/fixtures/speaker-colors-vectors.json'u okur.
 # Kurallar: ad anahtarı = kırpılmış, sondaki noktalaması atılmış, küçük harf. OCR yakın okuması aynı kişi: karışan harfler
 # (l/1/| → i, 0 → o, rn → m) eşitlenince aynıysa ya da ikisi de >= 5 harfken Levenshtein <= 1 ise. Yeni kişi tabanı
 # (FNV-1a % 10) alır; taban ya da ailesi kullanılıyorsa palet sırasıyla ilk kullanılmayan ve ailesi kullanılmayan renk,
-# o da yoksa ilk kullanılmayan, o da yoksa taban. Vektörü yeniden üretmek: python3 scripts/speaker_colors_ref.py > docs/speaker-colors-vectors.json
+# o da yoksa ilk kullanılmayan, o da yoksa taban. Vektörü yeniden üretmek: python3 scripts/speaker_colors_ref.py > shared/fixtures/speaker-colors-vectors.json
 import json, sys
 P=['#FFD54F','#4FC3F7','#81C784','#FF8A65','#CE93D8','#F06292','#4DD0E1','#AED581','#FFB74D','#90CAF9']
 FAM={'#FFD54F':'A','#FFB74D':'A','#FF8A65':'A','#4FC3F7':'B','#4DD0E1':'B','#90CAF9':'B','#81C784':'C','#AED581':'C','#CE93D8':'D','#F06292':'D'}

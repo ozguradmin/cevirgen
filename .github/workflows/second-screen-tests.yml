@@ -2,10 +2,10 @@
 name: second-screen-tests
 on:
   pull_request:
-    paths: ['core/Sources/CouchSubsCore/Resources/second-screen.html', 'scripts/second-screen.test.js', '.github/workflows/second-screen-tests.yml']
+    paths: ['shared/resources/second-screen.html', 'scripts/second-screen.test.js', '.github/workflows/second-screen-tests.yml']
   push:
     branches: [main]
-    paths: ['core/Sources/CouchSubsCore/Resources/second-screen.html', 'scripts/second-screen.test.js', '.github/workflows/second-screen-tests.yml']
+    paths: ['shared/resources/second-screen.html', 'scripts/second-screen.test.js', '.github/workflows/second-screen-tests.yml']
   workflow_dispatch:
 permissions:
   contents: read

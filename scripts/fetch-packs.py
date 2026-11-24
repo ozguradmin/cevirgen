@@ -4,7 +4,7 @@
 
 Paket dosyaları depoda değildir (yalnız uygulama içinden dağıtılır). Derleme hattı ve yerel yayın derlemesi bunu çağırır:
 
-  python3 scripts/fetch-packs.py              # bundled/*.json.gz → core/Sources/CouchSubsCore/Resources/packs/
+  python3 scripts/fetch-packs.py              # bundled/*.json.gz → shared/resources/packs/
   python3 scripts/fetch-packs.py --contrib    # ayrıca contrib/* → tools/packs/katki/ (topluluk katkı havuzu)
   python3 scripts/fetch-packs.py --require    # erişim yoksa ya da hiç paket inmezse çıkış 1 (yayın derlemesi)
 
@@ -36,7 +36,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = {
-    "bundled/": ROOT / "core/Sources/CouchSubsCore/Resources/packs",
+    "bundled/": ROOT / "shared/resources/packs",
     "contrib/": ROOT / "tools/packs/katki",
 }
 KEYS = ("PACKS_R2_ACCESS_KEY_ID", "PACKS_R2_SECRET_ACCESS_KEY", "PACKS_R2_ENDPOINT")

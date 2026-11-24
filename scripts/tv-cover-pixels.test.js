@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // "Örtsün": Türkçe kutu oyundaki İngilizce altyazıyı her zaman tamamen örter mi, yazı boyu sabit kalıyor mu? X'te bildirildi:
 // kısa çeviride kutu İngilizce altyazıdan dar kalıyor, kenarlarda "You s" ve "s car?" görünüyordu. TV sayfası
-// (tv-webos/index.html; Samsung ve Android TV de aynı sayfayı kullanır) ve OBS katmanı (core/.../obs-overlay.html) gerçek
+// (tv-webos/index.html; Samsung ve Android TV de aynı sayfayı kullanır) ve OBS katmanı (shared/resources/obs-overlay.html) gerçek
 // Chromium'da açılır; oyun görüntüsü yerine beyaz zemin, İngilizce altyazının yerinde (iki satırlık kutu) kırmızı bir dikdörtgen
 // durur. Ekran görüntüsünde tek bir kırmızı piksel kalmamalı. Yazı boyu seçilen boyda kalmalı, sığmayan satırda en çok bir
 // kademe (%80) küçülmeli, sonraki satırlarda geri zıplamamalı.
@@ -17,7 +17,7 @@ const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const tvRoot = path.join(__dirname, '..', 'tv-webos');
-const obsPage = path.join(__dirname, '..', 'core', 'Sources', 'CouchSubsCore', 'Resources', 'obs-overlay.html');
+const obsPage = path.join(__dirname, '..', 'shared', 'resources', 'obs-overlay.html');
 const browser = [process.env.COUCHSUBS_TEST_BROWSER, process.env.CHROME_BIN,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',

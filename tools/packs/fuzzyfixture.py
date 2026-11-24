@@ -1,4 +1,4 @@
-# Ortak bulanık eşleme deneme paketi ve vakaları: core/Tests/CouchSubsCoreTests/Fixtures/pack-fuzzy.json.gz ve
+# Ortak bulanık eşleme deneme paketi ve vakaları: shared/fixtures/pack-fuzzy.json.gz ve
 # pack-fuzzy-cases.json (Mac, Android ve Windows aynı sonucu vermeli). Satırlar bu betik için yazıldı.
 # Kullanım: python3 tools/packs/fuzzyfixture.py; sonra iki dosyayı couchsubs-android/app/src/test/resources/fixtures/'a kopyala.
 import sys, os, json
@@ -41,7 +41,7 @@ LINES = [
 
 entries = {c.key(en): tr for en, tr in LINES}
 english = {c.key(en): en for en, tr in LINES}
-out = os.path.join(repo, "core/Tests/CouchSubsCoreTests/Fixtures/pack-fuzzy.json.gz")
+out = os.path.join(repo, "shared/fixtures/pack-fuzzy.json.gz")
 c.write_pack(out, "fuzzy-test", "Fuzzy Test", "CouchSubs denemesi", entries, {}, english)
 T = dict(LINES)
 cases = [
@@ -74,6 +74,6 @@ cases = [
     ("We need to talk about your sister.", None),
 ]
 json.dump({"warmUp": "Give me the keys.", "cases": [{"screen": s, "turkish": t} for s, t in cases]},
-          open(os.path.join(repo, "core/Tests/CouchSubsCoreTests/Fixtures/pack-fuzzy-cases.json"), "w"),
+          open(os.path.join(repo, "shared/fixtures/pack-fuzzy-cases.json"), "w"),
           ensure_ascii=False, indent=1)
 print("satır", len(entries), "vaka", len(cases))

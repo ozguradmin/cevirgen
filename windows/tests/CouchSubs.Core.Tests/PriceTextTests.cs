@@ -7,7 +7,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// "Ekranı çevir": fiyatlar, sayılar ve tuş çubukları. Fiyat kuralları ortak deneme dosyasından
-/// (core/Tests/CouchSubsCoreTests/Fixtures/price-text.json; Mac PriceTextTests.swift ve Android PriceTextTest.kt aynı dosyayı okur).
+/// (shared/fixtures/price-text.json; Mac PriceTextTests.swift ve Android PriceTextTest.kt aynı dosyayı okur).
 /// </summary>
 public class PriceTextTests
 {

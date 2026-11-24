@@ -7,12 +7,12 @@ using System.Text.Json;
 
 namespace CouchSubs.Core.Tests;
 
-/// <summary>Mac ile ortak deneme dosyaları: core/Tests/CouchSubsCoreTests/Fixtures.</summary>
+/// <summary>Mac ile ortak deneme dosyaları: shared/fixtures.</summary>
 internal static class PackFixtures
 {
     public static string Path(string name, [CallerFilePath] string source = "") =>
         System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(source)!, "..", "..", "..",
-            "core", "Tests", "CouchSubsCoreTests", "Fixtures", name));
+            "shared", "fixtures", name));
 
     public static string TemporaryDirectory()
     {

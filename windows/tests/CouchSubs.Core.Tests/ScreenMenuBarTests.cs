@@ -9,7 +9,7 @@ namespace CouchSubs.Core.Tests;
 /// <summary>
 /// GTA 6 menü/görev ekranı (#856, #859, #860): menü şeridinin sekmeleri ayrı, yalnız özel addan oluşan sekme çevrilmez,
 /// satır ucundaki tuş simgesi kutunun dışında, saat çevrilmez. Ortak deneme dosyası
-/// core/Tests/CouchSubsCoreTests/Fixtures/screen-menu.json (Mac ScreenMenuBarTests.swift ve Android ScreenMenuBarTest.kt ile aynı vakalar).
+/// shared/fixtures/screen-menu.json (Mac ScreenMenuBarTests.swift ve Android ScreenMenuBarTest.kt ile aynı vakalar).
 /// </summary>
 public class ScreenMenuBarTests
 {

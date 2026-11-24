@@ -53,27 +53,6 @@ public class DemoModeTests
         Assert.Equal((1280, 720, 0.86), (DemoFrames.Width, DemoFrames.Height, DemoFrames.SubtitleBaseline));
     }
 
-    /// <summary>core'daki Swift kaynağıyla satır satır karşılaştırır (depo içinde çalışırken); satır eklenip unutulmasın.</summary>
-    [Fact]
-    public void ScriptIsTheSameAsTheSwiftSource()
-    {
-        var folder = AppContext.BaseDirectory;
-        string? source = null;
-        for (var up = 0; up < 10 && folder is not null; up++, folder = Path.GetDirectoryName(folder))
-        {
-            var candidate = Path.Combine(folder, "core", "Sources", "CouchSubsCore", "Demo", "DemoMode.swift");
-            if (File.Exists(candidate)) { source = File.ReadAllText(candidate); break; }
-        }
-        if (source is null) return;
-        var pairs = System.Text.RegularExpressions.Regex.Matches(source, "Line\\(english: \"([^\"]+)\", turkish: \"([^\"]+)\"\\)")
-            .Select(match => new DemoScript.Line(match.Groups[1].Value, match.Groups[2].Value)).ToList();
-        Assert.Equal(DemoScript.Lines.Append(DemoScript.Objective).ToList(), pairs);
-        var defaults = new DemoFrameSource(DemoFrames.Plain);
-        Assert.Contains($"lineSeconds: Double = {defaults.LineSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}", source);
-        Assert.Contains($"gapSeconds: Double = {defaults.GapSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}", source);
-        Assert.Contains($"framesPerSecond: Double = {defaults.FramesPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture)}", source);
-    }
-
     [Fact]
     public void ScheduleShowsLinesInTurnWithGaps()
     {

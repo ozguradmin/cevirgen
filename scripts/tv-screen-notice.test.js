@@ -2,7 +2,7 @@
 // Kenar bildirimi (X, iki kişi, GTA 6): "Tam ekran" altyazı alanında sağ altta beliren mesaj önizlemesinin ve solda kayarak
 // giren bildirimin çevirisi ekranın ortasına geliyordu. Bilgisayar artık bu kartları altyazı olarak değil, kendi yerlerinde
 // okunan "auto-notice-<n>" alanları olarak gönderir (ScreenNotices; Mac, Windows, Android). Bu test TV sayfasında
-// (tv-webos/index.html; Samsung ve Android TV de aynı sayfa) ve OBS katmanında (core/.../obs-overlay.html) gerçek Chromium
+// (tv-webos/index.html; Samsung ve Android TV de aynı sayfa) ve OBS katmanında (shared/resources/obs-overlay.html) gerçek Chromium
 // ile bakar: oyundaki İngilizce kartların yerinde kırmızı dikdörtgenler durur, kayan kart için aynı alan üç kez (her
 // karede yeni yeriyle) gelir. Ekran görüntüsünde tek bir kırmızı piksel kalmamalı (çeviri kartı yerinde örter) ve ekranın
 // ortasına hiçbir şey çizilmemeli; yeri geçersiz (sıfır alanlı) blok hiç çizilmemeli.
@@ -18,7 +18,7 @@ const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const tvRoot = path.join(__dirname, '..', 'tv-webos');
-const obsPage = path.join(__dirname, '..', 'core', 'Sources', 'CouchSubsCore', 'Resources', 'obs-overlay.html');
+const obsPage = path.join(__dirname, '..', 'shared', 'resources', 'obs-overlay.html');
 const browser = [process.env.COUCHSUBS_TEST_BROWSER, process.env.CHROME_BIN,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',

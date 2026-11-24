@@ -13,7 +13,7 @@ namespace CouchSubs.Core;
 /// her farklı üçlüsü FNV-1a 64 ile özetlenip m bitten birine düşer (Bloom kümesi; m uzunlukla büyür: 64/128/256).
 /// Her bit onlarca farklı üçlünün ortak izidir ve sıra tutulmaz: İngilizce metin geri çıkarılamaz.
 /// Mac'teki CouchSubsCore/PackFuzzy.swift ve paket betiği (augment.py, common.py) ile birebir aynı; ortak deneme verisi
-/// core/Tests/CouchSubsCoreTests/Fixtures/fuzzy-vectors.json.
+/// shared/fixtures/fuzzy-vectors.json.
 /// </summary>
 public static class PackFuzzy
 {

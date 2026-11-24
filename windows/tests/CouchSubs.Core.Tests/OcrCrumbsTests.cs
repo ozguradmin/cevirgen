@@ -7,7 +7,7 @@ namespace CouchSubs.Core.Tests;
 /// <summary>
 /// Okuma kırıntısı ve tek sözcük bozulması (GitHub #854, #882; GTA 6): HUD kırıntısı görev sayılmaz, konuşmanın üstünde
 /// beliren kırıntı konuşmayı attırmaz, ilk karede bozuk okunan sözcük doğru okununca yeniden çevrilir. Kurallar ortak
-/// deneme dosyasından (core/Tests/CouchSubsCoreTests/Fixtures/ocr-crumbs.json; Mac OcrCrumbsTests.swift ve Android
+/// deneme dosyasından (shared/fixtures/ocr-crumbs.json; Mac OcrCrumbsTests.swift ve Android
 /// OcrCrumbsTest.kt aynı dosyayı okur).
 /// </summary>
 public class OcrCrumbsTests

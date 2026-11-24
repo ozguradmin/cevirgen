@@ -8,7 +8,7 @@ namespace CouchSubs.Core.Tests;
 
 /// <summary>
 /// Kullanım verisi (GA4 Measurement Protocol): ortak deneme dosyasındaki olaylardan aynı adres ve gövde
-/// (core/Tests/CouchSubsCoreTests/Fixtures/usage-stats.json; Mac UsageStatsTests.swift aynı dosyayı okur), kapalıyken ve
+/// (shared/fixtures/usage-stats.json; Mac UsageStatsTests.swift aynı dosyayı okur), kapalıyken ve
 /// yapılandırılmamışken hiç istek yok.
 /// </summary>
 public class UsageStatsTests

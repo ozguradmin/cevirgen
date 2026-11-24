@@ -12,7 +12,7 @@ namespace CouchSubs.Core;
 /// kayar: kutu <see cref="SettleMs"/> boyunca yerinde durunca (kayma bitti) bölgesi "auto-notice-&lt;n&gt;" ek alanı olur,
 /// çevirisi <see cref="RegionWatcher"/> ile özgün stilinde kendi yerinde görünür. Kart sonra yeniden kayarsa son geçerli yer
 /// kalır; konumu belirsiz kart hiç çizilmez, asla ortaya çizilmez. Mac/iPhone (ScreenNotices.swift) ve Android
-/// (ScreenNotices.kt) aynı kuralları ve eşikleri uygular; ortak deneme dosyası core/Tests/CouchSubsCoreTests/Fixtures/screen-notice.json.
+/// (ScreenNotices.kt) aynı kuralları ve eşikleri uygular; ortak deneme dosyası shared/fixtures/screen-notice.json.
 /// </summary>
 public sealed class ScreenNotices
 {

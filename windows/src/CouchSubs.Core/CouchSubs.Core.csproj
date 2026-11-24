@@ -8,15 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Mac uygulamasıyla ortak tek kaynaklar: tasarım değerleri ve metinler. -->
+    <!-- Ortak kaynaklar (shared/resources): tasarım değerleri, ekran metinleri, OBS ve ikinci ekran sayfaları. -->
     <EmbeddedResource Include="..\..\..\design\tokens.json" LogicalName="tokens.json" />
-    <EmbeddedResource Include="..\..\..\core\Sources\CouchSubsCore\Resources\obs-overlay.html" LogicalName="obs-overlay.html" />
-    <EmbeddedResource Include="..\..\..\core\Sources\CouchSubsCore\Resources\second-screen.html" LogicalName="second-screen.html" />
-    <EmbeddedResource Include="..\..\..\core\Sources\CouchSubsCore\Resources\glossary-en-tr.json" LogicalName="glossary-en-tr.json" />
-    <EmbeddedResource Include="..\..\..\core\Sources\CouchSubsCore\Resources\ai-models.json" LogicalName="ai-models.json" />
-    <!-- Oyun çeviri paketleri: Mac ile aynı klasör (ad: "packs/x.json.gz"). -->
-    <EmbeddedResource Include="..\..\..\core\Sources\CouchSubsCore\Resources\packs\*.json.gz" LogicalName="packs/%(Filename)%(Extension)" />
-    <EmbeddedResource Include="..\..\..\mac\CouchSubs\Resources\Localizable.xcstrings" LogicalName="Localizable.xcstrings" />
+    <EmbeddedResource Include="..\..\..\shared\resources\obs-overlay.html" LogicalName="obs-overlay.html" />
+    <EmbeddedResource Include="..\..\..\shared\resources\second-screen.html" LogicalName="second-screen.html" />
+    <EmbeddedResource Include="..\..\..\shared\resources\glossary-en-tr.json" LogicalName="glossary-en-tr.json" />
+    <EmbeddedResource Include="..\..\..\shared\resources\ai-models.json" LogicalName="ai-models.json" />
+    <!-- Oyun çeviri paketleri (shared/resources/packs; ad: "packs/x.json.gz"). -->
+    <EmbeddedResource Include="..\..\..\shared\resources\packs\*.json.gz" LogicalName="packs/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\shared\resources\Localizable.xcstrings" LogicalName="Localizable.xcstrings" />
   </ItemGroup>
 
   <ItemGroup>

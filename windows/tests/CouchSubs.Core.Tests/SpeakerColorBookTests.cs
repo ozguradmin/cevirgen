@@ -5,17 +5,17 @@ using CouchSubs.Core;
 
 namespace CouchSubs.Core.Tests;
 
-/// <summary>Konuşana göre renk v2: dört platformun ortak vektörü (docs/speaker-colors-vectors.json) birebir.</summary>
+/// <summary>Konuşana göre renk v2: dört platformun ortak vektörü (shared/fixtures/speaker-colors-vectors.json) birebir.</summary>
 public class SpeakerColorBookTests
 {
     private static string Vectors()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            var path = Path.Combine(dir.FullName, "docs", "speaker-colors-vectors.json");
+            var path = Path.Combine(dir.FullName, "shared", "fixtures", "speaker-colors-vectors.json");
             if (File.Exists(path)) return path;
         }
-        throw new FileNotFoundException("docs/speaker-colors-vectors.json bulunamadı");
+        throw new FileNotFoundException("shared/fixtures/speaker-colors-vectors.json bulunamadı");
     }
 
     [Fact]

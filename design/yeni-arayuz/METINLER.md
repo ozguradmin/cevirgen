@@ -5,7 +5,7 @@ Mac ve Windows yeni arayüzü **birebir aynı metin, düzen ve davranışta** ku
 Tuvalde küçük düzeltme olursa önce tuval dosyası okunur, sonra bu belge güncellenir.
 
 - **Ölçü, renk, yazı ve hareket değerleri:** `design/yeni-arayuz/tasarim.json` (Mac ve Windows doğrudan okur).
-- **Metinler:** aşağıdaki tablolar. İlk sütun ortak katalogdaki (`mac/CouchSubs/Resources/Localizable.xcstrings`)
+- **Metinler:** aşağıdaki tablolar. İlk sütun ortak katalogdaki (`shared/resources/Localizable.xcstrings`)
   İngilizce anahtardır, ikinci sütun Türkçesi. Windows aynı katalogu okur (`{t:T '…'}`), yani anahtar iki platformda
   harfi harfine aynıdır. Tablolar `python3 scripts/metinler-katalog.py` ile kataloğa yazılır (eksik anahtar eklenir;
   Türkçesi farklı olan mevcut anahtar raporlanır, üzerine yazılmaz). Yeni metin gerekirse önce buraya eklenir.

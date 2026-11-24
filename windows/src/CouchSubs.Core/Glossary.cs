@@ -36,7 +36,7 @@ public sealed class Glossary
 
     private static readonly Lazy<Glossary> BuiltInValue = new(LoadBuiltIn);
 
-    /// <summary>Uygulamayla gelen genel oyun terimleri (core/Sources/CouchSubsCore/Resources/glossary-en-tr.json).</summary>
+    /// <summary>Uygulamayla gelen genel oyun terimleri (shared/resources/glossary-en-tr.json).</summary>
     public static Glossary BuiltIn => BuiltInValue.Value;
 
     private Glossary(Dictionary<string, (string English, string Turkish, bool Exact)> terms,
