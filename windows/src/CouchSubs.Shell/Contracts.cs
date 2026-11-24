@@ -41,6 +41,8 @@ public static class StoreKeys
     public const string LoginPasscode = "loginPasscode";
     /// <summary>"Yayın penceresi"nin zemin rengi (<see cref="StreamBackground"/>).</summary>
     public const string StreamBackground = "streamBackground";
+    /// <summary>Çevirgen: ilk açılışta seçilen platform (<see cref="SetupPlatform"/>; Bilgisayar ile Diğer'i ayırır).</summary>
+    public const string SetupPlatform = "setupPlatform";
 }
 
 /// <summary>
@@ -1012,7 +1014,11 @@ public enum StatusTone { Idle, Warning, Good }
 /// <c>Hdmi</c>: TV Girişi (yalnız TV eşleştiyse ve Android TV değilse); seçilen giriş <c>style.hdmiInput</c> ile TV'ye gider.
 /// Sıra Mac'teki yeni kurulumla aynı: deneme en sonda, Daha İyi Çeviri'den sonra.
 /// </summary>
-public enum OnboardingStep { Welcome, SecondAccount, PsnLogin, Console, Tv, Hdmi, Translation, BetterTranslation, Test, Done }
+/// <summary>
+/// Sihirbaz adımları. <see cref="Window"/> (Çevirgen: Bilgisayar / Diğer platformunda okunacak pencerenin seçimi) eski
+/// adımların sayılarını değiştirmemek için sonda; akıştaki yeri <see cref="SetupPlatforms.Steps"/>'te (TV'den önce).
+/// </summary>
+public enum OnboardingStep { Welcome, SecondAccount, PsnLogin, Console, Tv, Hdmi, Translation, BetterTranslation, Test, Window, Done }
 
 public enum AppError
 {

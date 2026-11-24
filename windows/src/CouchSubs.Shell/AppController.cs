@@ -405,13 +405,18 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             if (!Set(ref step, value, [nameof(CanAdvance), nameof(StepNumber)])) return;
             ClearFirewallPrompt();
             // Sihirbaz bitince ana ekran TV'siz de açılsın.
-            if (value == OnboardingStep.Done) store.Save(StoreKeys.SetupComplete, true);
+            if (value == OnboardingStep.Done)
+            {
+                store.Save(StoreKeys.SetupComplete, true);
+                // Çevirgen: Ayarlar'dan açılan kurulum ana ekrana dönünce biter.
+                if (partialSetup) { partialSetup = false; Changed(nameof(PartialSetup)); }
+            }
             services.Usage?.Record(UsageStats.Event.Screen(ScreenName(value)));
             if (value == OnboardingStep.Done && !demoMode)
                 services.Usage?.Record(UsageStats.Event.OnboardingDone(UsageTarget, UsageConsole));
         }
     }
-    public int StepCount => (int)OnboardingStep.Done - (consoleKind == GameConsoleKind.Xbox ? 1 : 0);
+    public int StepCount => (int)OnboardingStep.Window - (consoleKind == GameConsoleKind.Xbox ? 1 : 0);
     public int StepNumber => Math.Min((int)step + 1 - (consoleKind == GameConsoleKind.Xbox && step > OnboardingStep.SecondAccount ? 1 : 0), StepCount);
     public GameConsoleKind ConsoleKind => consoleKind;
     public bool ConsoleKindLocked => consoleKindLocked;
@@ -913,6 +918,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         OnboardingStep.Console => IsXbox ? xboxConsole is not null : console is not null,
         OnboardingStep.Tv => HasTv || !ShowsOnTv,
         OnboardingStep.Translation => ModelInstalled,
+        // Çevirgen: Bilgisayar / Diğer platformunda okunacak pencere seçilmeden geçilmez (masaüstünün tamamına düşülmez).
+        OnboardingStep.Window => settings.CaptureWindow is not null,
         _ => false,
     };
 
@@ -934,8 +941,11 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             Step = OnboardingStep.Done;
             return;
         }
-        var next = step == OnboardingStep.Welcome && IsXbox ? OnboardingStep.PsnLogin : step + 1;
-        if (next == OnboardingStep.Hdmi && !NeedsHdmiStep) next++;
+        // Çevirgen: karşılamada seçilen platform uygulanır; sıradaki adım platformun akışından (Ayarlar'dan yeniden
+        // kurulumda yalnız eksik adımlar).
+        if (step == OnboardingStep.Welcome) ApplyPendingPlatform();
+        var next = SetupPlatforms.Next(Platform, step, NeedsHdmiStep, partialSetup ? StepNeeded : null);
+        if (next == OnboardingStep.Done) partialSetup = false;
         Step = next;
     }
 
@@ -956,10 +966,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
 
     public void Back()
     {
-        if (step <= OnboardingStep.Welcome) return;
-        var previous = step == OnboardingStep.PsnLogin && IsXbox ? OnboardingStep.Welcome : step - 1;
-        if (previous == OnboardingStep.Hdmi && !NeedsHdmiStep) previous--;
-        Step = previous;
+        if (step is OnboardingStep.Welcome or OnboardingStep.Done) return;
+        Step = SetupPlatforms.Previous(Platform, step, NeedsHdmiStep, partialSetup ? StepNeeded : null);
     }
 
     /// <summary>Ücretsiz Gemini anahtarı kayıtlı ve çeviri Gemini ile yapılıyor ("Daha iyi çeviri" adımı tamam).</summary>
@@ -3073,6 +3081,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         OnboardingStep.Test => "test",
         OnboardingStep.Hdmi => "hdmi",
         OnboardingStep.BetterTranslation => "better_translation",
+        OnboardingStep.Window => "window",
         _ => "home",
     };
 
