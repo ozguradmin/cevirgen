@@ -82,7 +82,7 @@ public static class ScreenRenderer
             }
             Views.Steps.TvStep.PreviewState = null;
             Save(() => new MainView(Demo(OnboardingStep.Done)), Width, Height, Path.Combine(folder, $"ana-{suffix}.png"));
-            Save(() => new HistoryView(Demo(OnboardingStep.Done)), Width, Height, Path.Combine(folder, $"gecmis-{suffix}.png"));
+            Save(() => new HistoryPage(Demo(OnboardingStep.Done)), Width, Height, Path.Combine(folder, $"gecmis-{suffix}.png"));
             // Uygulamanın gerçek penceresi: XAML'ı (simge dahil) açılıştaki gibi yüklenir.
             Save(() => Detach(new ShellWindow(Demo(OnboardingStep.Done))), Width, Height, Path.Combine(folder, $"pencere-{suffix}.png"));
             // Çevirgen arayüzü (1. bölüm): kabuk, Canlı (çeviri sürerken ve boş hâl), güncelleme şeridi ve duyuru, platform
@@ -98,9 +98,48 @@ public static class ScreenRenderer
                     .SetValue(controller, new Announcement("demo", "Çevirgen TV 1.0.2 yayında: Samsung'da altyazı artık daha hızlı açılıyor.", new Uri("https://example.com")));
                 return Detach(Live(controller));
             }, Width, Height, Path.Combine(folder, $"pencere-guncelleme-{suffix}.png"));
-            Save(() => Detach(Shell(Running(), ShellTab.History)), Width, Height, Path.Combine(folder, $"pencere-gecmis-{suffix}.png"));
+            // 2. bölüm: Görünüm (varsayılan Sinema, Sade ve sabit konumlu Okunaklı), Çeviri (kör test: anahtarsız, oylarla, motorlar
+            // açık ve ileri ayarlar), Geçmiş ve sözlük (oturum, satır içi düzeltme açık), Alanları düzenle (son kare ve iki kutu;
+            // kare yokken yer tutucu ve kısayollu ek alan seçili).
             Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Appearance)), Width, Height, Path.Combine(folder, $"pencere-gorunum-{suffix}.png"));
-            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Translation)), Width, Height, Path.Combine(folder, $"pencere-ceviri-{suffix}.png"));
+            Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Clean, style)), ShellTab.Appearance)),
+                Width, Height, Path.Combine(folder, $"pencere-gorunum-sade-{suffix}.png"));
+            Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Readable, style) with
+                { Placement = SubtitlePlacement.Fixed, BottomPercent = 12, TextHex = "#FFE135", TextColor = SubtitleTextColor.Yellow }), ShellTab.Appearance)),
+                Width, Height, Path.Combine(folder, $"pencere-gorunum-okunakli-{suffix}.png"));
+            foreach (var (name, state) in TranslationStates())
+                Save(() =>
+                {
+                    TranslationPage.Preview = state;
+                    return Detach(Shell(Demo(OnboardingStep.Done, keys: state.Columns.Count(column => column.Ready) > 1), ShellTab.Translation));
+                }, Width, Height, Path.Combine(folder, $"pencere-ceviri{name}-{suffix}.png"));
+            // Uzun pencere: sayfanın altı (motor seçimi, kurulum, ileri ayarlar; Görünüm'ün "Diğer" ayarları) da görünsün.
+            Save(() =>
+            {
+                TranslationPage.Preview = TranslationStates().Last().State;
+                return Detach(Shell(Demo(OnboardingStep.Done, keys: true), ShellTab.Translation));
+            }, Width, 1900, Path.Combine(folder, $"pencere-ceviri-uzun-{suffix}.png"));
+            TranslationPage.Preview = null;
+            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Appearance)), Width, 1300, Path.Combine(folder, $"pencere-gorunum-uzun-{suffix}.png"));
+            Save(() => Detach(Shell(Running(), ShellTab.History)), Width, Height, Path.Combine(folder, $"pencere-gecmis-{suffix}.png"));
+            Save(() =>
+            {
+                var controller = Running();
+                var whip = controller.History.First(entry => entry.Source.StartsWith("Whip", StringComparison.Ordinal));
+                controller.RemoveCorrection(whip.Source);
+                HistoryPage.PreviewEdit = (whip.Id, "Ağzını burnunu kır şunun!");
+                return Detach(Shell(controller, ShellTab.History));
+            }, Width, Height, Path.Combine(folder, $"pencere-gecmis-duzelt-{suffix}.png"));
+            HistoryPage.PreviewEdit = null;
+            Save(() => new AreaEditorView(WithHint(Running()), () => { }), Width, Height, Path.Combine(folder, $"pencere-alanlar-{suffix}.png"));
+            Save(() =>
+            {
+                var controller = WithHint(Demo(OnboardingStep.Done));
+                controller.Settings = controller.Settings.WithExtraArea("hint", area => area with { Enabled = false });
+                AreaEditorView.PreviewSelected = "hint";
+                return new AreaEditorView(controller, () => { });
+            }, Width, Height, Path.Combine(folder, $"pencere-alanlar-bos-{suffix}.png"));
+            AreaEditorView.PreviewSelected = null;
             Save(() =>
             {
                 var controller = Running();
@@ -145,7 +184,7 @@ public static class ScreenRenderer
     ];
 
     /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme en az bu kadarını bekler.</summary>
-    public const int ExpectedCount = 90;
+    public const int ExpectedCount = 108;
 
     /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar bölümü) açık.</summary>
     private static ShellWindow Shell(AppController controller, ShellTab tab, SettingsGroup? group = null)
@@ -163,7 +202,7 @@ public static class ScreenRenderer
     {
         var window = Shell(controller, ShellTab.Home);
         window.Home?.ShowEventForRender(new SubtitleEvent(SubtitleEventKind.Subtitle, "Hâlâ burada mı?", 60000,
-            Box: new CouchSubs.Core.TextBox(0.25, 0.69, 0.75, 0.9), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
+            Box: new CouchSubs.Core.TextBox(0.27, 0.765, 0.73, 0.885), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
         return window;
     }
 
@@ -177,10 +216,24 @@ public static class ScreenRenderer
         var history = (SubtitleHistory)typeof(AppController).GetField("history", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(controller)!;
         var start = DateTime.UtcNow.AddMinutes(-42).AddSeconds(-20);
         typeof(AppController).GetField("sessionStartedAt", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(controller, start);
+        var entries = (List<SubtitleHistory.Entry>)typeof(SubtitleHistory).GetField("entries", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(history)!;
+        // Dünkü oturum (Geçmiş ekranındaki oturum seçicisi için).
+        var yesterday = start.AddDays(-1).AddHours(-1);
+        foreach (var (seconds, source, translation) in new[]
+                 {
+                     (12.0, "Lucia, wait up!", "Lucia, bekle!"), (15.5, "We gotta move. Now.", "Gitmemiz lazım. Hemen."),
+                     (21.2, "Keep your head down.", "Başını eğik tut."),
+                 })
+        {
+            var at = yesterday.AddSeconds(seconds);
+            history.Add(source, translation, LineOrigin.Engine, at);
+            entries[0] = entries[0] with { LeftAt = at.AddSeconds(2) };
+        }
         foreach (var (seconds, source, translation, origin, cps) in new (double, string, string, LineOrigin, double?)[]
                  {
                      (2518.903, "Welcome back to Vice City, bro.", "Vice City'ye tekrar hoş geldin, kanka.", LineOrigin.Engine, 12.4),
                      (2522.540, "Y'all selling that trailer right there?", "Şuradaki karavanı satıyor musunuz?", LineOrigin.Engine, 11.8),
+                     (2524.870, "Cheers!", "Şerefe!", LineOrigin.Correction, 6.8),
                      (2526.218, "I'm thinkin' of doing a little cross-country vacay with a lady friend of mine.",
                          "Bir hanım arkadaşımla ülke boyunca ufak bir tatile çıkmayı düşünüyorum.", LineOrigin.Engine, 21.2),
                      (2529.402, "Whip the ever-lovin' shit outta him!", "Ağzını burnunu kır şunun!", LineOrigin.Correction, 9.6),
@@ -192,18 +245,66 @@ public static class ScreenRenderer
             history.Add(source, translation, origin, at);
             if (cps is { } speed)
             {
-                // Okuma hızı satır ekrandan kalkınca yazılır (MarkLeft); örnekte doğrudan.
-                var entries = (List<SubtitleHistory.Entry>)typeof(SubtitleHistory).GetField("entries", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(history)!;
+                // Okuma hızı ve kalkış anı satır ekrandan kalkınca yazılır (MarkLeft); örnekte doğrudan.
                 var index = entries.FindIndex(entry => entry.Source == source);
-                if (index >= 0) entries[index] = entries[index] with { ShownAt = at, Cps = speed };
+                var visible = ReadingSpeed.Characters(translation) / speed;
+                if (index >= 0) entries[index] = entries[index] with { ShownAt = at, Cps = speed, LeftAt = at.AddSeconds(visible) };
             }
         }
+        // Kullanıcının düzeltmeleri ve sözlüğü (bellekte; örnek denetleyicinin veri klasörü yok).
+        controller.SaveCorrection("Whip the ever-lovin' shit outta him!", "Ağzını burnunu kır şunun!");
+        controller.SaveCorrection("Cheers!", "Şerefe!");
+        controller.SaveGlossaryTerm("Vice City", GlossaryRule.Keep);
+        controller.SaveGlossaryTerm("Leonida", GlossaryRule.Keep);
+        controller.SaveGlossaryTerm("bro", GlossaryRule.Always, "kanka");
+        controller.SaveGlossaryTerm("cop", GlossaryRule.Always, "aynasız");
+        controller.SaveGlossaryTerm("safehouse", GlossaryRule.Always, "güvenli ev");
         typeof(AppController).GetProperty(nameof(AppController.IsRunning))!.GetSetMethod(nonPublic: true)!.Invoke(controller, [true]);
         SetPrivate(controller, nameof(AppController.LastTranslation), "Hâlâ burada mı?");
         SetPrivate(controller, nameof(AppController.PlayedGame), "Grand Theft Auto VI");
         SetPrivate(controller, nameof(AppController.LastFrame),
             DemoFrameRenderer.Draw(["Can never have too much storage space, am I right?", "He still here?"], 2));
         return controller;
+    }
+
+    /// <summary>Altyazı biçimi değiştirilmiş örnek denetleyici.</summary>
+    private static AppController WithStyle(AppController controller, Func<SubtitleStyle, SubtitleStyle> change)
+    {
+        controller.Settings = controller.Settings with { Style = change(controller.Settings.Style) };
+        return controller;
+    }
+
+    /// <summary>Sol üstteki ipucu kutusu ek alan olarak (Alanları düzenle taslağındaki ikinci kutu).</summary>
+    private static AppController WithHint(AppController controller)
+    {
+        controller.Settings = controller.Settings with
+        {
+            ExtraAreas = [new ExtraArea("hint", "İpucu", new CropRegion(0.025, 0.165, 0.02, 0.30))],
+            Region = new CropRegion(0.64, 0.97, 0.14, 0.86),
+        };
+        return controller;
+    }
+
+    /// <summary>
+    /// Kör testin durumları (taslak Translation.dc.html'deki çeviriler; gerçek motor çağrılmaz): yalnız ücretsiz model hazır
+    /// ("anahtar gerekli" sütunları), üç motor hazır ve oylar verilmiş, motorlar açık (kazanan, ileri ayarlar, bağlantı sonucu).
+    /// </summary>
+    private static IEnumerable<(string Name, TranslationPage.PreviewState State)> TranslationStates()
+    {
+        string?[] free = ["Her zaman sevilen pisliği ondan çıkar!", "Hepiniz oradaki karavanı mı satıyorsunuz?", "Sıkı tutun, neredeyse oradayız.", "Bu çok fazla hayır.", "Vice City'ye tekrar hoş geldin, kardeşim."];
+        string?[] gemini = ["Ağzını burnunu kır şunun!", "Şuradaki karavanı satıyor musunuz?", "Dayan biraz, az kaldı.", "Yok artık, hiç olmaz.", "Vice City'ye hoş geldin, kanka."];
+        string?[] deepl = ["Onu bir güzel pataklayın!", "Şu karavanı satıyor musunuz?", "Sıkı durun, neredeyse geldik.", "Bu tam bir hayır.", "Vice City'ye tekrar hoş geldin, kardeş."];
+        var results = new Dictionary<TranslationEngine, BlindTestResult>
+        {
+            [TranslationEngine.Free] = new(free, 62), [TranslationEngine.Gemini] = new(gemini, 248), [TranslationEngine.DeepL] = new(deepl, 305),
+        };
+        BlindTestColumn[] all = [new(TranslationEngine.Free, true), new(TranslationEngine.Gemini, true), new(TranslationEngine.DeepL, true)];
+        BlindTestColumn[] keyless = [new(TranslationEngine.Free, true), new(TranslationEngine.Gemini, false), new(TranslationEngine.DeepL, false)];
+        yield return ("-anahtarsiz", new TranslationPage.PreviewState(keyless, new Dictionary<TranslationEngine, BlindTestResult> { [TranslationEngine.Free] = results[TranslationEngine.Free] },
+            new Dictionary<int, int>(), Revealed: false));
+        yield return ("", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 1, [1] = 1, [3] = 1, [2] = 2 }, Revealed: false));
+        yield return ("-motorlar", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 1, [1] = 1, [3] = 1, [2] = 2, [4] = 1 }, Revealed: true,
+            AdvancedOpen: true, TestResult: "Çalışıyor · 240 ms", Setup: TranslationEngine.Gemini));
     }
 
     private static void SetPrivate(AppController controller, string property, object? value) =>
@@ -217,16 +318,25 @@ public static class ScreenRenderer
         return content;
     }
 
-    internal static AppController Demo(OnboardingStep step, LgTv? pairedTv = null)
+    /// <param name="keys">Gemini ve DeepL anahtarı kayıtlıymış gibi (Çeviri ekranı).</param>
+    internal static AppController Demo(OnboardingStep step, LgTv? pairedTv = null, bool keys = false)
     {
-        var controller = new AppController(new DemoServices(), new DemoStore(step == OnboardingStep.Done, pairedTv),new DemoSettings(), new DemoSleep(),
+        var controller = new AppController(new DemoServices(), new DemoStore(step == OnboardingStep.Done, pairedTv, keys), new DemoSettings(), new DemoSleep(),
             Localizer.Current, action => action());
         if (step != OnboardingStep.Done) controller.Step = step;
         return controller;
     }
 
+    /// <summary>
+    /// Yalnız adında bu parçalardan biri geçen ekranlar çizilir (ortam değişkeni CEVIRGEN_RENDER_ONLY, virgülle; geliştirirken
+    /// hız için). Boşsa hepsi.
+    /// </summary>
+    private static readonly string[] Only = (Environment.GetEnvironmentVariable("CEVIRGEN_RENDER_ONLY") ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     private static void Save(Func<FrameworkElement> make, int width, int height, string path)
     {
+        if (Only.Length > 0 && !Only.Any(part => Path.GetFileName(path).Contains(part, StringComparison.OrdinalIgnoreCase))) return;
         try
         {
             Render(make(), width, height, path);
@@ -271,6 +381,8 @@ public static class ScreenRenderer
 
     private sealed class DemoServices : IAppServices
     {
+        // Gerçek uygulamada Xbox bağlantısı vardır (LiveServices); platform sorusunda dört seçenek de seçilebilir görünür.
+        public IXboxService? Xbox { get; } = new DemoXbox();
         public ITranslationModel Translation { get; } = new DemoTranslation();
         public Task<IReadOnlyList<ConsoleInfo>> DiscoverConsolesAsync() => Task.FromResult<IReadOnlyList<ConsoleInfo>>([new("192.168.1.20", "PS5-123", true)]);
         public Task<byte[]> AccountIdFromRedirectAsync(Uri redirect) => Task.FromResult(new byte[8]);
@@ -299,6 +411,17 @@ public static class ScreenRenderer
             [new("obs64", "Projektör (Kaynak) - Elgato HD60 X"), new("GTA5", "Grand Theft Auto V"), new("4KCaptureUtility", "4K Capture Utility")];
     }
 
+    /// <summary>Ekran görüntüleri için Xbox hizmeti (hiçbir yere bağlanmaz).</summary>
+    private sealed class DemoXbox : IXboxService
+    {
+        public event Action<string>? TokenUpdated { add { } remove { } }
+        public void Clear() { }
+        public Task<XboxLoginChallenge> BeginLoginAsync() => throw new NotSupportedException();
+        public Task<string> CompleteLoginAsync() => throw new NotSupportedException();
+        public Task<IReadOnlyList<XboxConsole>> DiscoverAsync(string token) => Task.FromResult<IReadOnlyList<XboxConsole>>([]);
+        public IStreamSession MakeStream(XboxConsole console, string token, bool legacyFrameRate, bool playAudio) => throw new NotSupportedException();
+    }
+
     private sealed class DemoTranslation : ITranslationModel
     {
         public bool IsSupported(string source, string target) => source == "en";
@@ -307,10 +430,11 @@ public static class ScreenRenderer
         public ITextTranslator Create(string source, string target) => throw new NotSupportedException();
     }
 
-    private sealed class DemoStore(bool ready, LgTv? pairedTv = null) : IAppStore
+    private sealed class DemoStore(bool ready, LgTv? pairedTv = null, bool keys = false) : IAppStore
     {
         public void Save<T>(string key, T value) { }
-        public T? Load<T>(string key) => pairedTv is not null && key is StoreKeys.Tv or StoreKeys.TvKey
+        public T? Load<T>(string key) => keys && key is StoreKeys.GeminiKey or StoreKeys.DeepLKey ? (T)(object)"demo-key"
+            : pairedTv is not null && key is StoreKeys.Tv or StoreKeys.TvKey
             ? (T)(key == StoreKeys.Tv ? pairedTv : (object)"key")
             : !ready ? default : key switch
         {

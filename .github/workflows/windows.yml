@@ -413,7 +413,7 @@ jobs:
           if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "ekran görüntüsü aracı zamanında bitmedi" }
           if (Test-Path screens/errors.txt) { Get-Content screens/errors.txt; throw "ekranlardan biri hata verdi" }
           $count = (Get-ChildItem screens -Filter *.png).Count
-          if ($count -lt 90) { throw "beklenen 90 ekran görüntüsü (ScreenRenderer.ExpectedCount), bulunan: $count" }
+          if ($count -lt 108) { throw "beklenen 108 ekran görüntüsü (ScreenRenderer.ExpectedCount), bulunan: $count" }
 
       # Perde: boşta işlemci (hedef ≤ %2). Sanal makinede ekran kartı yok (WPF yazılımla çizer), değer gerçek bilgisayardakinden
       # yüksek çıkar; bilgi amaçlıdır, adımı düşürmez. Aynı komut bir Windows bilgisayarda gerçek değeri verir.
