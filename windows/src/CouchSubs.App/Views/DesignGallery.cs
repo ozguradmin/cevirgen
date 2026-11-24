@@ -51,7 +51,7 @@ public sealed class DesignGallery : UserControl
         grid.Children.Add(perde);
         var left = new Card { Title = "Düğmeler" };
         var buttons = new WrapPanel();
-        foreach (var (style, label) in new[] { ("PrimaryButton", "Çeviriyi Başlat"), ("LiveButton", "Çeviriyi Durdur"), ("SecondaryButton", "Ekranı Çevir"),
+        foreach (var (style, label) in new[] { ("PrimaryButton", "Çeviriyi başlat"), ("LiveButton", "Çeviriyi durdur"), ("SecondaryButton", "Ekranı çevir"),
                      ("DarkButton", "Devam"), ("SuccessButton", "Eşleşti"), ("GhostButton", "Atla") })
         {
             var button = new Button { Content = label, Margin = Sp.T("0", "0", "s", "s") };
@@ -76,8 +76,8 @@ public sealed class DesignGallery : UserControl
 
         var right = new Card { Title = "Ses" };
         var rightStack = new StackPanel();
-        rightStack.Children.Add(new SwitchRow { Content = "Açılış Sesi", Description = "Yalnız ilk açılışta çalar.", IsChecked = true });
-        rightStack.Children.Add(new SwitchRow { Content = "Geçiş Animasyonları", Description = "Kapalıyken yalnız kısa solma kullanılır.", Divider = false });
+        rightStack.Children.Add(new SwitchRow { Content = "Açılış sesi", Description = "Yalnız ilk açılışta çalar.", IsChecked = true });
+        rightStack.Children.Add(new SwitchRow { Content = "Geçiş animasyonları", Description = "Kapalıyken yalnız kısa solma kullanılır.", Divider = false });
         rightStack.Children.Add(new OptionCard { Content = "Gemini", Description = "Ücretsiz Google anahtarıyla daha iyi çeviri.", IsChecked = true, GroupName = "g", Margin = Sp.T("0", "m", "0", "xs") });
         rightStack.Children.Add(new OptionCard { Content = "DeepL", Description = "Kendi DeepL anahtarınızla.", GroupName = "g" });
         var swatches = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("0", "m", "0", "0") };
@@ -85,8 +85,8 @@ public sealed class DesignGallery : UserControl
             swatches.Children.Add(new ColorSwatch { Swatch = (Brush)new BrushConverter().ConvertFromString(hex)!, IsChecked = on, GroupName = "s", Margin = Sp.T("0", "0", "s", "0") });
         rightStack.Children.Add(swatches);
         var nav = new StackPanel { Margin = Sp.T("0", "m", "0", "0") };
-        nav.Children.Add(new NavItem { Content = "Temel", Hint = "Çeviri, Ses", IsChecked = true, GroupName = "n" });
-        nav.Children.Add(new NavItem { Content = "Oyun Paketleri", GroupName = "n" });
+        nav.Children.Add(new NavItem { Content = "Temel", Hint = "Çeviri, ses", IsChecked = true, GroupName = "n" });
+        nav.Children.Add(new NavItem { Content = "Oyun paketleri", GroupName = "n" });
         rightStack.Children.Add(nav);
         right.Content = rightStack;
         Grid.SetColumn(right, 2);
@@ -115,14 +115,14 @@ public sealed class DesignGallery : UserControl
         stack.Children.Add(loaders);
         stack.Children.Add(new StepTimeline
         {
-            Steps = [new("PlayStation Hesabı", "İkinci hesapla giriş yapıldı.", StepPhase.Done), new("PS5 Bulundu", null, StepPhase.Current), new("Eşleşme ve İlk Görüntü", null, StepPhase.Todo)],
+            Steps = [new("PlayStation hesabı", "İkinci hesapla giriş yapıldı.", StepPhase.Done), new("PS5 bulundu", null, StepPhase.Current), new("Eşleşme ve ilk görüntü", null, StepPhase.Todo)],
         });
         var preview = new PerdePreview { ShowArea = true };
         preview.SetLine("Lucia:", "Hazır olduğunda haber ver, gidiyoruz.", 13);
         preview.SetPills(new Chip { Text = "CANLI", Tone = ChipTone.GlassLive });
         stack.Children.Add(preview);
         var covers = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("xxs", "xs", "0", "xs") };
-        covers.Children.Add(new GameCover("Red Dead Redemption 2", "Paket Var", true, 88) { Margin = Sp.T("0", "0", "m", "0") });
+        covers.Children.Add(new GameCover("Red Dead Redemption 2", "Paket var", true, 88) { Margin = Sp.T("0", "0", "m", "0") });
         covers.Children.Add(new GameCover("Grand Theft Auto V", null, false, 88) { Margin = Sp.T("0", "0", "m", "0") });
         covers.Children.Add(new SuccessMoment("Eşleşti") { VerticalAlignment = VerticalAlignment.Center });
         stack.Children.Add(covers);

@@ -65,6 +65,12 @@ Changes (2026-11-24, interface polish):
     placeholder scene.
   - Shorter setup (PS5 and Xbox 4 steps, PC 2 steps, other 3 steps).
   - Çevirgen server reached at its own domain with automatic fallback.
+  - Free (OPUS-MT) engine: characters outside the model vocabulary no longer
+    vanish ("coño", "Mañana", "mahkûm"); accented source letters are simplified
+    before translation and restored afterwards; stricter sentence splitting
+    (initialisms, ellipsis inside quotes); short lines translated with context
+    keep their capital initial.
+  - Turkish button and label texts in sentence case.
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

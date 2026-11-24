@@ -2658,9 +2658,9 @@ public class TvAppInstallTests
         var text = Localizer.ForLanguage("tr");
         Assert.Equal("Bu TV'de Çevirgen kimliğini kullanan başka bir uygulama kurulu. Kaldırıp Çevirgen'i kuralım mı?",
             TvAppMessages.Problem(controller.TvApp, TvBrand.AndroidTv, text, "x.log"));
-        Assert.Equal("Kaldırıp Kur", text[TvAppMessages.ForeignAppConfirm]);
+        Assert.Equal("Kaldırıp kur", text[TvAppMessages.ForeignAppConfirm]);
         Assert.Equal("Vazgeç", text[TvAppMessages.ForeignAppCancel]);
-        Assert.Equal("Başka Bir Uygulama Kurulu", text[TvAppMessages.ForeignAppTitle]);
+        Assert.Equal("Başka bir uygulama kurulu", text[TvAppMessages.ForeignAppTitle]);
 
         await controller.ReplaceForeignTvAppAsync();
         Assert.Equal(new TvAppState(TvAppKind.UpToDate, "0.7.0"), controller.TvApp);

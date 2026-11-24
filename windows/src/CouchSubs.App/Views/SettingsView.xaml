@@ -206,7 +206,7 @@
                                          Checked="OnXboxLegacyFrameRate" Unchecked="OnXboxLegacyFrameRate" />
                         </c:SpacedStack>
                     </c:Card>
-                    <c:Card Title="Ekran">
+                    <c:Card Title="{t:T 'Show subtitles on'}">
                         <StackPanel>
                             <local:SubtitleOutputCard x:Name="OutputCard" Detailed="True" />
                             <Border Style="{StaticResource SettingItem}" Visibility="{Binding ShowsOnTv, Converter={StaticResource VisibleIf}}">

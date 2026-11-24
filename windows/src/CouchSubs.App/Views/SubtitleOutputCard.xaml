@@ -9,7 +9,7 @@
              xmlns:local="clr-namespace:CouchSubs.App.Views">
     <!-- Mac OutputSettings: kart başlığı "Altyazıyı göster", kısa etiketli seçici (TV / Bu PC / İkisi de / OBS), anlamı
          altındaki cümlede. OBS adresleri kopyala simgesi kutunun içinde olan tam yuvarlak kutularda (CopyField). -->
-    <c:Card Title="{t:T 'Show subtitles on'}">
+    <c:Card x:Name="Frame" Title="{t:T 'Show subtitles on'}">
         <c:SpacedStack>
             <StackPanel>
                 <Border Style="{StaticResource SegmentGroup}" HorizontalAlignment="Stretch">

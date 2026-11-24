@@ -80,7 +80,7 @@ public sealed class UpdateAttemptTests : IDisposable
         Assert.Equal("Çevirgen 0.1.0-beta.84 sürümüne güncellenemedi", controller.UpdateTitle);
         Assert.Equal("Güncelleme uygulanamadı. Güvenlik yazılımı engellemiş olabilir; kurulum dosyasını sitemizden indirip kurun.",
             controller.UpdateHint);
-        Assert.Equal("Kurulum Dosyasını İndir", controller.UpdateButtonText);
+        Assert.Equal("Kurulum dosyasını indir", controller.UpdateButtonText);
 
         await controller.InstallUpdateAsync();
         Assert.False(updater.Installed);
@@ -130,7 +130,7 @@ public sealed class UpdateAttemptTests : IDisposable
         await controller.CheckForUpdateAsync();
         Assert.Equal("Çevirgen'in yeni sürümü çıktı: 0.1.0-beta.84", controller.UpdateTitle);
         Assert.Equal("Bu kopya kendini güncelleyemiyor. Kurulum dosyasıyla yeniden kurun.", controller.UpdateHint);
-        Assert.Equal("Kurulum Dosyasını İndir", controller.UpdateButtonText);
+        Assert.Equal("Kurulum dosyasını indir", controller.UpdateButtonText);
         await controller.InstallUpdateAsync();
         Assert.False(updater.Installed);
         Assert.Single(opened);

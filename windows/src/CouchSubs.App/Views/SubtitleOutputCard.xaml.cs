@@ -34,8 +34,25 @@ public partial class SubtitleOutputCard : UserControl
         Refresh();
     }
 
-    /// <summary>Ayarlarda açıklamalar da gösterilir; ana ekranda kart kısa kalır.</summary>
-    public bool Detailed { get; set; }
+    /// <summary>
+    /// Ayarlarda açıklamalar da gösterilir; ana ekranda kart kısa kalır. Ayarlarda kart kendi başlığını ve çerçevesini
+    /// bırakır: "Altyazıyı göster" orada dış bölümün başlığıdır (iki başlık üst üste gelmesin).
+    /// </summary>
+    public bool Detailed
+    {
+        get => detailed;
+        set
+        {
+            detailed = value;
+            if (value && Frame.Content is UIElement body)
+            {
+                Frame.Content = null;
+                Content = body;
+            }
+        }
+    }
+
+    private bool detailed;
 
     internal void Attach(AppController attached)
     {
