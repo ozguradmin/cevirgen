@@ -19,6 +19,13 @@
 - Your own corrections and a glossary with rules; reading-speed check against the 17 characters/second subtitle limit; export a session as .srt.
 - Short setup: 4 steps on PS5, 2 steps for PC games.
 
+## Two looks
+
+| | |
+|---|---|
+| ![Cinema look](docs/cevirgen/ekran/gorunum-sinema.jpg) | ![Classic box look](docs/cevirgen/ekran/gorunum-klasik.jpg) |
+| **Cinema** · no background, bold, black outline; just above the English line | **Classic box** · dark box that replaces the English line |
+
 ## Privacy
 
 An anonymous usage count (random ID, version, platform every 5 minutes) and, to build better ready-made translations, the English lines read on screen with their translations and the game name are sent. Personal data such as e-mail addresses or phone numbers is filtered out. Both can be turned off in Settings › App. Details: [PRIVACY.md](PRIVACY.md).
@@ -29,4 +36,4 @@ Support and feedback: **destek@ozgurguler.tech** · Developer: [ozgurguler.tech]
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). Çevirgen is derived from the open-source CouchSubs project; copyright and modification notices are in [NOTICE](NOTICE), third-party components in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Sony Interactive Entertainment, Microsoft or any game publisher.
+[GNU AGPL-3.0](LICENSE.txt). Çevirgen is derived from the open-source CouchSubs project; copyright and modification notices are in [NOTICE](NOTICE), third-party components in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Sony Interactive Entertainment, Microsoft or any game publisher.

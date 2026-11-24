@@ -25,6 +25,13 @@ Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üst�
 - **Oturumu .srt olarak kaydet.** Türkçe ya da iki dilli altyazı dosyası.
 - **Kolay kurulum.** PS5 için 4 adım, bilgisayar oyunları için 2 adım.
 
+## İki görünüm
+
+| | |
+|---|---|
+| ![Sinema görünümü: zeminsiz, kalın, siyah kenarlıklı Türkçe altyazı](docs/cevirgen/ekran/gorunum-sinema.jpg) | ![Klasik kutu görünümü: koyu kutu İngilizcenin yerine geçer](docs/cevirgen/ekran/gorunum-klasik.jpg) |
+| **Sinema** · zeminsiz, kalın, siyah kenarlıklı; İngilizcenin hemen üstünde | **Klasik kutu** · koyu kutu, İngilizcenin yerine geçer |
+
 ## Ekranlar
 
 | | |
@@ -94,6 +101,6 @@ kullanmadığı upstream parçaları bu depoda yok; git geçmişinde ve [upstrea
 
 ## Lisans
 
-[GNU AGPL-3.0](LICENSE). Çevirgen, açık kaynak CouchSubs projesinden türetilmiş ve geliştirilmiştir; telif ve değişiklik bildirimleri [NOTICE](NOTICE), kullanılan bileşenler [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) dosyasındadır.
+[GNU AGPL-3.0](LICENSE.txt). Çevirgen, açık kaynak CouchSubs projesinden türetilmiş ve geliştirilmiştir; telif ve değişiklik bildirimleri [NOTICE](NOTICE), kullanılan bileşenler [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) dosyasındadır.
 
 Çevirgen; Sony Interactive Entertainment, Microsoft ya da herhangi bir oyun yayıncısıyla bağlantılı değildir. "PlayStation" ve "PS5" Sony Interactive Entertainment Inc.'in, "Xbox" Microsoft Corporation'ın ticari markalarıdır. Ekran görüntülerindeki oyun sahnesi Çevirgen'in kendi çizimidir.

@@ -150,10 +150,11 @@ public static class AppearancePresets
 
     public static readonly IReadOnlyList<AppearancePresetInfo> All =
     [
-        new(AppearancePreset.Cinema, "Sinema", "Zeminsiz, kalın, siyah kenarlıklı."),
-        new(AppearancePreset.Clean, "Sade", "İnce yazı, hafif gölge. Parlak sahnede zorlanır."),
+        // Çevirgen: önerilen iki görünüm (Sinema, Klasik kutu) başta.
+        new(AppearancePreset.Cinema, "Sinema", "Önerilen · zeminsiz, kalın, siyah kenarlıklı."),
+        new(AppearancePreset.Classic, "Klasik kutu", "Önerilen · koyu kutu, İngilizcenin yerine geçer."),
         new(AppearancePreset.Readable, "Okunaklı", "Büyük yazı, yarı saydam zemin."),
-        new(AppearancePreset.Classic, "Klasik kutu", "Koyu kutu; İngilizceyi de örtebilir."),
+        new(AppearancePreset.Clean, "Sade", "İnce yazı, hafif gölge. Parlak sahnede zorlanır."),
     ];
 
     /// <summary>Hazır görünüm biçime uygulanır.</summary>

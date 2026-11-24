@@ -10,13 +10,13 @@ public sealed class GameAreaDefaultsTests
     [Theory]
     [InlineData("Grand Theft Auto VI")]
     [InlineData("GTA 6")]
-    public void Gta6HasSubtitleHelpAndOptionsAreas(string game)
+    public void Gta6HasSubtitleAndOptionsAreas(string game)
     {
         var areas = Assert.IsType<AreaSet>(GameAreaDefaults.For(game));
-        Assert.Equal([GameAreaDefaults.Gta6HelpId, GameAreaDefaults.Gta6OptionsId], areas.ExtraAreas.Select(area => area.Id));
+        Assert.Equal([GameAreaDefaults.Gta6OptionsId], areas.ExtraAreas.Select(area => area.Id));
         Assert.All(areas.ExtraAreas, area => Assert.True(area.Enabled));
         // Sağ alttaki seçenekler ekranın sağ kenarına kadar, uzun etiket ("DEFAULT", "ENABLE AUTO DRIVE") kesilmesin diye geniş.
-        var options = areas.ExtraAreas[1].Region;
+        var options = areas.ExtraAreas[0].Region;
         Assert.Equal(1.0, options.Right);
         Assert.True(options.Left <= 0.8);
         Assert.NotNull(GameAreaDefaults.SubtitleSettingHint(game));

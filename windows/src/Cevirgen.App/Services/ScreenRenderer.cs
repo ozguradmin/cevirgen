@@ -106,6 +106,8 @@ public static class ScreenRenderer
             Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Appearance)), Width, Height, Path.Combine(folder, $"pencere-gorunum-{suffix}.png"));
             Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Clean, style)), ShellTab.Appearance)),
                 Width, Height, Path.Combine(folder, $"pencere-gorunum-sade-{suffix}.png"));
+            Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Classic, style)), ShellTab.Appearance)),
+                Width, Height, Path.Combine(folder, $"pencere-gorunum-klasik-{suffix}.png"));
             Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Readable, style) with
                 { Placement = SubtitlePlacement.Fixed, BottomPercent = 12, TextHex = "#FFE135", TextColor = SubtitleTextColor.Yellow }), ShellTab.Appearance)),
                 Width, Height, Path.Combine(folder, $"pencere-gorunum-okunakli-{suffix}.png"));

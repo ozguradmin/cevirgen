@@ -3,7 +3,7 @@ Copyright (C) 2026 Sinan Yorulmaz
 https://github.com/yorulmazsinan/couchsubs
 
 This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License version 3 (see LICENSE).
+the terms of the GNU Affero General Public License version 3 (see LICENSE.txt).
 
 If you distribute a modified version or a fork of CouchSubs, the AGPL-3.0
 requires you to, among other things:
@@ -92,6 +92,9 @@ Changes (2026-11-24, repository cleanup and rename):
     Identifiers that existing installs or TV apps depend on (data folder
     %LOCALAPPDATA%\CouchSubs, x-couchsubs-* headers, the "couchsubs" protocol
     value, firewall rule names, TV app IDs, couchsubs_native.dll) are unchanged.
+  - 2026-11-24: the license file is named LICENSE.txt (its text is unchanged).
+    Button-prompt lists in user areas are drawn per line, away from the button
+    icon; GTA 6 default areas; diagnostics capture extra-area readings.
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

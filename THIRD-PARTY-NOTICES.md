@@ -1,6 +1,6 @@
 # Third-party notices / Üçüncü taraf bileşenler
 
-CouchSubs is licensed under the GNU AGPL-3.0 (see [LICENSE](LICENSE)). It includes or downloads the
+Çevirgen (derived from CouchSubs) is licensed under the GNU AGPL-3.0 (see [LICENSE.txt](LICENSE.txt)). It includes or downloads the
 following third-party components. Full source code for CouchSubs, including the build scripts that
 produce the bundled libraries, is available at https://github.com/yorulmazsinan/couchsubs.
 
@@ -76,7 +76,7 @@ The Turkish command glossary in `UiCommands.cs` and the controller-icon detectio
 and [IconWords](https://gitlab.com/sefflex/GameTranslator/-/blob/2492049b8435962b05933075978dd52084c67bfc/windows/src/GameTranslator.Core/IconWords.cs), by emir-kaya (Sefflex).
 IconWords credits [Nino Game Translator's VisionReader](https://github.com/yunusdemirbag/nino-game-translator/blob/83c138fbf87292c800082270e4b33e771bae3df1/core/Sources/CouchSubsCore/Pipeline/VisionReader.swift)
 for the `withIcons` and `withEdgeIcons` rules by Yunus Demirbağ. Both projects are based on
-CouchSubs, Copyright (C) 2026 Sinan Yorulmaz. These adaptations are licensed under AGPL-3.0-only (see [LICENSE](LICENSE)).
+CouchSubs, Copyright (C) 2026 Sinan Yorulmaz. These adaptations are licensed under AGPL-3.0-only (see [LICENSE.txt](LICENSE.txt)).
 
 | Component | License | Source |
 |---|---|---|

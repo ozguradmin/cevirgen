@@ -7,7 +7,7 @@
   1. dotnet publish (Release, win-x64, kendi içinde .NET) -p:Version=<sürüm>.
   2. Paket klasörü: yayımlanan dosyalar + C# derlemesinin üretmediği yerel ve üçüncü taraf çalışma dosyaları
      (couchsubs_native.dll, ct2/, xbox-bridge/ çalışma dosyaları, tts/, VC++ çalışma kitaplıkları) -NativeFrom
-     klasöründen; LICENSE, THIRD-PARTY-NOTICES.md, NOTICE, README.md depodan; dist/tv-app'teki en yeni .apk tv-app/ altına.
+     klasöründen; LICENSE.txt, THIRD-PARTY-NOTICES.md, NOTICE, README.md depodan; dist/tv-app'teki en yeni .apk tv-app/ altına.
      *.pdb atılır.
   3. vpk pack (packId CevirgenApp, ana exe Cevirgen.exe) → dist/releases.
   Hiçbir yere yüklemez, GitHub sürümü açmaz.
@@ -103,7 +103,7 @@ foreach ($folder in @('ct2', 'tts', 'xbox-bridge')) {
 }
 
 # Lisans ve bildirimler: Çevirgen'in kendi kopyaları (depodan), yoksa -NativeFrom'dakiler.
-foreach ($name in @('LICENSE', 'THIRD-PARTY-NOTICES.md', 'NOTICE', 'README.md')) {
+foreach ($name in @('LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'NOTICE', 'README.md')) {
     $ours = Join-Path $repo $name
     $source = if (Test-Path $ours) { $ours } else { Join-Path $NativeFrom $name }
     if (-not (Test-Path $source)) { throw "$name bulunamadı" }

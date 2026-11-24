@@ -146,7 +146,11 @@ public sealed partial class RegionWatcher
     /// <param name="Look">Otomatik ekran yazısında özgün yazının görünüşü (<see cref="TextStyleSampler"/>); diğerlerinde null.</param>
     /// <param name="Phone">GTA 6 telefonunda grubun rolü ve düz ekrandaki yeri (<see cref="GamePhoneText.Roles"/>); sohbet paneli bununla dizilir.</param>
     internal sealed record Block(int Start, int Count, TextBox Box, double LineHeight, PhoneTextStyle? Style = null, TextLook? Look = null,
-                                 ScreenPhoneCard.Placement? Phone = null);
+                                 ScreenPhoneCard.Placement? Phone = null)
+    {
+        /// <summary>Çevirgen: kullanıcının tuş listesindeki etiket (TV kutuyu tuş simgesinin öbür yanına dayar).</summary>
+        public bool Key { get; init; }
+    }
 
     /// <param name="Icons">Her parçadaki kumanda simgeleri (kareden kesilmiş), parçadaki sırasıyla.</param>
     /// <param name="Blocks">Alanda birden çok ayrı yazı grubu varsa grupları; tek grupta null (tek kutu).</param>
@@ -654,8 +658,8 @@ public sealed partial class RegionWatcher
             if (styled || labelList) list = AlignByNeighbours(list);
             // Çevirgen: tuş simgesi etiketin hangi yanındaysa Türkçe öbür yana büyür (simgeyi örtmez).
             if (labelList && frame is not null)
-                list = [.. list.Select(block => block.Look is { } own && GlyphSide(frame, block.Box) is { } side
-                    ? block with { Look = own with { Align = side } } : block)];
+                list = [.. list.Select(block => (block.Look is { } own && GlyphSide(frame, block.Box) is { } side
+                    ? block with { Look = own with { Align = side } } : block) with { Key = true })];
             blocks = list;
             key = TextKey(paragraphs) + "|" + string.Join(',', list.Select(block => block.Count));
         }
@@ -1161,7 +1165,7 @@ public sealed partial class RegionWatcher
             var source = string.Join('\n', range.Select(i => IconText.Plain(candidate.Paragraphs[i])));
             result.Add((g, new ScreenTranslation.Item(source, translation, block.Box, block.LineHeight,
                                                       icons.Count > 0 ? icons : null)
-            { Style = block.Style, Look = block.Look, Phone = block.Phone, Unchanged = unchanged }));
+            { Style = block.Style, Look = block.Look, Phone = block.Phone, Unchanged = unchanged, Key = block.Key }));
         }
         return result;
     }

@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.5';
+  var APP_VERSION = '1.0.6';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -1468,8 +1468,11 @@
       // İngilizcenin sağ kenarında durur, en küçük genişlik ("EXIT" 80 px'ten dar) ve uzun Türkçe sola taşar; tuş simgesi
       // örtülmez. Sola yaslıysa sol kenar zaten sabit.
       var labelAlign = label && regionId && !phone ? ((item.style && item.style.align) || manualAlign) : null;
+      // Yalnız bilgisayarın tuş etiketi dediği blok (item.key) simge yanındaki kenara dayanır.
+      var keyAlign = item.key === true && labelAlign ? labelAlign : null;
       if (labelAlign === 'right' && left * width + itemWidth > (Math.min(1, box.right + pad)) * width + 1)
         el.style.left = Math.max(0, Math.round(Math.min(1, box.right + pad) * width - itemWidth)) + 'px';
+      if (keyAlign) el.className += ' key-label';
       if (bubble) {
         floor = Math.min(size, Math.max(Math.round(BUBBLE_MIN_FONT * height / 1080), Math.round(size * BUBBLE_MIN_SCALE)));
         el.className += ' bubble';
@@ -1514,6 +1517,13 @@
       }
       // En küçük okunabilir boyutta da sığmayan metni kesmeyiz/gizlemeyiz.
       // Bu uç durumda eski doğal büyüme davranışı korunur.
+      if ((keyAlign === 'right' || keyAlign === 'left') && el.offsetWidth > 0) {
+        // Çevirgen: tuş etiketi simgenin yanında: İngilizceyle simge arası GTA 6'da ~4 px. Kutu (payı ve iç boşluğu dahil)
+        // simge yanındaki kenarda İngilizcenin kenarından 2 px içeride biter; Türkçe ne kadar uzunsa öbür yana taşar.
+        var drawn = el.offsetWidth;
+        var edge = keyAlign === 'right' ? box.right * width - 2 - drawn : box.left * width + 2;
+        el.style.left = Math.max(0, Math.min(width - drawn, Math.round(edge))) + 'px';
+      }
       if (regionsAbove && regionId && !phone) {
         // Çevirgen: Türkçe İngilizcenin hemen üstünde (örtmez); ekranın üstüne sığmazsa en üstte kalır.
         el.style.top = Math.max(0, top * height - el.offsetHeight - 2) + 'px';

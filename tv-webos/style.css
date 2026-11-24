@@ -69,6 +69,8 @@ html, body {
   overflow: hidden;
 }
 #screen .item.paragraphs, #regions .region-blocks .item.paragraphs { text-align: left; white-space: pre-line; }
+/* Çevirgen: tuş etiketi ("ÇIKIŞ" ○): dar iç boşluk; kutu simgenin yanındaki kenarda İngilizceden önce biter (app.js). */
+#regions .region-blocks .item.key-label { padding: 1px 4px; border-radius: 4px; }
 #regions .region-blocks .item.phone {
   padding: 1px 2px;
   border-radius: 2px;

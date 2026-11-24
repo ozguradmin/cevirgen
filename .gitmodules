@@ -1,3 +1,4 @@
+# Çevirgen: PS5 Uzaktan Oynatma için chiaki-ng (AGPL-3.0); Çevirgen yamaları third-party/patches altında.
 [submodule "third-party/chiaki-ng"]
 	path = third-party/chiaki-ng
 	url = https://github.com/chiaki-ng/chiaki-ng.git
