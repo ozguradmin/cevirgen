@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json, tv-tizen/config.xml ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.0';
+  var APP_VERSION = '1.0.1';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -81,6 +81,7 @@
     if (!el) return;
     el.textContent = 'sub ' + diag.subtitles + ' · clear ' + diag.clears + ' · drop ' + diag.drops +
       ' · bg ' + diag.backgrounded + (diag.revived ? ' · revived ' + diag.revived : '') + ' · hide ' + diag.lastHide + ' · ' + diag.place +
+      (diag.hidden ? ' · gizli' : '') +
       (window.__screenSaverStatus ? ' · saver ' + window.__screenSaverStatus : '') +
       (diag.error ? ' · err ' + diag.error : '');
     renderPlatformDiag();
@@ -963,12 +964,16 @@
 
   // paragraphs: görev paneli gibi başlık ve maddeli yazılar satır satır, sola yaslı gösterilir.
   // replaces: bilgisayar bu satırı öncekinin uzamış ya da düzelmiş okuması saydı (bkz. replacesCurrent).
-  function showSubtitle(text, duration, box, paragraphs, replaces, speakers) {
+  // above (Çevirgen, 1.0.1): bilgisayarın söylediği üst satırlar (oyunda hâlâ ekranda duran eski repliklerin Türkçesi,
+  // yukarıdan aşağı). Dizi gelirse üst satırlar süreyle değil buna göre durur (bkz. setAbove); gelmezse eski süreli yığın.
+  function showSubtitle(text, duration, box, paragraphs, replaces, speakers, above) {
     var now = Date.now();
     var current = rawText('subtitle-text');
     // Önceki satır kısa göründüyse yeni satırın üstünde kalır. Aynı cümlenin başka bir okunuşu (ya da yeniden gelen
     // satır) ikinci çeviri gibi durmasın diye üste çıkmaz; görev paneli gibi çok satırlı yazılar da üst üste binmez.
-    if (replacesCurrent(replaces, paragraphs)) {
+    if (isArray(above) && !paragraphs) {
+      setAbove(above, speakers, text);
+    } else if (replacesCurrent(replaces, paragraphs)) {
       // Üstteki daha eski satırlar olduğu gibi kalır.
     } else if (stackPrevious && $('subtitle').className !== 'hidden' && current && now - shownAt < STACK_WITHIN_MS &&
         !paragraphs && !shownParagraphs && !sameLine(current, text)) {
@@ -1003,6 +1008,22 @@
     var height = (document.documentElement.clientHeight || window.innerHeight || 0) / (window.COUCHSUBS_ZOOM || 1);
     diag.place = 'y ' + Math.round(rect.top) + '-' + Math.round(rect.bottom) + '/' + height + ' ' +
       window.getComputedStyle($('subtitle')).visibility + ' f' + window.getComputedStyle(el).fontSize;
+    renderDiag();
+  }
+
+  // Çevirgen: altyazılar gizli (bilgisayardaki "altyazıları gizle" kısayolu). Katmanlar görünmez olur ama çizilmeye devam
+  // eder: yeni gelen satır gizliyken görünmez, gösterilince o an ekranda olması gereken satır hemen görünür. Kayıt
+  // tutulmaz; bilgisayar bağlantı kurulunca durumu yeniden bildirir.
+  var subtitlesHidden = false;
+  var HIDEABLE = ['subtitle', 'subtitle-cover', 'regions', 'screen'];
+
+  function setSubtitlesHidden(hidden) {
+    subtitlesHidden = !!hidden;
+    for (var i = 0; i < HIDEABLE.length; i++) {
+      var el = $(HIDEABLE[i]);
+      if (el) el.style.visibility = subtitlesHidden ? 'hidden' : '';
+    }
+    diag.hidden = subtitlesHidden;
     renderDiag();
   }
 
@@ -1048,6 +1069,34 @@
       hideSlot('subtitle-prev2');
     }
     showSlot('subtitle-prev', text, speakers);
+  }
+
+  function isArray(value) {
+    return Object.prototype.toString.call(value) === '[object Array]';
+  }
+
+  // Çevirgen: üst yuvalar bilgisayarın söylediği satırlarla dolar (yukarıdan aşağı; son eleman yeni satırın hemen
+  // üstünde). Süreyle solmazlar: İngilizcesi ekrandan kalkınca bilgisayar `above` olayıyla kaldırır, satır kalkınca
+  // (temizle) hepsi kalkar. Ekranda en çok üç satır olur.
+  function setAbove(lines, speakers, current) {
+    var kept = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (typeof lines[i] === 'string' && lines[i] && !(current && sameLine(lines[i], current))) kept.push(lines[i]);
+    }
+    kept = kept.slice(-2);
+    if (kept.length > 0) pinSlot('subtitle-prev', kept[kept.length - 1], speakers);
+    else hideSlot('subtitle-prev');
+    if (kept.length > 1) pinSlot('subtitle-prev2', kept[0], speakers);
+    else hideSlot('subtitle-prev2');
+  }
+
+  function pinSlot(id, text, speakers) {
+    var timers = previousTimers[id];
+    clearTimeout(timers[0]);
+    clearTimeout(timers[1]);
+    setLineText(id + '-text', text, false, Math.round(fontBase * 0.8), speakers);
+    $(id).className = '';
+    fitBox($(id + '-text'));
   }
 
   function showSlot(id, text, speakers) {
@@ -2196,6 +2245,8 @@
     // Sürüm (v) akışla bildirilir: bilgisayar ve telefon TV'deki uygulamanın eski kaldığını LG geliştirici moduna
     // bağlanamasa da bununla anlar ve "TV uygulamasını güncelle" der (GitHub #884, #891). 0.9.69'den eski TV
     // uygulamaları v göndermez; CouchSubs v'siz TV'yi eski sayar.
+    // Gizleme durumu her akışta yeniden gelir (gizliyse stilin ardından `visibility`); bağlantı yokken gösterilmiş olabilir.
+    setSubtitlesHidden(false);
     eventSource = new EventSource(authenticatedUrl(address, '/events?v=' + APP_VERSION + (shownPort ? '&hdmi=' + shownPort : '')));
     lastActivity = Date.now();
     eventSource.onopen = function () {
@@ -2246,10 +2297,22 @@
       if (!data.text) return;
       // Yeni bilgisayar/telefon `speakerNames` gönderir; eski sürüm `speakers` gönderir, o da yalnız adı boyar.
       var speakers = data.speakerNames || data.speakers;
+      var above = isArray(data.above) ? data.above : null;
       showSubtitle(data.text, data.duration, data.box, data.paragraphs === true, data.replace === true,
-        speakerMap(speakers));
-      lastLine = { text: data.text, box: data.box, paragraphs: data.paragraphs === true, speakers: speakers, until: shownUntil };
+        speakerMap(speakers), above);
+      lastLine = { text: data.text, box: data.box, paragraphs: data.paragraphs === true, speakers: speakers, until: shownUntil,
+        above: above };
     });
+    // Çevirgen: üstteki eski satırlardan İngilizcesi ekrandan kalkan çıktı (satırın kendisi yerinde kalır).
+    onEvent('above', function (data) {
+      if (!isArray(data.lines)) return;
+      if (lastLine) lastLine.above = data.lines;
+      if ($('subtitle').className === 'hidden' || shownParagraphs) return;
+      setAbove(data.lines, $('subtitle-text').speakers, rawText('subtitle-text'));
+      layout();
+    });
+    // Çevirgen: altyazıları gizle/göster (bilgisayardaki kısayol); çeviri sürer, gizliyken gelen satır da görünmez.
+    onEvent('visibility', function (data) { setSubtitlesHidden(data.hidden === true); });
     onEvent('clear', function () {
       // Oyundaki satır kalktı: geri gelişte yeniden çizilmez (tutma süresi yine onClear'da).
       lastLine = null;
@@ -2928,7 +2991,7 @@
     if (!lastLine || $('subtitle').className !== 'hidden') return;
     var left = lastLine.until - Date.now();
     if (left < RESTORE_MIN_MS) { lastLine = null; return; }
-    showSubtitle(lastLine.text, left, lastLine.box, lastLine.paragraphs, false, speakerMap(lastLine.speakers));
+    showSubtitle(lastLine.text, left, lastLine.box, lastLine.paragraphs, false, speakerMap(lastLine.speakers), lastLine.above);
   }
 
   function pageVisibility(hidden) {
