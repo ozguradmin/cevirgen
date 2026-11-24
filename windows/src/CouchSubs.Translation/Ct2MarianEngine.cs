@@ -140,7 +140,8 @@ internal sealed class Ct2MarianEngine : ISentenceEngine
 
     private string TranslateCurrent(string sentence, CancellationToken cancellationToken)
     {
-        var tokens = tokenizer.EncodeTokens(sentence);
+        // Sözlükte olmayan karakterler zararsız karşılığına (é → e, — → –); çıktıdaki ⁇ kaynaktan doldurulur.
+        var tokens = tokenizer.EncodeTokens(UnknownPieces.Simplify(sentence, tokenizer.Knows));
         // Mevcut ONNX hattıyla aynı kaynak sınırı. Son belirteç EOS kalır.
         if (tokens.Length > 256) tokens = [.. tokens.Take(255), "</s>"];
         var request = JsonSerializer.Serialize(new { tokens, beams, max_output = Math.Min(maxOutputTokens, 2 * tokens.Length + 16) });
@@ -154,7 +155,8 @@ internal sealed class Ct2MarianEngine : ISentenceEngine
             throw new InvalidOperationException("CTranslate2: " + error.GetString());
         var output = response.RootElement.GetProperty("tokens").EnumerateArray().Select(value => value.GetString() ?? "");
         cancellationToken.ThrowIfCancellationRequested();
-        return tokenizer.DecodeTokens(output);
+        var raw = tokenizer.DecodeTokens(output, UnknownPieces.Marker);
+        return UnknownPieces.Repair(sentence, raw);
     }
 
     private static void Stop(Process process)

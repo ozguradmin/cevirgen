@@ -143,6 +143,24 @@ public class FreeTranslationTests
     }
 
     [Fact]
+    public void ContextualLineStartsWithACapitalLikeItsSource()
+    {
+        var result = FreeTranslation.Translate("And barracudas.", "Plus, sharks.", Gow, Same,
+            _ => "Artı, köpekbalıkları. *** ve barracudalar.");
+        Assert.Equal("Ve barracudalar.", result);
+    }
+
+    [Theory]
+    [InlineData("And barracudas.", "ve barracudalar.", "Ve barracudalar.")]
+    [InlineData("It's here.", "işte burada.", "İşte burada.")]
+    [InlineData("Run!", "\"koş!\"", "\"Koş!\"")]
+    [InlineData("and then?", "ve sonra?", "ve sonra?")]
+    [InlineData("Wait...", "...bekle.", "...bekle.")]
+    [InlineData("Ok.", "Tamam.", "Tamam.")]
+    public void CapitalLikeFollowsTheSourceInitial(string source, string translation, string expected) =>
+        Assert.Equal(expected, FreeTranslation.CapitalLike(source, translation));
+
+    [Fact]
     public void AmbiguousContextFallsBackToTheLineAlone()
     {
         var calls = new List<string>();

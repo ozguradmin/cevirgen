@@ -120,8 +120,9 @@ internal static partial class SubtitleSegmenter
         {
             var candidate = block[start..gap.Index];
             var next = gap.Index + gap.Length < block.Length ? block[gap.Index + gap.Length] : '\0';
-            // "wait... what" gibi küçük harfle süren yer ve kısaltmalar cümle sonu değildir.
-            if (char.IsLower(next) || EndsWithAbbreviation(candidate)) continue;
+            // "wait... what" gibi küçük harfle süren yer, kısaltmalar ve açık tırnak içindeki üç nokta
+            // ("He said "wait... Stop" and left.") cümle sonu değildir.
+            if (char.IsLower(next) || EndsWithAbbreviation(candidate) || EllipsisInsideQuote(block[..gap.Index])) continue;
             yield return candidate;
             start = gap.Index + gap.Length;
         }
@@ -133,8 +134,20 @@ internal static partial class SubtitleSegmenter
         if (!sentence.EndsWith('.')) return false;
         var lastSpace = sentence.LastIndexOf(' ');
         var word = sentence[(lastSpace + 1)..^1];
-        // Tek harf ad baş harfidir ("J. R. R.").
-        return (word.Length == 1 && char.IsUpper(word[0])) || Abbreviations.Contains(word);
+        // Tek harf ad baş harfidir ("J. R. R."); harf-nokta dizisi kısaltmadır ("U.S.", "L.A.").
+        return (word.Length == 1 && char.IsUpper(word[0])) || Abbreviations.Contains(word) || Initialism().IsMatch(word);
+    }
+
+    [GeneratedRegex(@"^(?:\p{L}\.)+\p{L}$")]
+    private static partial Regex Initialism();
+
+    /// <summary>Metin üç noktayla bitiyor ve bir tırnak hâlâ açık mı (düz " sayısı tek ya da “ kapanmamış).</summary>
+    private static bool EllipsisInsideQuote(string before)
+    {
+        if (!before.EndsWith("...", StringComparison.Ordinal) && !before.EndsWith('…')) return false;
+        var straight = before.Count(c => c == '"');
+        var open = before.Count(c => c == '“') - before.Count(c => c == '”');
+        return straight % 2 == 1 || open > 0;
     }
 
     /// <summary>

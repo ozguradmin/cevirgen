@@ -78,16 +78,29 @@ public sealed class MarianTokenizer
     /// <summary>CTranslate2, kimlik yerine SentencePiece belirteçlerini alır.</summary>
     public string[] EncodeTokens(string text) => Encode(text).Select(id => _idToPiece[id]).ToArray();
 
-    /// <summary>CTranslate2'nin çıktı belirteçlerini mevcut Türkçe çözümleyiciyle açar.</summary>
-    public string DecodeTokens(IEnumerable<string> tokens) => Decode(tokens.Select(token =>
-        _vocab.TryGetValue(token, out var id) ? id : UnkId));
+    /// <summary>
+    /// CTranslate2'nin çıktı belirteçlerini mevcut Türkçe çözümleyiciyle açar. Bilinmeyen parça verilen işaretle
+    /// yazılır (<see cref="UnknownPieces.Marker"/>); işaret yoksa atlanır.
+    /// </summary>
+    public string DecodeTokens(IEnumerable<string> tokens, string? unknownMarker = null) => Decode(tokens.Select(token =>
+        _vocab.TryGetValue(token, out var id) ? id : UnkId), unknownMarker);
 
-    /// <summary>Kod çözücü çıktısını metne çevirir; özel belirteçler atlanır.</summary>
-    public string Decode(IEnumerable<int> ids)
+    /// <summary>Karakter kaynak sözlükte bir parçaya düşüyor mu (düşmüyorsa model onu bilinmeyen parça görür).</summary>
+    public bool Knows(char c) => _known.GetOrAdd(c, key => !Encode(key.ToString()).Contains(UnkId));
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<char, bool> _known = new();
+
+    /// <summary>Kod çözücü çıktısını metne çevirir; özel belirteçler atlanır (bilinmeyen parça, işaret verildiyse işaret olur).</summary>
+    public string Decode(IEnumerable<int> ids, string? unknownMarker = null)
     {
         var sb = new StringBuilder();
         foreach (var id in ids)
         {
+            if (id == UnkId && unknownMarker is not null)
+            {
+                sb.Append(unknownMarker);
+                continue;
+            }
             if (id is EosId or UnkId or PadId || id < 0 || id >= _idToPiece.Length) continue;
             var piece = _idToPiece[id];
             if (piece is not null) sb.Append(piece);

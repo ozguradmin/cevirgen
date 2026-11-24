@@ -18,6 +18,19 @@ public class SubtitleSegmenterTests
     [InlineData("Mr. Smith is here. Dr. Jones too.", "[Mr. Smith is here.] [Dr. Jones too.]")]
     [InlineData("No. We go now.", "[No.] [We go now.]")]
     [InlineData("Kratos.", "[Kratos.]")]
+    // OPUS-MT çok cümleli satırın bir cümlesini düşürüyordu ("Drive! Drive!" → "Sür!"); her cümle ayrı çevrilir.
+    [InlineData("Drive! Drive!", "[Drive!] [Drive!]")]
+    [InlineData("Sicko! Mental case!", "[Sicko!] [Mental case!]")]
+    [InlineData("You're done, you're done! Chill the fuck out.", "[You're done, you're done!] [Chill the fuck out.]")]
+    [InlineData("Wait?! No... Stop!", "[Wait?!] [No...] [Stop!]")]
+    // Ondalık, ad, kısaltma ve tırnak içindeki üç nokta bölmez.
+    [InlineData("It's 3.5 miles to Vice City. Let's go.", "[It's 3.5 miles to Vice City.] [Let's go.]")]
+    [InlineData("Mrs. Jones met St. Peter vs. Dr. No.", "[Mrs. Jones met St. Peter vs. Dr. No.]")]
+    [InlineData("He's from the U.S. Army now.", "[He's from the U.S. Army now.]")]
+    [InlineData("He said \"wait... Stop\" and left.", "[He said \"wait... Stop\" and left.]")]
+    [InlineData("“Well… Maybe,” she said.", "[“Well… Maybe,” she said.]")]
+    [InlineData("\"Wait...\" Then he left.", "[\"Wait...\"] [Then he left.]")]
+    [InlineData("JASON: Drive! Drive!", "JASON: [Drive!] [Drive!]")]
     public void SplitsSentences(string text, string expected) => Assert.Equal(expected, Render(text));
 
     [Theory]

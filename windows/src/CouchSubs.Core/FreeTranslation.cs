@@ -13,9 +13,9 @@ public static class FreeTranslation
     /// <summary>
     /// Çeviri öncesi/sonrası kuralların sürümü; kalıcı önbelleğin motor adına girer. Bu dosyadaki ya da
     /// GameEnglish/SubtitleSegmenter/Glossary/TermProtection/TurkishSuffix/TurkishPostEdit'teki kurallar değişince bir
-    /// artırılır: eski kurallarla çevrilmiş satırlar yeniden çevrilir. (1: sürüm yokken; 3: oyun terimleri, phrases ve lines.)
+    /// artırılır: eski kurallarla çevrilmiş satırlar yeniden çevrilir. (1: sürüm yokken; 3: oyun terimleri, phrases ve lines; 4: bilinmeyen parça onarımı.)
     /// </summary>
-    public const int PipelineVersion = 3;
+    public const int PipelineVersion = 4;
 
     /// <summary>Bu sözcük sayısının altındaki cümle önceki cümleyle birlikte çevrilir.</summary>
     public const int ShortLineWords = 4;
@@ -75,7 +75,7 @@ public static class FreeTranslation
             var output = engine(contextText + Separator + sentenceText);
             if (AfterSeparator(output, sentence) is { } after &&
                 TermProtector.Restore(after, slots, protector.AllSlots, apostrophe) is { } restored)
-                return TurkishPostEdit.Apply(sentence, restored);
+                return TurkishPostEdit.Apply(sentence, CapitalLike(sentence, restored));
         }
 
         var single = new TermProtector(glossary, sentence);
@@ -85,6 +85,19 @@ public static class FreeTranslation
         if (TermProtector.Restore(translated, used, single.AllSlots, apostrophe) is { } done) return TurkishPostEdit.Apply(sentence, done);
         // Model bir yer tutucuyu düşürdü: terimsiz ama eksiksiz çeviri, eksik terimli çeviriden iyidir.
         return TurkishPostEdit.Apply(sentence, engine(Prepare(sentence)));
+    }
+
+    /// <summary>
+    /// Bağlamla çevrilen kısa satır ayraçtan sonra küçük harfle başlayabiliyor ("Plus, sharks. *** And barracudas." →
+    /// "ve barracudalar."); kaynak büyük harfle başlıyorsa çeviri de öyle başlar (Türkçe i → İ).
+    /// </summary>
+    internal static string CapitalLike(string source, string translation)
+    {
+        var sourceFirst = source.FirstOrDefault(char.IsLetter);
+        var index = translation.AsSpan().IndexOfAnyExcept(" \"'“‘(¿¡-–");
+        if (!char.IsUpper(sourceFirst) || index < 0 || !char.IsLower(translation[index])) return translation;
+        var upper = translation[index] == 'i' ? 'İ' : char.ToUpperInvariant(translation[index]);
+        return string.Concat(translation.AsSpan(0, index), upper.ToString(), translation.AsSpan(index + 1));
     }
 }
 
