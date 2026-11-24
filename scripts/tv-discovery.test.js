@@ -544,6 +544,17 @@ test('ek alanın çevirisi kendi yerinde küçük kutuda görünür, boş metin 
 
 // Alanda ayrı duran yazı grupları (başlık, ayrı sütundaki hedef) "blocks" ile kendi yerleriyle gelir; alt alta tek
 // kutuda değil, her biri kendi İngilizce yazısının üstünde gösterilir.
+// Çevirgen: TV başka bir adrese geçerken (bilgisayar değişti; yeni adres yanıt vermiyor olabilir) önceki bilgisayarın
+// çizdiği ek alan kutuları ekranda takılı kalmaz.
+test('adres değişince önceki bilgisayarın ek alan kutuları da kalkar', () => {
+  const tv = startTv({ saved: 'http://192.168.1.109:8787', alive: new Set(['http://192.168.1.109:8787']), hasLocalAddress: false });
+  tv.clock.advance(1000);
+  tv.emit('region', { id: 'q', text: 'Köprüyü geç', box: { left: 0.7, top: 0.05, right: 0.95, bottom: 0.1 } });
+  assert.strictEqual(tv.element('regions').children.length, 1);
+  tv.relaunch({ server: 'http://192.168.1.39:8787' });
+  assert.strictEqual(tv.element('regions').children.length, 0);
+});
+
 test('ek alanın blokları kendi yerlerinde gösterilir, bloksuz olaya dönünce tek kutu kalır', () => {
   const tv = startTv({ saved: 'http://192.168.1.109:8787', alive: new Set(['http://192.168.1.109:8787']), hasLocalAddress: false });
   tv.clock.advance(1000);

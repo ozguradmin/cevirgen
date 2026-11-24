@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.8';
+  var APP_VERSION = '1.0.9';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -2241,6 +2241,10 @@
       // Never replay an old server's subtitle when the newly selected stream opens.
       lastLine = null;
       hideSubtitle('server-change');
+      // Çevirgen: önceki bilgisayarın çizdiği ekran yazıları ve ek alan kutuları da kalkar. Yeni adres hiç bağlanmazsa
+      // (bilgisayar kapalı) kopma zamanlayıcısı çalışmadığından kutular ekranda takılı kalıyordu.
+      hideScreen();
+      hideRegions();
     }
     server = address;
     pairRequest('GET', address, '/hello', function (hello, status) {
