@@ -64,6 +64,8 @@ public partial class App : Application
             // Samsung'un sertifika için giriş sayfası varsayılan tarayıcıda açılır.
             OpenInBrowser = BrowserLauncher.Open,
         };
+        // Çevirgen: reklam bandı ve açılır reklam sunucudaki listeden (önbellekten hemen, ağdan arka planda).
+        AdCatalog.Follow(controller);
         // Yeni arayüz ilk açılışta bir kez (Mac ile aynı): konuşan rengi yalnız adı boyar (style.nameOnly). Görünüm ayarına
         // dokunulmaz: Perde tasarım dili koyu temalıdır ve varsayılan da koyudur (tasarim.json › defaultTheme); kullanıcının
         // seçtiği Açık / Koyu / Sisteme Uy korunur.

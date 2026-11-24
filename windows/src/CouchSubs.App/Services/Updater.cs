@@ -10,26 +10,27 @@ using Velopack.Sources;
 namespace CouchSubs.App.Services;
 
 /// <summary>
-/// GitHub'daki sürümlerden güncelleme (Velopack). Yalnız kurulum dosyasıyla (CouchSubs-Setup.exe) kurulan uygulama
-/// kendini günceller; zip'ten açılan kopyada sitemizin indirme bölümü açılır.
+/// Çevirgen'in GitHub sürümlerinden güncelleme (Velopack; <see cref="UpdateChannel"/>). Yalnız kurulum dosyasıyla
+/// (CevirgenApp-win-Setup.exe) kurulan uygulama kendini günceller; zip'ten açılan kopyada en son sürüm sayfası açılır.
+/// Denetim hiçbir koşulda hata göstermez: depo özelken ya da sürüm yokken GitHub 404 döner, ağ yoksa istek düşer; ikisi
+/// de "güncelleme yok" (null) sayılır ve yalnız günlüğe yazılır. Kurulum yalnız kullanıcı şeritteki düğmeye basınca yapılır.
 /// </summary>
 internal sealed class Updater : IUpdater
 {
-    private const string Repository = "https://github.com/yorulmazsinan/couchsubs";
-    private readonly UpdateManager manager = new(new GithubSource(Repository, null, false));
+    private readonly UpdateManager manager = new(new GithubSource(UpdateChannel.Repository, null, UpdateChannel.Prerelease));
     private UpdateInfo? pending;
     private readonly GitHubReleaseNotes notes = new(new HttpClient
         { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 2 * 1024 * 1024 });
 
     public bool CanUpdateItself => manager.IsInstalled;
-    /// <summary>Çevirgen: güncelleme kanalı henüz yok; açılınca depo adresi buraya yazılır ve UpdatesEnabled true yapılır.</summary>
-    public const bool UpdatesEnabled = false;
-    public Uri DownloadPage { get; } = new("https://github.com/yorulmazsinan/couchsubs");
+    /// <summary>Çevirgen güncelleme kanalı açık (github.com/ozguradmin/cevirgen).</summary>
+    public const bool UpdatesEnabled = true;
+    public Uri DownloadPage { get; } = UpdateChannel.DownloadPage;
     public UpdateAttemptJournal? Attempts { get; } =
         new(UpdateAttemptJournal.DefaultPath, AppVersion.Current(typeof(Updater).Assembly));
 
     /// <summary>
-    /// Velopack kurulumu: %LOCALAPPDATA%\CouchSubsApp\current\CouchSubs.exe; Update.exe günlüğünü bir üst klasöre
+    /// Velopack kurulumu: %LOCALAPPDATA%\CevirgenApp\current\Cevirgen.exe; Update.exe günlüğünü bir üst klasöre
     /// (velopack.log) yazar.
     /// </summary>
     public string? UpdateLogPath =>
@@ -39,11 +40,19 @@ internal sealed class Updater : IUpdater
 
     public async Task<string?> CheckAsync()
     {
-        // Çevirgen: kendi güncelleme kanalımız açılana dek güncelleme denetlenmez (CouchSubs sürümleri Çevirgen değildir).
-        if (!UpdatesEnabled) return null;
         if (!manager.IsInstalled) return await LatestTagAsync();
-        pending = await manager.CheckForUpdatesAsync();
-        return pending?.TargetFullRelease.Version.ToString();
+        try
+        {
+            pending = await manager.CheckForUpdatesAsync();
+            return pending?.TargetFullRelease.Version.ToString();
+        }
+        catch (Exception error)
+        {
+            // Depo özel/sürüm yok (404), ağ yok, GitHub hız sınırı: hepsi "güncelleme yok"; şerit hata göstermez.
+            pending = null;
+            SubtitleLog.Write($"güncelleme denetlenemedi: {error.GetType().Name}: {error.Message}");
+            return null;
+        }
     }
 
     public async Task InstallAsync(IProgress<double> progress, Action? beforeRestart = null)
@@ -67,22 +76,10 @@ internal sealed class Updater : IUpdater
         manager.ApplyUpdatesAndRestart(pending);
     }
 
-    /// <summary>Zip kullanıcısı için: GitHub'daki en son sürümün etiketi, bu sürümden yeniyse.</summary>
+    /// <summary>Zip kullanıcısı için: GitHub'daki en son sürümün etiketi, bu sürümden yeniyse (404 ve ağ hatası: null).</summary>
     private static async Task<string?> LatestTagAsync()
     {
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("Cevirgen");
-            using var document = System.Text.Json.JsonDocument.Parse(
-                await http.GetStringAsync("https://api.github.com/repos/yorulmazsinan/couchsubs/releases/latest"));
-            var tag = document.RootElement.GetProperty("tag_name").GetString()?.TrimStart('v');
-            return tag is not null && AppVersion.IsNewer(tag, AppVersion.Current(typeof(Updater).Assembly)) ? tag : null;
-        }
-        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException
-                                          or KeyNotFoundException or InvalidOperationException)
-        {
-            return null;
-        }
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        return await UpdateChannel.NewerTagAsync(http, AppVersion.Current(typeof(Updater).Assembly));
     }
 }

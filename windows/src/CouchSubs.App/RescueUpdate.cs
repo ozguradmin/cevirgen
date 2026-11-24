@@ -16,7 +16,8 @@ namespace CouchSubs.App;
 /// </summary>
 internal static class RescueUpdate
 {
-    const string Repository = "https://github.com/yorulmazsinan/couchsubs";
+    // Çevirgen'in kendi güncelleme kanalı (CouchSubs sürümleri Çevirgen değildir).
+    const string Repository = CouchSubs.Shell.UpdateChannel.Repository;
     static readonly TimeSpan Limit = TimeSpan.FromSeconds(45);
 
     static string MarkerPath => Path.Combine(Path.GetDirectoryName(StartupGuard.LogPath)!, "acilis-suruyor");

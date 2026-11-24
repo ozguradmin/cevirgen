@@ -136,6 +136,10 @@ internal sealed class FakeServices : IAppServices
     public string? HistoryFile { get; set; }
     /// <summary>Çevirgen: verilirse düzeltmeler ve kullanıcı sözlüğü bu klasöre yazılır.</summary>
     public string? DataFolder { get; set; }
+    /// <summary>Çevirgen: verilirse uzaktan ayarlar buradan (sahte HTTP katmanıyla).</summary>
+    public RemoteConfigClient? RemoteConfig { get; set; }
+    /// <summary>Çevirgen: verilirse anonim sayım buraya gider (sahte HTTP katmanıyla).</summary>
+    public UsageCounter? Counter { get; set; }
     /// <summary>Verilirse kullanım verisi buraya gider (sahte HTTP katmanıyla).</summary>
     public UsageStats? Usage { get; set; }
     public bool HasOcr { get; set; } = true;

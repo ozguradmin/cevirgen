@@ -41,6 +41,11 @@
     <AssemblyMetadata Include="CouchSubsPacksSecret" Value="$(CouchSubsPacksSecret)" />
   </ItemGroup>
 
+  <!-- Çevirgen sunucusu (uzaktan ayarlar, anonim sayım): boşsa koddaki sabit (CevirgenApi.DefaultUrl); `-p:CevirgenApiUrl=https://…` ile değişir. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="CevirgenApiUrl" Value="$(CevirgenApiUrl)" />
+  </ItemGroup>
+
   <!-- Kullanım verisi (GA4 Measurement Protocol): `-p:CouchSubsGaMeasurementId=G-… -p:CouchSubsGaApiSecret=…` ile verilir
        (CI: GA_MEASUREMENT_ID, GA_API_SECRET sırları); boşsa ölçüm tamamen kapalı (UsageStats). -->
   <ItemGroup>

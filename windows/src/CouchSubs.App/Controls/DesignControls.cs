@@ -118,12 +118,17 @@ public sealed class UpperCase : IValueConverter
     public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
-/// <summary>Reklam bandının bir reklamı (kendi uygulamalarımız; üçüncü taraf ağı ve izleme yok).</summary>
-public sealed record BannerAd(string Id, string Title, string Text, ImageSource? Icon, string? AppStore, string? GooglePlay)
+/// <summary>
+/// Reklam bandının bir reklamı (üçüncü taraf ağı ve izleme yok). Çevirgen sunucusundan gelen reklamın tek bağlantısı
+/// <paramref name="Link"/>'tedir: bandın kendisine tıklanınca açılır; mağaza düğmeleri yalnız mağaza bağlantısı varsa görünür.
+/// </summary>
+public sealed record BannerAd(string Id, string Title, string Text, ImageSource? Icon, string? AppStore, string? GooglePlay, string? Link = null)
 {
     /// <summary>Bağlantı yoksa mağaza düğmesi pasif ve "Yakında" yazar (Cebbin Google Play).</summary>
     public bool HasAppStore => AppStore is not null;
     public bool HasGooglePlay => GooglePlay is not null;
+    /// <summary>Mağaza düğmeleri gösterilsin mi (uzaktan gelen tek bağlantılı reklamda gösterilmez).</summary>
+    public bool HasStores => AppStore is not null || GooglePlay is not null || Link is null;
 }
 
 /// <summary>
@@ -145,6 +150,8 @@ public class AdBand : Control
     public AdBand()
     {
         timer.Tick += (_, _) => Advance();
+        // Uzaktan gelen reklamın bağlantısı: bandın herhangi bir yerine tıklanınca açılır (düğmeler tıklamayı kendileri alır).
+        MouseLeftButtonUp += (_, _) => Open(Current?.Link);
         Loaded += (_, _) => Refresh();
         Unloaded += (_, _) => timer.Stop();
         AdCatalog.Changed += () => Dispatcher.BeginInvoke(Refresh);
@@ -158,6 +165,7 @@ public class AdBand : Control
         index = 0;
         Visibility = ads.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         Current = ads.Count == 0 ? null : ads[0];
+        Cursor = ads.Any(ad => ad.Link is not null) ? System.Windows.Input.Cursors.Hand : null;
         timer.Stop();
         if (ads.Count > 1 && IsLoaded) timer.Start();
     }

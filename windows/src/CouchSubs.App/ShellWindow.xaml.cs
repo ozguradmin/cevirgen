@@ -136,6 +136,9 @@ public partial class ShellWindow : Window
         if (e.PropertyName is nameof(AppController.IsRunning)) MotionGate.Translating = controller.IsRunning;
         if (e.PropertyName is nameof(AppController.IsRunning) && !controller.IsRunning && showingMain)
             PopupAdWindow.Offer(this, controller, PopupAdMoment.TranslationStopped);
+        // Açılır reklam açılıştan sonra sunucudan geldiyse (ilk açılış, önbellek yok) açılış anı sayılır; kurallar aynı.
+        if (e.PropertyName is nameof(AppController.RemotePopups) && showingMain && controller.RemotePopups.Count > 0)
+            Dispatcher.BeginInvoke(() => PopupAdWindow.Offer(this, controller, PopupAdMoment.AppLaunch), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         if (e.PropertyName is nameof(AppController.IsRunning) or nameof(AppController.HotkeysPaused) or nameof(AppController.Settings))
             ApplyHotkeys();
     }

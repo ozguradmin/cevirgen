@@ -29,7 +29,7 @@ public class GitHubReleaseNotesTests
     {
         var handler = new Handler(request =>
         {
-            Assert.Equal("https://api.github.com/repos/yorulmazsinan/couchsubs/releases/tags/v0.1.0-beta.58", request.RequestUri!.AbsoluteUri);
+            Assert.Equal("https://api.github.com/repos/ozguradmin/cevirgen/releases/tags/v0.1.0-beta.58", request.RequestUri!.AbsoluteUri);
             Assert.Contains("application/vnd.github.full+json", request.Headers.Accept.ToString());
             return Task.FromResult(Reply("v0.1.0-beta.58", """
                 <ul><li><strong>Düzeltme:</strong> açık &amp; koyu temalar <a href="https://github.com/yorulmazsinan/couchsubs/pull/567">#567</a></li></ul>

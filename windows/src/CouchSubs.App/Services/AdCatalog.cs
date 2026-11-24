@@ -83,6 +83,80 @@ public static class AdCatalog
         }
     }
 
+    // --- Çevirgen: sunucudan gelen reklamlar (AppController.RemoteAds / RemotePopups) ---
+
+    /// <summary>
+    /// Denetleyicinin uzaktan içeriğini izler: reklam bandı ve açılır reklam sunucudakilerle değişir. Sunucuda reklam
+    /// yoksa uygulamaya gömülü liste (reklamlar.json) kullanılır. Görseli açılamayan reklam atlanır.
+    /// </summary>
+    public static void Follow(AppController controller)
+    {
+        void Apply()
+        {
+            try
+            {
+                var remote = FromRemote(controller.RemoteAds);
+                Banners = remote.Count > 0 ? remote : Load();
+                var popups = PopupsFromRemote(controller.RemotePopups);
+                PopupAdWindow.Ads = popups.Count > 0 ? popups : LoadPopups();
+            }
+            catch (Exception error)
+            {
+                // Reklam hiçbir koşulda uygulamayı düşürmemeli.
+                SubtitleLog.Write($"uzaktan reklamlar uygulanamadı: {error.GetType().Name}: {error.Message}");
+            }
+        }
+        controller.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is not (nameof(AppController.RemoteAds) or nameof(AppController.RemotePopups))) return;
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess()) Apply();
+            else dispatcher.BeginInvoke(Apply);
+        };
+        if (controller.RemoteAds.Count > 0 || controller.RemotePopups.Count > 0) Apply();
+    }
+
+    /// <summary>Sunucudaki reklamlar bant reklamına: simge diskteki önbellek dosyasından; açılamazsa reklam atlanır.</summary>
+    public static IReadOnlyList<BannerAd> FromRemote(IReadOnlyList<ResolvedAd> ads)
+    {
+        var list = new List<BannerAd>();
+        foreach (var item in ads)
+            if (FileImage(item.IconFile, 96) is { } icon)
+                list.Add(new BannerAd(item.Ad.Id, item.Ad.Title, item.Ad.Text, icon, null, null, item.Ad.Link.AbsoluteUri));
+        return list;
+    }
+
+    /// <summary>Sunucudaki açılır reklamlar: görsel diskteki önbellek dosyasından; açılamazsa ya da boyutu sıfırsa atlanır.</summary>
+    public static IReadOnlyList<PopupAd> PopupsFromRemote(IReadOnlyList<ResolvedPopup> popups)
+    {
+        var list = new List<PopupAd>();
+        foreach (var item in popups)
+            if (FileImage(item.ImageFile, null) is { PixelWidth: > 0, PixelHeight: > 0 } picture) list.Add(new PopupAd(picture, item.Popup.Link));
+        return list;
+    }
+
+    private static BitmapSource? FileImage(string path, int? decodeWidth)
+    {
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            if (decodeWidth is { } width) image.DecodePixelWidth = width;
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception error) when (error is IOException or UriFormatException or NotSupportedException or InvalidOperationException
+                                          or ArgumentException or System.Runtime.InteropServices.ExternalException)
+        {
+            SubtitleLog.Write($"reklam görseli açılamadı: {Path.GetFileName(path)} ({error.GetType().Name})");
+            return null;
+        }
+    }
+
     private static BitmapSource? Picture(string file)
     {
         try

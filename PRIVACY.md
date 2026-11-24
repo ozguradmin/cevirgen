@@ -2,6 +2,21 @@
 
 *Son güncelleme / Last updated: 2026-11-21*
 
+## Çevirgen
+
+Çevirgen, CouchSubs'ın değiştirilmiş bir sürümüdür; CouchSubs ve Google sunucularına hiçbir şey göndermez (ortak havuz
+ve kullanım istatistikleri kapalıdır). Çevirgen'in kendi sunucusuna (`cevirgen-api.ozgurglr256.workers.dev`) yalnız şu
+iki istek gider:
+
+- **Uzaktan ayarlar:** açılışta ve saatte bir reklam, açılır reklam ve duyuru listesi düz bir istekle alınır (çerez ya
+  da kimlik gönderilmez). Görseller yalnız https adreslerinden indirilip bilgisayarda saklanır.
+- **Anonim sayım (Ayarlar'dan kapatılabilir):** 5 dakikada bir ve çeviri başlayıp durunca rastgele bir kurulum kimliği,
+  uygulama sürümü, platform (ps5, xbox, pc, capture) ve çevirinin sürüp sürmediği gönderilir. Adınız, oyununuz,
+  altyazılarınız ya da IP adresiniz saklanmaz. Kapatınca kimlik bilgisayardan silinir.
+
+Güncellemeler GitHub'daki `ozguradmin/cevirgen` sürümlerinden denetlenir. Aşağıdaki metin CouchSubs'ın özgün gizlilik
+metnidir.
+
 ## Türkçe
 
 CouchSubs, Enmera tarafından yayınlanan açık kaynaklı bir uygulamadır. Hesap istemez, sizi izlemez. CouchSubs üçüncü taraf reklam ağı ya da reklam SDK'sı kullanmaz, reklam kimliğini (IDFA/AAID) toplamaz ve sizi uygulamalar arasında izlemez. Uygulamada ve sitede yalnızca geliştiricinin (Enmera) kendi ürünlerinin tanıtımı ve sponsor bağlantıları gösterilebilir; bu görseller sunucumuzdan (couchsubs.enmeraapps.com/promo.json) yüklenir, gösterim sıklığı yalnızca cihazda tutulur, tıklama bağlantıyı tarayıcıda açar.

@@ -179,6 +179,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         services.Translation.GpuFallback += OnGpuFallback;
         history = services.HistoryFile is { } file ? SubtitleHistory.Load(file) : new SubtitleHistory();
         (corrections, userGlossary) = LoadUserData(services.DataFolder);
+        // Çevirgen: uzaktan ayarlar (önbellekten hemen, ağdan arka planda) ve anonim sayım.
+        StartCevirgenServices();
     }
 
     /// <summary>
@@ -597,7 +599,15 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     public bool HasAccount => accountId is not null;
     public RegisteredConsole? Console => console;
     public LgTv? Tv => tv;
-    public bool IsRunning { get => isRunning; private set => Set(ref isRunning, value, [nameof(Ps5StatusText), nameof(Ps5Tone), nameof(TvTone), nameof(ShowsMainAccountTip), nameof(ShowTvOpenHint)]); }
+    public bool IsRunning
+    {
+        get => isRunning;
+        private set
+        {
+            if (Set(ref isRunning, value, [nameof(Ps5StatusText), nameof(Ps5Tone), nameof(TvTone), nameof(ShowsMainAccountTip), nameof(ShowTvOpenHint)]))
+                RunningChangedForCount();
+        }
+    }
     public bool IsStarting { get => isStarting; private set => Set(ref isStarting, value); }
     /// <summary>
     /// Deneme modu (Mac/iPhone demoMode, Android ile aynı): konsol, hesap ve TV olmadan uygulamadaki örnek karelerle çeviri.
@@ -838,6 +848,11 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             if (old.AutoScreenText != value.AutoScreenText) ShowsAutoScreenTextNotice = false;
             if (old.UsageData != value.UsageData) services.Usage?.SetEnabled(value.UsageData);
             if (old.UsageNoticeSeen != value.UsageNoticeSeen) Changed(nameof(ShowsUsageNotice));
+            if (old.AnonymousCount != value.AnonymousCount)
+            {
+                AnonymousCountChanged(value.AnonymousCount);
+                Changed(nameof(AnonymousCount));
+            }
             if (old.TranslationDevice != value.TranslationDevice)
             {
                 GpuFallbackWarning = false;
@@ -2737,6 +2752,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         poolTimer?.Dispose();
         packTimer?.Dispose();
         usageTimer?.Dispose();
+        StopCevirgenServices();
         if (services.Usage is { } usage)
         {
             try { usage.FlushAsync().Wait(TimeSpan.FromSeconds(2)); }

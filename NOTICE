@@ -44,6 +44,11 @@ Changes (2026-11-24):
   - Reading speed (characters per second) per line and session summary.
   - SRT export (Turkish and bilingual) from the subtitle history.
   - Shortcut (Ctrl+H) to hide/show subtitles without stopping translation.
+  - Remote settings from Çevirgen's own server (cevirgen-api): bottom ad band, daily
+    pop-up and announcements can change without an app update; cached for offline use.
+  - Optional anonymous usage count (random install id, version, platform, playing)
+    sent to Çevirgen's server every 5 minutes; can be turned off in Settings.
+  - Updates come from Çevirgen's own GitHub releases (ozguradmin/cevirgen).
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

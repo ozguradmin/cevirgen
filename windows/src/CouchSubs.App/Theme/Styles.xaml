@@ -1530,7 +1530,8 @@
                                     <TextBlock Text="{Binding Current.Text, RelativeSource={RelativeSource TemplatedParent}}" FontSize="{DynamicResource smallFontSize}"
                                                Margin="{m:Sp '0,line,0,0'}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource mutedBrush}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="{m:Sp '0,xs,0,0'}">
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="{m:Sp '0,xs,0,0'}"
+                                            Visibility="{Binding Current.HasStores, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource VisibleIf}}">
                                     <Button x:Name="PART_AppStore" Style="{StaticResource StoreButton}"
                                             IsEnabled="{Binding Current.HasAppStore, RelativeSource={RelativeSource TemplatedParent}}">
                                         <StackPanel Orientation="Horizontal">

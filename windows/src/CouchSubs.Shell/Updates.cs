@@ -37,9 +37,9 @@ public sealed record UpdateAttempt(string FromVersion, string TargetVersion, Dat
 /// </summary>
 public sealed class UpdateAttemptJournal(string path, string currentVersion, Func<DateTimeOffset>? clock = null)
 {
-    /// <summary>%LOCALAPPDATA%\CouchSubs\guncelleme-denemesi.json (Velopack'in kurulum klasörünün dışında).</summary>
+    /// <summary>%LOCALAPPDATA%\Cevirgen\guncelleme-denemesi.json (Velopack'in kurulum klasörünün dışında; CouchSubs'ınkiyle karışmaz).</summary>
     public static string DefaultPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "guncelleme-denemesi.json");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cevirgen", "guncelleme-denemesi.json");
 
     public string CurrentVersion => currentVersion;
 

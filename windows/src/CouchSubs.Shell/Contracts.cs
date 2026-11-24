@@ -429,6 +429,11 @@ public sealed record UserSettings
     public bool UsageData { get; init; } = UsageStats.EnabledByDefault;
     /// <summary>Kullanım verisi bilgi notu gösterildi (ilk açılışta bir kez). Eski ayar dosyalarında yoktur (false).</summary>
     public bool UsageNoticeSeen { get; init; } = true;
+    /// <summary>
+    /// Çevirgen: anonim kullanım sayımı (bkz. <see cref="UsageCounter"/>): 5 dakikada bir rastgele kurulum kimliği, sürüm
+    /// ve platform Çevirgen sunucusuna gider. Eski ayar dosyalarında yoktur; açık başlar. Kapatılınca kimlik silinir.
+    /// </summary>
+    public bool AnonymousCount { get; init; } = UsageCounter.EnabledByDefault;
     /// <summary>Altyazıdaki konuşan adı ("ARTHUR: …") çeviride gösterilir; kapalıysa yalnız Türkçe cümle görünür.</summary>
     public bool ShowSpeakerNames { get; init; } = true;
     /// <summary>
@@ -950,6 +955,13 @@ public interface IAppServices
     /// glossary-user.json); testlerde null (yalnız bellekte tutulur).
     /// </summary>
     string? DataFolder => null;
+    /// <summary>
+    /// Çevirgen: uzaktan ayarlar (reklam, açılır reklam, duyuru; <c>GET /v1/config</c>) ve görsel önbelleği; testlerde null
+    /// (hiçbir istek gitmez).
+    /// </summary>
+    RemoteConfigClient? RemoteConfig => null;
+    /// <summary>Çevirgen: anonim kullanım sayımı (<c>POST /v1/ping</c>); testlerde null (hiçbir istek gitmez).</summary>
+    UsageCounter? Counter => null;
 }
 
 /// <param name="Launched">false ise TV uygulaması açılamadı; büyük olasılıkla TV'de kurulu değil.</param>

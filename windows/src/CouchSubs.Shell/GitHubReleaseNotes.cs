@@ -32,8 +32,8 @@ public sealed class GitHubReleaseNotes(HttpClient http)
         if (offeredVersion.Length == 0 || !offeredVersion.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '+')) return [];
         var tag = "v" + offeredVersion;
         using var message = new HttpRequestMessage(HttpMethod.Get,
-            "https://api.github.com/repos/yorulmazsinan/couchsubs/releases/tags/" + Uri.EscapeDataString(tag));
-        message.Headers.UserAgent.ParseAdd("CouchSubs");
+            UpdateChannel.ReleaseTagApi + Uri.EscapeDataString(tag));
+        message.Headers.UserAgent.ParseAdd(UpdateChannel.UserAgent);
         message.Headers.Accept.ParseAdd("application/vnd.github.full+json");
         try
         {
