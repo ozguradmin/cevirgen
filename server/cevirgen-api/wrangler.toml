@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Çevirgen API: uzaktan ayarlar (reklam, duyuru), anonim kullanım sayımı, yönetim paneli.
+# ADMIN_TOKEN bir secret'tır: `wrangler secret put ADMIN_TOKEN`; depoya yazılmaz.
+name = "cevirgen-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cevirgen-api"
+database_id = "b949a634-fa0b-4488-89de-8f927fbaa932"
+
+[[kv_namespaces]]
+binding = "CONFIG"
+id = "c60bcbb3188344faba7e579f386275d2"

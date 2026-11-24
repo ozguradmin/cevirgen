@@ -27,3 +27,7 @@ core/Sources/CouchSubsCore/Resources/packs/*.json.gz
 core/Sources/CouchSubsCore/Resources/packs/*.json
 tools/packs/katki/*.json.gz
 tools/packs/katki/GTA_HAVUZ_KATKI.md
+
+# Çevirgen API yerel dosyaları
+server/cevirgen-api/.wrangler/
+server/cevirgen-api/node_modules/
