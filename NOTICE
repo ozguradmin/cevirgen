@@ -49,6 +49,10 @@ Changes (2026-11-24):
   - Optional anonymous usage count (random install id, version, platform, playing)
     sent to Çevirgen's server every 5 minutes; can be turned off in Settings.
   - Updates come from Çevirgen's own GitHub releases (ozguradmin/cevirgen).
+  - New Windows interface: graphite theme with one accent colour, embedded IBM Plex
+    and Archivo Condensed fonts (SIL OFL 1.1), new top bar and sections, live screen
+    with TV preview and transcript, "where do you play?" setup (PS5, Xbox, PC, other)
+    and regrouped settings.
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

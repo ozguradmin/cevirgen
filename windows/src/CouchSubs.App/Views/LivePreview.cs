@@ -156,8 +156,9 @@ public sealed class LivePreview : ContentControl
         {
             Background = alpha <= 0 ? Brushes.Transparent : new SolidColorBrush(SpeakerText.Rgb(style.BackgroundRgb, (byte)Math.Round(alpha * 255))),
             CornerRadius = new CornerRadius(band ? 0 : 10 * scale),
-            Padding = current ? new Thickness(26 * scale, 10 * scale, 26 * scale, 10 * scale) : new Thickness(20 * scale, 6 * scale, 20 * scale, 6 * scale),
-            Margin = new Thickness(0, line == shown[0] ? 0 : 6 * scale, 0, 0),
+            // Zeminsiz görünümde kutu payı yok (satırlar taslaktaki gibi sıkı durur).
+            Padding = alpha <= 0 ? new Thickness(0) : current ? new Thickness(26 * scale, 10 * scale, 26 * scale, 10 * scale) : new Thickness(20 * scale, 6 * scale, 20 * scale, 6 * scale),
+            Margin = new Thickness(0, line == shown[0] ? 0 : 4 * scale, 0, 0),
             HorizontalAlignment = band ? HorizontalAlignment.Stretch : HorizontalAlignment.Center,
             Opacity = line.Role switch { SubtitleStack.Role.Current => 1, SubtitleStack.Role.Previous => 0.78, _ => 0.6 } * (line.Fading ? 0.5 : 1),
             Child = text,

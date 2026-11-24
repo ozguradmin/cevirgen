@@ -163,7 +163,7 @@ public static class ScreenRenderer
     {
         var window = Shell(controller, ShellTab.Home);
         window.Home?.ShowEventForRender(new SubtitleEvent(SubtitleEventKind.Subtitle, "Hâlâ burada mı?", 60000,
-            Box: new CouchSubs.Core.TextBox(0.3, 0.78, 0.7, 0.9), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
+            Box: new CouchSubs.Core.TextBox(0.25, 0.69, 0.75, 0.9), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
         return window;
     }
 

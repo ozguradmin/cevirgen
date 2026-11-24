@@ -1260,6 +1260,8 @@
          etiket (11, gri). Etkin bölümün çizgisi sarı, deneysel bölümünki uyarı renginde. -->
     <Style TargetType="c:Card">
         <Setter Property="Padding" Value="{m:Sp '0,m,0,xs'}" />
+        <!-- Bölümün içindeki düz metin temanın yazı rengini alır (Control varsayılanı siyah). -->
+        <Setter Property="Foreground" Value="{DynamicResource textBrush}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="c:Card">
