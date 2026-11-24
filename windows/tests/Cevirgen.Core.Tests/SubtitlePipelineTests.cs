@@ -77,6 +77,12 @@ internal sealed class GatedTranslator : ITextTranslator
     }
 }
 
+/// <summary>Her satıra aynı çeviriyi döndürür (kaynağa benzemesin; benzeyen çeviri "zaten hedef dilde" sayılır).</summary>
+internal sealed class FixedTranslator(string translation) : ITextTranslator
+{
+    public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult(translation);
+}
+
 internal sealed class FakeSender : ISubtitleSender
 {
     public List<string> Sent { get; } = [];
@@ -188,6 +194,61 @@ public class SubtitlePipelineTests
         Assert.Equal(0.8, box.Top, 9);
         Assert.Equal(0.7, box.Right, 9);
         Assert.Equal(1.0, box.Bottom, 9);
+    }
+
+    /// <summary>
+    /// Çevirgen: kullanıcının ek alanına düşen satır altyazı sayılmaz. Gerçek kare (GTA 6, 2026-11-24 21:37, tanılama
+    /// 0559): telefon bildirimi balonunun altyazı alanına (%14–86) düşen sol yarısı altyazı sanılıp ortada çevriliyordu;
+    /// balon sağ alttaki "seçenekler" alanında (%75–100) da çevrildiği için ekranda iki yazı vardı.
+    /// </summary>
+    [Fact]
+    public async Task LinesInsideASeparateAreaAreNotSubtitles()
+    {
+        var subtitle = new CropRegion(Top: 0.6926, Bottom: 1.0, Left: 0.14, Right: 0.86);
+        // Satırlar karedeki yerleriyle (yüzde) verilir, altyazı alanına oranlanır (okuyucu alana oranlı döndürür).
+        TextLine Line(string text, double left, double top, double right, double bottom) => new(text, new TextBox(
+            ((left / 100) - subtitle.Left) / (subtitle.Right - subtitle.Left), ((top / 100) - subtitle.Top) / (subtitle.Bottom - subtitle.Top),
+            ((right / 100) - subtitle.Left) / (subtitle.Right - subtitle.Left), ((bottom / 100) - subtitle.Top) / (subtitle.Bottom - subtitle.Top)));
+        var bubble = new Reading([
+            Line("Andy", 81.94, 83.84, 85.48, 87.08), Line("hey, it's me.", 79.55, 87.72, 86, 90.58),
+            Line("pleaseeee o", 79.55, 90.4, 86, 93.26), Line("my girl.", 79.45, 92.98, 83.92, 96.03)]);
+        var options = new WatchedArea("secenekler", "seçenekler", new CropRegion(Top: 0.66, Bottom: 0.9933, Left: 0.75, Right: 1.0));
+
+        async Task<FakeSender> Play(Func<IReadOnlyList<WatchedArea>>? separate, List<string> log)
+        {
+            var sender = new FakeSender();
+            var clock = new TestClock();
+            var pipeline = new SubtitlePipeline(new LinesReader(bubble), new FixedTranslator("Selam, benim."), sender, clock: clock.Read)
+            {
+                SeparateAreas = separate, Log = log.Add,
+            };
+            for (var i = 0; i < 40; i++)
+            {
+                await pipeline.ProcessAsync(Image, subtitle);
+                await pipeline.WaitForTranslationsAsync();
+                clock.Now += 50;
+            }
+            return sender;
+        }
+
+        // Ek alan bilinmezse balon altyazı sanılır (önceki davranış; test gerçekten bu yolu sınıyor).
+        Assert.NotEmpty((await Play(null, [])).Sent);
+        var log = new List<string>();
+        Assert.Empty((await Play(() => [options], log)).Sent);
+        Assert.Single(log, line => line.Contains("\"seçenekler\" alanında, altyazı sayılmadı", StringComparison.Ordinal));
+    }
+
+    /// <summary>Ortalanmış altyazı satırı kenardaki alana ucuyla değer, alanın sayılmaz; altyazının ortasını kaplayan alan hiç sayılmaz.</summary>
+    [Fact]
+    public void SeparateLineKeepsCenteredSubtitles()
+    {
+        var subtitle = new CropRegion(Top: 0.69, Bottom: 1.0, Left: 0.14, Right: 0.86);
+        var corner = new CropRegion(Top: 0.66, Bottom: 0.9933, Left: 0.75, Right: 1.0);
+        Assert.True(SubtitlePipeline.SeparateLine(new TextBox(0.7955, 0.8772, 0.86, 0.9058), corner, subtitle));
+        Assert.False(SubtitlePipeline.SeparateLine(new TextBox(0.18, 0.90, 0.82, 0.94), corner, subtitle));
+        Assert.False(SubtitlePipeline.SeparateLine(new TextBox(0.80, 0.60, 0.90, 0.64), corner, subtitle));
+        var wide = new CropRegion(Top: 0.5, Bottom: 1.0, Left: 0.0, Right: 1.0);
+        Assert.False(SubtitlePipeline.SeparateLine(new TextBox(0.40, 0.90, 0.60, 0.94), wide, subtitle));
     }
 
     [Fact]

@@ -526,7 +526,7 @@ public sealed class HistoryPage : UserControl
         }
         if (controller.GlossaryTerms.Count == 0)
         {
-            var none = ScreenKit.Muted("Henüz terim yok. Örnek: Vice City (çevirme), bro → kanka (hep böyle).", 14);
+            var none = ScreenKit.Muted("Henüz terim yok. Örnek: Port Lumen (çevirme), buddy → kanka (hep böyle).", 14);
             terms.Children.Add(ScreenKit.Row(none));
         }
     }

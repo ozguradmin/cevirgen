@@ -44,6 +44,8 @@ public static class ScreenRenderer
         {
             ThemeManager.Apply(app.Resources, dark);
             var suffix = dark ? "koyu" : "acik";
+            // Tanıtım görselleri için sahnenin kendisi (Çevirgen'in gece şehri çizimi; 3840 × 2160).
+            if (dark) Save(() => new System.Windows.Controls.Border { Background = Controls.PerdeBrushes.Scene() }, 1920, 1080, Path.Combine(folder, "sahne.png"));
             // Yeni arayüzün ortak bileşenleri (tasarım sistemi).
             Save(() => new DesignGallery(), Width, Height, Path.Combine(folder, $"bilesenler-{suffix}.png"));
             foreach (var step in Enum.GetValues<OnboardingStep>().Where(s => s != OnboardingStep.Done))
@@ -132,9 +134,9 @@ public static class ScreenRenderer
             Save(() =>
             {
                 var controller = Running();
-                var whip = controller.History.First(entry => entry.Source.StartsWith("Whip", StringComparison.Ordinal));
-                controller.RemoveCorrection(whip.Source);
-                HistoryPage.PreviewEdit = (whip.Id, "Ağzını burnunu kır şunun!");
+                var edited = controller.History.First(entry => entry.Source.StartsWith("Dude", StringComparison.Ordinal));
+                controller.RemoveCorrection(edited.Source);
+                HistoryPage.PreviewEdit = (edited.Id, "Kanka, kıl payı kurtulduk.");
                 return Detach(Shell(controller, ShellTab.History));
             }, Width, Height, Path.Combine(folder, $"pencere-gecmis-duzelt-{suffix}.png"));
             HistoryPage.PreviewEdit = null;
@@ -375,13 +377,14 @@ public static class ScreenRenderer
     {
         var window = Shell(controller, ShellTab.Home);
         window.Home?.ShowEventForRender(new SubtitleEvent(SubtitleEventKind.Subtitle, "Hâlâ burada mı?", 60000,
-            Box: new Cevirgen.Core.TextBox(0.27, 0.765, 0.73, 0.885), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
+            Box: new Cevirgen.Core.TextBox(0.27, 0.765, 0.73, 0.885), Above: ["Yedek anahtarın fazlası olmaz, değil mi?"]));
         return window;
     }
 
     /// <summary>
-    /// Çeviri sürüyormuş gibi örnek oturum (taslak Main.dc.html'deki satırlar): son kare, oturumun başı, kaynakları ve okuma
-    /// hızlarıyla döküm, oynanan oyun.
+    /// Çeviri sürüyormuş gibi örnek oturum: son kare, oturumun başı, kaynakları ve okuma hızlarıyla döküm, oynanan oyun.
+    /// Örnek replikler bu araç için yazılmış özgün cümlelerdir (hiçbir oyundan alınmadı); kare de Çevirgen'in kendi çizimidir.
+    /// Depodaki ve tanıtımdaki görseller buradan üretilir.
     /// </summary>
     private static AppController Running()
     {
@@ -394,8 +397,8 @@ public static class ScreenRenderer
         var yesterday = start.AddDays(-1).AddHours(-1);
         foreach (var (seconds, source, translation) in new[]
                  {
-                     (12.0, "Lucia, wait up!", "Lucia, bekle!"), (15.5, "We gotta move. Now.", "Gitmemiz lazım. Hemen."),
-                     (21.2, "Keep your head down.", "Başını eğik tut."),
+                     (12.0, "Wait for me!", "Beni bekle!"), (15.5, "We have to go. Right now.", "Gitmemiz lazım. Hemen şimdi."),
+                     (21.2, "Stay low and keep quiet.", "Eğil ve sessiz ol."),
                  })
         {
             var at = yesterday.AddSeconds(seconds);
@@ -404,14 +407,14 @@ public static class ScreenRenderer
         }
         foreach (var (seconds, source, translation, origin, cps) in new (double, string, string, LineOrigin, double?)[]
                  {
-                     (2518.903, "Welcome back to Vice City, bro.", "Vice City'ye tekrar hoş geldin, kanka.", LineOrigin.Engine, 12.4),
-                     (2522.540, "Y'all selling that trailer right there?", "Şuradaki karavanı satıyor musunuz?", LineOrigin.Engine, 11.8),
+                     (2518.903, "Good to have you back in town, buddy.", "Şehre dönmen iyi oldu, kanka.", LineOrigin.Engine, 12.4),
+                     (2522.540, "Are you selling that old boat over there?", "Şuradaki eski tekneyi satıyor musunuz?", LineOrigin.Engine, 11.8),
                      (2524.870, "Cheers!", "Şerefe!", LineOrigin.Correction, 6.8),
-                     (2526.218, "I'm thinkin' of doing a little cross-country vacay with a lady friend of mine.",
-                         "Bir hanım arkadaşımla ülke boyunca ufak bir tatile çıkmayı düşünüyorum.", LineOrigin.Engine, 21.2),
-                     (2529.402, "Whip the ever-lovin' shit outta him!", "Ağzını burnunu kır şunun!", LineOrigin.Correction, 9.6),
-                     (2533.154, "Can never have too much storage space, am I right?", "Depolama alanı hiç fazla gelmez, değil mi?", LineOrigin.Pack, 13.1),
-                     (2535.880, "He still here?", "Hâlâ burada mı?", LineOrigin.Engine, null),
+                     (2526.218, "I'm thinking of taking a little road trip along the coast with an old friend of mine.",
+                         "Eski bir arkadaşımla kıyı boyunca ufak bir yolculuğa çıkmayı düşünüyorum.", LineOrigin.Engine, 21.2),
+                     (2529.402, "Dude, that was way too close.", "Kanka, kıl payı kurtulduk.", LineOrigin.Correction, 9.6),
+                     (2533.154, "You can never have too many spare keys, right?", "Yedek anahtarın fazlası olmaz, değil mi?", LineOrigin.Engine, 13.1),
+                     (2535.880, "Is he still here?", "Hâlâ burada mı?", LineOrigin.Engine, null),
                  })
         {
             var at = start.AddSeconds(seconds);
@@ -425,11 +428,11 @@ public static class ScreenRenderer
             }
         }
         // Kullanıcının düzeltmeleri ve sözlüğü (bellekte; örnek denetleyicinin veri klasörü yok).
-        controller.SaveCorrection("Whip the ever-lovin' shit outta him!", "Ağzını burnunu kır şunun!");
+        controller.SaveCorrection("Dude, that was way too close.", "Kanka, kıl payı kurtulduk.");
         controller.SaveCorrection("Cheers!", "Şerefe!");
-        controller.SaveGlossaryTerm("Vice City", GlossaryRule.Keep);
-        controller.SaveGlossaryTerm("Leonida", GlossaryRule.Keep);
-        controller.SaveGlossaryTerm("bro", GlossaryRule.Always, "kanka");
+        controller.SaveGlossaryTerm("Port Lumen", GlossaryRule.Keep);
+        controller.SaveGlossaryTerm("Azura", GlossaryRule.Keep);
+        controller.SaveGlossaryTerm("buddy", GlossaryRule.Always, "kanka");
         controller.SaveGlossaryTerm("cop", GlossaryRule.Always, "aynasız");
         controller.SaveGlossaryTerm("safehouse", GlossaryRule.Always, "güvenli ev");
         typeof(AppController).GetProperty(nameof(AppController.IsRunning))!.GetSetMethod(nonPublic: true)!.Invoke(controller, [true]);
@@ -439,7 +442,7 @@ public static class ScreenRenderer
         SetPrivate(controller, nameof(AppController.LastTranslation), "Hâlâ burada mı?");
         SetPrivate(controller, nameof(AppController.PlayedGame), "Grand Theft Auto VI");
         SetPrivate(controller, nameof(AppController.LastFrame),
-            DemoFrameRenderer.Draw(["Can never have too much storage space, am I right?", "He still here?"], 2));
+            DemoFrameRenderer.Draw(["You can never have too many spare keys, right?", "Is he still here?"], 0));
         return controller;
     }
 
@@ -468,9 +471,10 @@ public static class ScreenRenderer
     /// </summary>
     private static IEnumerable<(string Name, TranslationPage.PreviewState State, Func<AppController, AppController> Setup)> TranslationStates()
     {
-        string?[] free = ["Her zaman sevilen pisliği ondan çıkar!", "Hepiniz oradaki karavanı mı satıyorsunuz?", "Sıkı tutun, neredeyse oradayız.", "Bu çok fazla hayır.", "Vice City'ye tekrar hoş geldin, kardeşim."];
-        string?[] gemini = ["Ağzını burnunu kır şunun!", "Şuradaki karavanı satıyor musunuz?", "Dayan biraz, az kaldı.", "Yok artık, hiç olmaz.", "Vice City'ye hoş geldin, kanka."];
-        string?[] deepl = ["Onu bir güzel pataklayın!", "Şu karavanı satıyor musunuz?", "Sıkı durun, neredeyse geldik.", "Bu tam bir hayır.", "Vice City'ye tekrar hoş geldin, kardeş."];
+        // BlindTest.Lines sırasıyla (özgün örnek cümleler); motorların farkı görünsün diye üç ayrı Türkçe.
+        string?[] free = ["Dostum, bu çok yakındı.", "Bunu bizden başka kimse düzeltmeyecek.", "Neredeyse orada, sadece bekle.", "Burada silahı atlamayalım.", "Seni şehirde geri görmek güzel, dostum."];
+        string?[] gemini = ["Kanka, kıl payı kurtulduk.", "Bu işi bizden başkası çözmez.", "Az kaldı, dayan biraz.", "Acele edip işi bozmayalım.", "Şehre dönmen iyi oldu, kanka."];
+        string?[] deepl = ["Ahbap, bu fazla yakındı.", "Bunu bizden başka kimse onaramaz.", "Neredeyse vardık, biraz dayan.", "Burada aceleci davranmayalım.", "Tekrar şehirde olman güzel, dostum."];
         var results = new Dictionary<TranslationEngine, BlindTestResult>
         {
             [TranslationEngine.Free] = new(free, 62), [TranslationEngine.Gemini] = new(gemini, 248), [TranslationEngine.DeepL] = new(deepl, 305),
@@ -577,7 +581,7 @@ public static class ScreenRenderer
         public Task<IReadOnlyList<ConsoleInfo>> DiscoverConsolesAsync() => Task.FromResult<IReadOnlyList<ConsoleInfo>>([new("192.168.1.20", "PS5-123", true)]);
         public Task<byte[]> AccountIdFromRedirectAsync(Uri redirect) => Task.FromResult(new byte[8]);
         public Task<RegisteredConsole> RegisterAsync(string host, byte[] accountId, uint pin) => throw new NotSupportedException();
-        public Task<IReadOnlyList<LgTv>> DiscoverTvsAsync() => Task.FromResult<IReadOnlyList<LgTv>>([new("[LG] webOS TV", "192.168.1.30")]);
+        public Task<IReadOnlyList<LgTv>> DiscoverTvsAsync() => Task.FromResult<IReadOnlyList<LgTv>>([new("Android TV", "192.168.1.30", TvBrand.AndroidTv)]);
         public Task<TvPairing> PairTvAsync(LgTv tv, string? key, string server, string accessKey) => throw new NotSupportedException();
         public IStreamSession MakeStream(RegisteredConsole console, byte[] accountId, string? loginPasscode) => throw new NotSupportedException();
         public IKeeper MakeKeeper(LgTv tv, string? key, IReadOnlyDictionary<string, string> parameters, Func<bool> appConnected, Action<LgTv> onMoved,
@@ -636,7 +640,7 @@ public static class ScreenRenderer
         {
             StoreKeys.AccountId => (T)(object)new byte[8],
             StoreKeys.Console => (T)(object)new RegisteredConsole("192.168.1.20", "PS5-123", new byte[16], new byte[16]),
-            StoreKeys.Tv => (T)(object)new LgTv("[LG] webOS TV", "192.168.1.30"),
+            StoreKeys.Tv => (T)(object)new LgTv("Android TV", "192.168.1.30", TvBrand.AndroidTv),
             StoreKeys.TvKey => (T)(object)"key",
             _ => default,
         };

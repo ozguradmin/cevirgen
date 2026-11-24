@@ -26,9 +26,9 @@ namespace Cevirgen.App.Views;
 /// </summary>
 public sealed class AppearancePage : UserControl
 {
-    /// <summary>Örnek satırlar (taslaktaki gibi).</summary>
-    private const string Turkish = "Gardiyanla birlikte git.";
-    private const string English = "Go with the prison guard.";
+    /// <summary>Örnek satırlar: Çevirgen için yazılmış özgün cümle (tanıtım görsellerindekiyle aynı).</summary>
+    private const string Turkish = "Şafakta yola çıkıyoruz. Geç kalma.";
+    private const string English = "We leave at dawn. Don't be late.";
 
     /// <summary>Yazı rengi seçenekleri: açık renkler (koyu yazı zeminsiz oyunda okunmaz).</summary>
     private static readonly (string Name, string Hex)[] TextColors =

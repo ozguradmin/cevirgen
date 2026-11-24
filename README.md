@@ -20,17 +20,22 @@ Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üst�
 - **Her platform:** PS5, Xbox, bilgisayar oyunları ve yakalama kartıyla diğer konsollar.
 - **İnternetsiz ücretsiz çeviri.** Varsayılan çeviri modeli bilgisayarında çalışır; yazılar dışarı çıkmaz. İstersen Gemini, DeepL, OpenAI, Claude ya da OpenAI uyumlu herhangi bir servisi (OpenRouter, Groq, LM Studio…) bağlarsın.
 - **Okunur altyazı.** Zeminsiz, kenarlıklı yazı; okunurluk testiyle gece de kar sahnesinde de okunduğunu görürsün. Oyundaki altyazı gidince Türkçesi de hemen gider.
-- **Düzelt ve sözlük.** Beğenmediğin çeviriyi düzeltirsin, o satır bir daha hep senin hâlinle gelir. "Vice City çevrilmesin", "bro hep kanka olsun" gibi kurallar koyarsın.
+- **Düzelt ve sözlük.** Beğenmediğin çeviriyi düzeltirsin, o satır bir daha hep senin hâlinle gelir. "Şehir adları çevrilmesin", "buddy hep kanka olsun" gibi kurallar koyarsın.
 - **Okuma hızı.** Her satırın saniyedeki karakter sayısı ölçülür; profesyonel altyazı sınırını (17 kr/sn) aşan satırlar işaretlenir.
 - **Oturumu .srt olarak kaydet.** Türkçe ya da iki dilli altyazı dosyası.
 - **Kolay kurulum.** PS5 için 4 adım, bilgisayar oyunları için 2 adım.
 
 ## İki görünüm
 
-| | |
-|---|---|
-| ![Sinema görünümü: zeminsiz, kalın, siyah kenarlıklı Türkçe altyazı](docs/cevirgen/ekran/gorunum-sinema.jpg) | ![Klasik kutu görünümü: koyu kutu İngilizcenin yerine geçer](docs/cevirgen/ekran/gorunum-klasik.jpg) |
-| **Sinema** · zeminsiz, kalın, siyah kenarlıklı; İngilizcenin hemen üstünde | **Klasik kutu** · koyu kutu, İngilizcenin yerine geçer |
+Altyazının TV'de nasıl duracağını sen seçersin; Görünüm sekmesinden tek tıkla değişir.
+
+**Sinema** · zeminsiz, kalın, siyah kenarlıklı; İngilizcenin hemen üstünde.
+
+![Sinema görünümü: zeminsiz, kalın, siyah kenarlıklı Türkçe altyazı oyunun İngilizce altyazısının hemen üstünde](docs/cevirgen/tanitim/sinema.png)
+
+**Klasik kutu** · koyu kutu, İngilizcenin yerine geçer.
+
+![Klasik kutu görünümü: koyu kutudaki Türkçe altyazı oyunun İngilizce altyazısının yerine geçer](docs/cevirgen/tanitim/klasik-kutu.png)
 
 ## Ekranlar
 
@@ -44,6 +49,8 @@ Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üst�
 ![Alanları düzenle: okunan kutuları sürükleyip büyüt](docs/cevirgen/ekran/alanlar.jpg)
 
 ## Nasıl çalışır
+
+![Nasıl çalışır: sen oynarsın, Çevirgen altyazıyı okuyup çevirir, Türkçesi TV'de oyunun üstünde görünür](docs/cevirgen/tanitim/nasil-calisir.png)
 
 1. **Görüntü:** PS5'te Çevirgen, Uzaktan Oynatma ile ücretsiz ikinci bir PSN hesabından oyunun görüntüsünü izler; sen kendi hesabınla oynamaya devam edersin. Xbox'a kendisi bağlanır; bilgisayar oyunlarında oyun penceresini okur.
 2. **Okuma:** Yalnız seçtiğin alanları (altyazı, ipuçları…) yazı tanımayla okur. Alanlar her oyun için ayrı saklanır.
@@ -96,6 +103,8 @@ node --test --test-force-exit scripts/tv-*.test.js     # TV sayfası testleri
 | `design/`, `docs/` | Tasarım değerleri, logo; TV kurulum rehberleri |
 | `testdata/`, `tools/`, `third-party/` | Gerçek kare deneme seti, paket araçları, chiaki-ng alt modülü ve yamaları |
 
+Ekran görüntüleri `Cevirgen.exe --render-screens <klasör>`, tanıtım görselleri (`docs/cevirgen/tanitim`) `node scripts/tanitim.js` ile üretilir.
+
 Sürüm paketi: `scripts/release-cevirgen.ps1`. Mac, iPhone, Android telefon ve Samsung uygulamaları gibi Çevirgen'in
 kullanmadığı upstream parçaları bu depoda yok; git geçmişinde ve [upstream depoda](https://github.com/yorulmazsinan/couchsubs) durur.
 
@@ -103,4 +112,4 @@ kullanmadığı upstream parçaları bu depoda yok; git geçmişinde ve [upstrea
 
 [GNU AGPL-3.0](LICENSE.txt). Çevirgen, açık kaynak CouchSubs projesinden türetilmiş ve geliştirilmiştir; telif ve değişiklik bildirimleri [NOTICE](NOTICE), kullanılan bileşenler [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) dosyasındadır.
 
-Çevirgen; Sony Interactive Entertainment, Microsoft ya da herhangi bir oyun yayıncısıyla bağlantılı değildir. "PlayStation" ve "PS5" Sony Interactive Entertainment Inc.'in, "Xbox" Microsoft Corporation'ın ticari markalarıdır. Ekran görüntülerindeki oyun sahnesi Çevirgen'in kendi çizimidir.
+Çevirgen; Sony Interactive Entertainment, Microsoft ya da herhangi bir oyun yayıncısıyla bağlantılı değildir. "PlayStation" ve "PS5" Sony Interactive Entertainment Inc.'in, "Xbox" Microsoft Corporation'ın ticari markalarıdır. Ekran görüntülerindeki ve tanıtım görsellerindeki sahne Çevirgen'in kendi çizimi, örnek replikler bu iş için yazılmış cümlelerdir.

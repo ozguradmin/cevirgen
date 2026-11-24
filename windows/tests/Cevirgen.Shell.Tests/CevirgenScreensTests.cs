@@ -213,7 +213,7 @@ public sealed class CevirgenScreensTests
         var controller = Ready(services, store);
         var free = await controller.TranslateSamplesAsync(TranslationEngine.Free, BlindTest.Lines);
         Assert.False(free.Failed);
-        Assert.Equal("TR: Hold tight, we're almost there.", free.Lines[2]);
+        Assert.Equal("TR: " + BlindTest.Lines[2], free.Lines[2]);
         Assert.NotNull(free.AverageMs);
 
         var noKey = await controller.TranslateSamplesAsync(TranslationEngine.Gemini, BlindTest.Lines);

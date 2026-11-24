@@ -41,15 +41,15 @@ public class DemoModeTests
         }
     }
 
-    /// <summary>Satırlar ve Türkçeleri core (Demo/DemoMode.swift) ve Android (DemoScript.kt) ile birebir aynıdır.</summary>
+    /// <summary>Deneme modunun örnek satırları (özgün macera diyalogları) ve görev yazısı.</summary>
     [Fact]
     public void ScriptMatchesTheSharedLines()
     {
         Assert.Equal(12, DemoScript.Lines.Count);
-        Assert.Equal(new DemoScript.Line("We should reach the lighthouse before dark.", "Hava kararmadan deniz fenerine varmalıyız."), DemoScript.Lines[0]);
+        Assert.Equal(new DemoScript.Line("We should reach the harbor before dark.", "Hava kararmadan limana varmalıyız."), DemoScript.Lines[0]);
         Assert.Equal(new DemoScript.Line("I found a map in the old captain's cabin.", "Yaşlı kaptanın kamarasında bir harita buldum."), DemoScript.Lines[3]);
         Assert.Equal(new DemoScript.Line("Rest now. Tomorrow will be a long day.", "Şimdi dinlen. Yarın uzun bir gün olacak."), DemoScript.Lines[11]);
-        Assert.Equal(new DemoScript.Line("Objective: Reach the lighthouse", "Görev: Deniz fenerine ulaş"), DemoScript.Objective);
+        Assert.Equal(new DemoScript.Line("Objective: Reach the harbor", "Görev: Limana ulaş"), DemoScript.Objective);
         Assert.Equal((1280, 720, 0.86), (DemoFrames.Width, DemoFrames.Height, DemoFrames.SubtitleBaseline));
     }
 
@@ -120,8 +120,8 @@ public class DemoModeTests
     public void TableTranslatesReadingsWithOcrSlips()
     {
         Assert.Equal(DemoScript.Lines[0].Turkish, DemoScript.Translation(DemoScript.Lines[0].English));
-        Assert.Equal(DemoScript.Lines[0].Turkish, DemoScript.Translation("We should reach the lighthouse before dark"));
-        Assert.Equal(DemoScript.Lines[0].Turkish, DemoScript.Translation("We shou1d reach the lighthouse before dark."));
+        Assert.Equal(DemoScript.Lines[0].Turkish, DemoScript.Translation("We should reach the harbor before dark"));
+        Assert.Equal(DemoScript.Lines[0].Turkish, DemoScript.Translation("We shou1d reach the harbor before dark."));
         Assert.Equal(DemoScript.Objective.Turkish, DemoScript.Translation(DemoScript.Objective.English));
         Assert.Null(DemoScript.Translation("Completely different text"));
         Assert.Null(DemoScript.Translation("  "));

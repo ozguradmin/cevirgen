@@ -272,6 +272,36 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     private string? loggedPhone;
     /// <summary>Doğruysa bu karede okunan blok kaydedilmez (ekranda menü var, altyazı gönderilmiyor).</summary>
     public Func<bool>? EchoPaused { get; init; }
+    /// <summary>
+    /// Çevirgen: kullanıcının sürekli okunan ek alanları. İçlerine düşen satır altyazı sayılmaz; o yazı kendi alanında
+    /// çevrilir (<see cref="SeparateLine"/>). Kullanıcı bildirimi (GTA 6, 2026-11-24): altyazı alanı (%14–86) sağ alttaki
+    /// "seçenekler" alanıyla (%75–100) kesişiyordu. Telefon bildirimi balonunun altyazı alanına düşen sol yarısı ("hey,
+    /// it's me. / pleaseeee o") altyazı sanılıp ortada çevriliyor, balonun tamamı da kendi kutusunda çevriliyordu: ekranda
+    /// iki yazı. Altyazı alanının ortasını kaplayan ek alan hesaba katılmaz (orada altyazının kendisi okunur).
+    /// </summary>
+    public Func<IReadOnlyList<WatchedArea>>? SeparateAreas { get; set; }
+    /// <summary>Günlüğe yazılmış son ek alan yazısı (her karede yeniden yazılmasın).</summary>
+    private string? loggedSeparate;
+    /// <summary>Satırın en az bu kadarı ek alanın içindeyse satır o alanındır.</summary>
+    internal const double SeparateShare = 0.6;
+
+    /// <summary>
+    /// <paramref name="line"/> (karedeki yeri) <paramref name="separate"/> ek alanına mı düşüyor: dikey ortası alanın içinde
+    /// ve genişliğinin en az <see cref="SeparateShare"/>'i alanın yatay aralığında. Ortalanmış altyazı satırı kenardaki
+    /// alana ancak ucuyla değer, sayılmaz. Altyazı alanının (<paramref name="subtitle"/>) ortasını kaplayan ek alan sayılmaz.
+    /// </summary>
+    internal static bool SeparateLine(TextBox line, CropRegion separate, CropRegion subtitle)
+    {
+        var middleX = (subtitle.Left + subtitle.Right) / 2;
+        var middleY = (subtitle.Top + subtitle.Bottom) / 2;
+        if (separate.Left <= middleX && middleX <= separate.Right && separate.Top <= middleY && middleY <= separate.Bottom) return false;
+        var width = line.Right - line.Left;
+        if (width <= 0) return false;
+        var middle = (line.Top + line.Bottom) / 2;
+        if (middle < separate.Top || middle > separate.Bottom) return false;
+        var inside = Math.Min(line.Right, separate.Right) - Math.Max(line.Left, separate.Left);
+        return inside >= width * SeparateShare;
+    }
     /// <summary>Son gösterilen çevirinin nereden geldiği: "paket", "senin" (kullanıcı düzeltmesi) ya da "motor" (günlük ve sayım için).</summary>
     public string? LastOrigin { get; private set; }
     /// <summary>Bu hatta paketten gelen satır sayısı.</summary>
@@ -423,6 +453,31 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
                     loggedPhone = phoneText;
                 }
                 if (fresh) Write($"telefon yazısı: {SubtitleLog.Excerpt(phoneText)} telefonun ekranında, altyazı sayılmadı");
+                seen = new Reading(kept);
+            }
+        }
+        // Çevirgen: kullanıcının ek alanına düşen satır (kenardaki bildirim balonu) altyazı değildir; kendi alanında çevrilir.
+        if (SeparateAreas?.Invoke() is { Count: > 0 } separate)
+        {
+            WatchedArea? owner = null;
+            var kept = seen.Lines.Where(line =>
+            {
+                if (line.Box is not { } box) return true;
+                var placed = box.PlacedIn(area);
+                var hit = separate.FirstOrDefault(item => SeparateLine(placed, item.Region, region));
+                owner ??= hit;
+                return hit is null;
+            }).ToList();
+            if (kept.Count < seen.Lines.Count)
+            {
+                var separateText = string.Join(' ', seen.Lines.Where(line => !kept.Contains(line)).Select(line => line.Text));
+                bool fresh;
+                lock (gate)
+                {
+                    fresh = separateText != loggedSeparate;
+                    loggedSeparate = separateText;
+                }
+                if (fresh) Write($"ek alan yazısı: {SubtitleLog.Excerpt(separateText)} \"{owner?.Name}\" alanında, altyazı sayılmadı");
                 seen = new Reading(kept);
             }
         }

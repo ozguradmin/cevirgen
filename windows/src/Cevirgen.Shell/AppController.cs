@@ -3379,6 +3379,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             Echo = SubtitleEcho,
             EchoPaused = () => Volatile.Read(ref screenText)?.InMenu == true,
             FindsPhone = settings.ReadsGamePhone && GameName.Key(gameSense.Current?.Name) == "gta 6",
+            // Çevirgen: kullanıcının sürekli okunan ek alanlarındaki yazı altyazı sayılmaz; kendi kutusunda çevrilir.
+            SeparateAreas = () => Volatile.Read(ref savedWatchedAreas),
         };
         built.MetricsReady += metrics => post(() =>
         {

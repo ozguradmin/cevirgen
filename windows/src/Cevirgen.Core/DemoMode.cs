@@ -17,7 +17,7 @@ public static class DemoScript
     /// <summary>Döngüde sırayla gösterilen altyazılar (özgün, telifsiz macera diyalogları).</summary>
     public static readonly IReadOnlyList<Line> Lines =
     [
-        new("We should reach the lighthouse before dark.", "Hava kararmadan deniz fenerine varmalıyız."),
+        new("We should reach the harbor before dark.", "Hava kararmadan limana varmalıyız."),
         new("The bridge is gone. We need another way across.", "Köprü yıkılmış. Karşıya geçmek için başka bir yol lazım."),
         new("Stay close to me and keep your voice down.", "Yanımdan ayrılma ve sesini alçak tut."),
         new("I found a map in the old captain's cabin.", "Yaşlı kaptanın kamarasında bir harita buldum."),
@@ -32,7 +32,7 @@ public static class DemoScript
     ];
 
     /// <summary>Karenin sol üstündeki görev yazısı ("Ekranı çevir" ve ek alanlar bunu da çevirir).</summary>
-    public static readonly Line Objective = new("Objective: Reach the lighthouse", "Görev: Deniz fenerine ulaş");
+    public static readonly Line Objective = new("Objective: Reach the harbor", "Görev: Limana ulaş");
 
     /// <summary>Gömülü hazır çeviri: okunan metin örnek satırlardan birine benziyorsa Türkçesi (ağ ve anahtar gerekmez).</summary>
     public static string? Translation(string text)
@@ -47,7 +47,7 @@ public static class DemoScript
 
 /// <summary>
 /// Deneme karelerinin ölçüleri (Mac <c>DemoFrames</c> ile aynı). Kareyi Windows'ta uygulama katmanı çizer (WPF,
-/// <c>DemoFrameRenderer</c>): düz bir kıyı sahnesi, sol üstte görev yazısı, altta İngilizce altyazı.
+/// <c>DemoFrameRenderer</c>): Çevirgen'in kendi gece şehri sahnesi, sol üstte görev yazısı, altta İngilizce altyazı.
 /// </summary>
 public static class DemoFrames
 {

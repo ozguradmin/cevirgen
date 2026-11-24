@@ -9,21 +9,17 @@ using Cevirgen.Core;
 namespace Cevirgen.App.Services;
 
 /// <summary>
-/// Deneme karelerini çizer (Mac'teki DemoFrames ile aynı sahne, renk ve ölçüler): düz bir kıyı sahnesi, sol üstte görev
-/// yazısı, altta İngilizce altyazı. Kareler gerçek hattan geçer; yazıyı yazı tanıma okur.
+/// Deneme karelerini çizer: Çevirgen'in kendi gece şehri sahnesi (<see cref="Controls.PerdeBrushes.Scene"/>; özgün çizim),
+/// sol üstte görev yazısı, altta İngilizce altyazı. Kareler gerçek hattan geçer; yazıyı yazı tanıma okur. Ekran görüntüsü
+/// aracı da bu kareyi kullanır (depodaki görsellerde oyun görüntüsü yoktur).
 /// </summary>
 internal static class DemoFrameRenderer
 {
     private const double W = DemoFrames.Width;
     private const double H = DemoFrames.Height;
 
-    /// <summary>Gökyüzü, ufuk, deniz ve kara renkleri; satır gruplarıyla değişir.</summary>
-    private static readonly (Color Sky, Color Horizon, Color Sea, Color Land)[] Palettes =
-    [
-        (Rgb(0.16, 0.22, 0.42), Rgb(0.86, 0.55, 0.38), Rgb(0.10, 0.24, 0.36), Rgb(0.12, 0.20, 0.16)),
-        (Rgb(0.08, 0.10, 0.22), Rgb(0.36, 0.30, 0.50), Rgb(0.06, 0.14, 0.24), Rgb(0.08, 0.12, 0.12)),
-        (Rgb(0.30, 0.46, 0.62), Rgb(0.78, 0.82, 0.80), Rgb(0.16, 0.34, 0.44), Rgb(0.20, 0.30, 0.20)),
-    ];
+    /// <summary>Sahnenin tonu satır gruplarıyla değişir: örtüsüz, daha koyu gece, hafif sıcak şafak.</summary>
+    private static readonly Color[] Tints = [Rgb(0, 0, 0, 0), Rgb(0.02, 0.03, 0.09, 0.32), Rgb(0.55, 0.34, 0.20, 0.10)];
 
     private static readonly Typeface Bold = new(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
 
@@ -72,52 +68,13 @@ internal static class DemoFrameRenderer
         return new Frame(pixels, DemoFrames.Width, DemoFrames.Height, stride);
     }
 
-    /// <summary>Gökyüzü, deniz, tepe ve deniz feneri (ölçüler Mac'teki çizimle aynı; orada eksen alttan yukarıdır).</summary>
+    /// <summary>Gece şehri: lacivert gök, ince ay, iki katman bina silüeti, sarı pencereler ve sudaki yansımaları.</summary>
     private static void DrawScene(DrawingContext context, int scene)
     {
-        var palette = Palettes[((scene % Palettes.Length) + Palettes.Length) % Palettes.Length];
-        var sky = new LinearGradientBrush(palette.Horizon, palette.Sky, new Point(0, H * 0.62), new Point(0, 0)) { MappingMode = BrushMappingMode.Absolute };
-        sky.Freeze();
-        context.DrawRectangle(sky, null, new Rect(0, 0, W, H));
-        // Güneş ya da ay.
-        context.DrawEllipse(Fill(Rgb(1, 0.92, 0.75, 0.85)), null, new Point((W * 0.70) + 45, H - (H * 0.52) - 45), 45, 45);
-        // Deniz.
-        context.DrawRectangle(Fill(palette.Sea), null, new Rect(0, H * 0.60, W, H * 0.40));
-        // Dalga çizgileri.
-        var wave = new Pen(Fill(Rgb(1, 1, 1, 0.12)), 2);
-        wave.Freeze();
-        for (var row = 0; row < 6; row++)
-        {
-            var y = H - ((H * 0.36) - (row * 38));
-            var geometry = new StreamGeometry();
-            using (var path = geometry.Open())
-            {
-                path.BeginFigure(new Point(0, y), isFilled: false, isClosed: false);
-                for (var step = 0; step <= (int)W; step += 40)
-                    path.LineTo(new Point(step, y - (step / 40 % 2 == 0 ? 4 : -4)), isStroked: true, isSmoothJoin: false);
-            }
-            geometry.Freeze();
-            context.DrawGeometry(null, wave, geometry);
-        }
-        // Kıyıdaki tepe.
-        var hill = new StreamGeometry();
-        using (var path = hill.Open())
-        {
-            path.BeginFigure(new Point(0, H * 0.60), isFilled: true, isClosed: true);
-            path.BezierTo(new Point(W * 0.06, H * 0.40), new Point(W * 0.30, H * 0.42), new Point(W * 0.42, H * 0.60), isStroked: false, isSmoothJoin: false);
-        }
-        hill.Freeze();
-        context.DrawGeometry(Fill(palette.Land), null, hill);
-        // Deniz feneri: gövde, şeritler, ışık odası ve ışık.
-        double baseX = W * 0.16, baseY = H * 0.50;
-        context.DrawGeometry(Fill(Rgb(0.93, 0.92, 0.88)), null, Polygon(
-            new Point(baseX - 26, baseY), new Point(baseX + 26, baseY), new Point(baseX + 16, baseY - 150), new Point(baseX - 16, baseY - 150)));
-        var stripe = Fill(Rgb(0.72, 0.20, 0.18));
-        context.DrawRectangle(stripe, null, new Rect(baseX - 22, baseY - 40 - 18, 44, 18));
-        context.DrawRectangle(stripe, null, new Rect(baseX - 19, baseY - 95 - 16, 38, 16));
-        context.DrawRectangle(Fill(Rgb(1, 0.88, 0.45)), null, new Rect(baseX - 14, baseY - 150 - 22, 28, 22));
-        context.DrawGeometry(Fill(Rgb(1, 0.88, 0.45, 0.18)), null, Polygon(
-            new Point(baseX, baseY - 161), new Point(W * 0.55, baseY - 210), new Point(W * 0.55, baseY - 120)));
+        var all = new Rect(0, 0, W, H);
+        context.DrawRectangle(Controls.PerdeBrushes.Scene(), null, all);
+        var tint = Tints[((scene % Tints.Length) + Tints.Length) % Tints.Length];
+        if (tint.A > 0) context.DrawRectangle(Fill(tint), null, all);
     }
 
     /// <summary>
@@ -134,18 +91,6 @@ internal static class DemoFrameRenderer
         context.DrawRoundedRectangle(Fill(Rgb(0, 0, 0, 0.62)), null,
             new Rect(originX - pad, originY - (pad * 0.6), formatted.WidthIncludingTrailingWhitespace + (pad * 2), formatted.Height + (pad * 1.2)), 8, 8);
         context.DrawText(formatted, new Point(originX, originY));
-    }
-
-    private static StreamGeometry Polygon(params Point[] points)
-    {
-        var geometry = new StreamGeometry();
-        using (var path = geometry.Open())
-        {
-            path.BeginFigure(points[0], isFilled: true, isClosed: true);
-            foreach (var point in points.Skip(1)) path.LineTo(point, isStroked: false, isSmoothJoin: false);
-        }
-        geometry.Freeze();
-        return geometry;
     }
 
     private static Color Rgb(double red, double green, double blue, double alpha = 1) =>

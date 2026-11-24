@@ -22,14 +22,17 @@ public sealed record BlindTestResult(IReadOnlyList<string?> Lines, int? AverageM
 /// </summary>
 public static class BlindTest
 {
-    /// <summary>Beş zor replik: argo, ağız, deyim, yarım cümle ve hitap (taslaktaki satırlar).</summary>
+    /// <summary>
+    /// Beş zor replik: argo, ağız, yarım cümle, deyim ve hitap. Çevirgen için yazılmış özgün cümlelerdir; hiçbir oyundan
+    /// alınmadı (ekran görüntülerinde ve tanıtımda da bunlar görünür).
+    /// </summary>
     public static readonly IReadOnlyList<string> Lines =
     [
-        "Whip the ever-lovin' shit outta him!",
-        "Y'all selling that trailer right there?",
-        "Hold tight, we're almost there.",
-        "That's a whole lotta nope.",
-        "Welcome back to Vice City, bro.",
+        "Dude, that was way too close.",
+        "Ain't nobody gonna fix this but us.",
+        "Almost there, just hang on.",
+        "Let's not jump the gun here.",
+        "Good to have you back in town, buddy.",
     ];
 
     /// <summary>En çok bu kadar motor karşılaştırılır.</summary>

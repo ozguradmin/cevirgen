@@ -21,10 +21,19 @@
 
 ## Two looks
 
-| | |
-|---|---|
-| ![Cinema look](docs/cevirgen/ekran/gorunum-sinema.jpg) | ![Classic box look](docs/cevirgen/ekran/gorunum-klasik.jpg) |
-| **Cinema** · no background, bold, black outline; just above the English line | **Classic box** · dark box that replaces the English line |
+**Cinema** · no background, bold, black outline; just above the game's English line.
+
+![Cinema look: outlined bold Turkish subtitle just above the game's English subtitle](docs/cevirgen/tanitim/sinema.png)
+
+**Classic box** · a dark box that replaces the English line.
+
+![Classic box look: Turkish subtitle in a dark box in place of the game's English subtitle](docs/cevirgen/tanitim/klasik-kutu.png)
+
+## How it works
+
+![How it works: you play, Çevirgen reads and translates the subtitle, the Turkish line appears on the TV over the game](docs/cevirgen/tanitim/nasil-calisir.png)
+
+Çevirgen watches the game's picture (Remote Play from a free second PSN account on PS5, its own connection on Xbox, the game window on PC), reads only the areas you choose, translates them and shows the Turkish line on an Android TV over the game, or on the PC screen. Nothing is installed on the console or in the game.
 
 ## Privacy
 
@@ -36,4 +45,4 @@ Support and feedback: **destek@ozgurguler.tech** · Developer: [ozgurguler.tech]
 
 ## License
 
-[GNU AGPL-3.0](LICENSE.txt). Çevirgen is derived from the open-source CouchSubs project; copyright and modification notices are in [NOTICE](NOTICE), third-party components in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Sony Interactive Entertainment, Microsoft or any game publisher.
+[GNU AGPL-3.0](LICENSE.txt). Çevirgen is derived from the open-source CouchSubs project; copyright and modification notices are in [NOTICE](NOTICE), third-party components in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Sony Interactive Entertainment, Microsoft or any game publisher. The scene in the screenshots and promo images is Çevirgen's own drawing; the sample lines were written for them.

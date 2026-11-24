@@ -90,7 +90,7 @@ public sealed class HdmiStep : UserControl
         badge.Foreground = new SolidColorBrush(Color.FromRgb(0xF3, 0xEE, 0xE4));
         var line = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap };
         line.SetResourceReference(TextBlock.ForegroundProperty, "subtitleTextBrush");
-        var name = new System.Windows.Documents.Run("Jason: ") { FontWeight = FontWeights.Bold };
+        var name = new System.Windows.Documents.Run("Deniz: ") { FontWeight = FontWeights.Bold };
         name.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "amberBrush");
         line.Inlines.Add(name);
         line.Inlines.Add(new System.Windows.Documents.Run(l.Language == "tr" ? "Tamam. Gidelim." : "Okay. Let's go."));
