@@ -54,6 +54,18 @@ Changes (2026-11-24):
     with TV preview and transcript, "where do you play?" setup (PS5, Xbox, PC, other)
     and regrouped settings.
 
+Changes (2026-11-24, interface polish):
+  - One status colour model everywhere (green ready, amber waiting, red error,
+    grey off); keyboard-only focus rings; calmer typography (monospace only for
+    timecodes, numbers and keys).
+  - Translation tab: engine list and setup first, optional blind comparison
+    that runs only on request and only with ready engines; custom
+    OpenAI-compatible endpoint engine (URL, model, optional key).
+  - Live preview shows the real or last captured frame instead of a drawn
+    placeholder scene.
+  - Shorter setup (PS5 and Xbox 4 steps, PC 2 steps, other 3 steps).
+  - Çevirgen server reached at its own domain with automatic fallback.
+
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or
 Microsoft. Game translation packs of CouchSubs are not part of Çevirgen.

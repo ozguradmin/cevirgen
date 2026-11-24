@@ -2166,10 +2166,17 @@
                         <StackPanel IsItemsHost="True" Visibility="Collapsed" />
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                             <Border Padding="{DynamicResource shell.inset}">
-                                <StackPanel Margin="32,22,32,32">
-                                    <ContentPresenter Content="{TemplateBinding Tag}" />
-                                    <ContentPresenter ContentSource="SelectedContent" />
-                                </StackPanel>
+                                <!-- Okunur genişlik: geniş pencerede satırlar ve alanlar ~960'tan uzamaz (sola yaslı). -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="1024" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="32,22,32,32">
+                                        <ContentPresenter Content="{TemplateBinding Tag}" />
+                                        <ContentPresenter ContentSource="SelectedContent" />
+                                    </StackPanel>
+                                </Grid>
                             </Border>
                         </ScrollViewer>
                     </Grid>

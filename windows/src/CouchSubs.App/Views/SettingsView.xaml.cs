@@ -1147,27 +1147,12 @@ public partial class SettingsView : UserControl
         var square = new Controls.IconSquare { Glyph = "", Tone = connected ? Controls.IconTone.Amber : Controls.IconTone.Gray, Size = 36 };
         DockPanel.SetDock(square, Dock.Left);
         row.Children.Add(square);
-        if (linked)
-        {
-            var chip = new Controls.Chip { Text = text["Linked"], Tone = connected ? Controls.ChipTone.Ok : Controls.ChipTone.Muted };
-            DockPanel.SetDock(chip, Dock.Right);
-            row.Children.Add(chip);
-        }
         row.Children.Add(names);
-        var card = new Border { CornerRadius = new CornerRadius(18), Padding = Sp.T("s"), MinHeight = 64, BorderThickness = new Thickness(connected ? 2 : 1), Child = row };
-        card.SetResourceReference(Border.BackgroundProperty, connected ? "amberSoftBrush" : "surfaceBrush");
-        card.SetResourceReference(Border.BorderBrushProperty, connected ? "amberBrush" : "cardEdgeBrush");
-        if (!connected) return card;
-        // Seçili (bağlı) kartın arkasında hafif amber ışıma.
-        var glow = new Border { CornerRadius = new CornerRadius(18), Effect = Controls.PerdeEffects.AmberGlow(22, 0, 0.35) };
-        glow.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
-        var surface = new Border { CornerRadius = new CornerRadius(18) };
-        surface.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
-        var stack = new Grid();
-        stack.Children.Add(glow);
-        stack.Children.Add(surface);
-        stack.Children.Add(card);
-        return stack;
+        // Durum (nokta + yazı) kartın altındaki satırda; kart sade: kıl çizgi, köşe 6, ışıma yok. Bağlıyken sarı kenar.
+        var card = new Border { CornerRadius = new CornerRadius(6), Padding = Sp.T("s"), MinHeight = 64, BorderThickness = new Thickness(1), Child = row };
+        card.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
+        card.SetResourceReference(Border.BorderBrushProperty, connected ? "amberBrush" : "borderBrush");
+        return card;
     }
 
     /// <summary>Bölümlerin başlığı (Mac SectionHeading): simge, ton, ad ve iki kelimelik alt yazı; menü sırasıyla.</summary>

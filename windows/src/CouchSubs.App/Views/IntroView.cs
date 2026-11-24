@@ -57,7 +57,7 @@ public sealed class IntroView : UserControl
         Canvas.SetTop(mark, 20);
         logo.Children.Add(mark);
 
-        by.Children.Add(new TextBlock { Text = "CouchSubs tabanlı · açık kaynak (AGPL-3.0)", FontFamily = (FontFamily)Application.Current.FindResource("MonoFont"), FontSize = 11, Foreground = Faint, VerticalAlignment = VerticalAlignment.Center });
+        by.Children.Add(new TextBlock { Text = "CouchSubs tabanlı · açık kaynak (AGPL-3.0)", FontFamily = (FontFamily)Application.Current.FindResource("TextFont"), FontSize = 12, Foreground = Faint, VerticalAlignment = VerticalAlignment.Center });
 
         var start = new Button { Content = Localizer.Current["Let's Get Started"], HorizontalAlignment = HorizontalAlignment.Center };
         start.SetResourceReference(StyleProperty, "WidePrimaryButton");

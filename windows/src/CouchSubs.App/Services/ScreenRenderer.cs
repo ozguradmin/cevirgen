@@ -177,6 +177,22 @@ public static class ScreenRenderer
                     return page;
                 }, Width, Height, Path.Combine(folder, $"ayarlar-{name}-{suffix}.png"));
             Save(() => Detach(new AboutWindow()), 460, 640, Path.Combine(folder, $"hakkinda-{suffix}.png"));
+            // Çevirgen 1.3: yaygın ekran boylarında taşma / kırpılma denetimi (1280 × 800 ve 1920 × 1080).
+            foreach (var (w, h) in new[] { (1280, 800), (1920, 1080) })
+            {
+                Save(() => Detach(Live(Running())), w, h, Path.Combine(folder, $"boy-{w}-canli-{suffix}.png"));
+                Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Home)), w, h, Path.Combine(folder, $"boy-{w}-canli-bos-{suffix}.png"));
+                Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Appearance)), w, h, Path.Combine(folder, $"boy-{w}-gorunum-{suffix}.png"));
+                Save(() =>
+                {
+                    TranslationPage.Preview = TranslationStates().ElementAt(1).State;
+                    return Detach(Shell(Demo(OnboardingStep.Done, keys: true), ShellTab.Translation));
+                }, w, h, Path.Combine(folder, $"boy-{w}-ceviri-{suffix}.png"));
+                TranslationPage.Preview = null;
+                Save(() => Detach(Shell(Running(), ShellTab.History)), w, h, Path.Combine(folder, $"boy-{w}-gecmis-{suffix}.png"));
+                Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, SettingsGroup.Devices)), w, h, Path.Combine(folder, $"boy-{w}-ayarlar-{suffix}.png"));
+                Save(() => new OnboardingView(Demo(OnboardingStep.PsnLogin)), w, h, Path.Combine(folder, $"boy-{w}-kurulum-{suffix}.png"));
+            }
         }
         app.Shutdown();
     }
@@ -189,7 +205,7 @@ public static class ScreenRenderer
     ];
 
     /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme en az bu kadarını bekler.</summary>
-    public const int ExpectedCount = 108;
+    public const int ExpectedCount = 140;
 
     /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar bölümü) açık.</summary>
     private static ShellWindow Shell(AppController controller, ShellTab tab, SettingsGroup? group = null)
