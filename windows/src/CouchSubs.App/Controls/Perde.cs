@@ -717,83 +717,79 @@ public sealed class SubtitlePlate : Border
 public static class PerdeBrushes
 {
     /// <summary>
-    /// Görüntü gelmeden önceki sahne (DSPerdeScene): özgün, soyut sinematik manzara (telifli görsel yok, tamamıyla çizim).
-    /// Alacakaranlık göğü, ufukta batan güneş ve göğe vuran ışık hüzmeleri, katman katman tepeler, ufka koşan yol ve ince
-    /// amber ufuk çizgisi. Durağan. 160 × 90 birimde çizilir, alana gerilir (perde hep 16:9).
+    /// Görüntü gelmeden önceki sahne (Çevirgen): özgün, tamamıyla çizim gece şehri. Lacivert-grafit gök, ince ay, iki katman
+    /// bina silüeti; birkaç pencere altyazı sarısıyla yanar ve sakin suya kırık çizgiler hâlinde yansır. Altyazının okunduğu
+    /// alt üçte bir karanlık kalır. Durağan; pencere düzeni sabit tohumla üretilir (her açılışta aynı). 160 × 90 birim.
     /// </summary>
     public static Brush Scene()
     {
         const double w = 160, h = 90;
-        var horizon = h * 0.6;
-        var sunX = w * 0.66;
-        var amber = PerdeColors.Rgb(0xF5, 0xB8, 0x3D);
+        var waterline = h * 0.62;
+        var yellow = PerdeColors.Rgb(0xFF, 0xD2, 0x3F);
         var drawing = new DrawingGroup();
         var bounds = new RectangleGeometry(new Rect(0, 0, w, h));
-        // Gök: üstte gece mavisi, ufka doğru kızıl-amber.
-        var sky = new LinearGradientBrush
-        {
-            StartPoint = new Point(0, 0), EndPoint = new Point(0, 1),
-            GradientStops =
-            {
-                new GradientStop(C(0.067, 0.078, 0.122), 0), new GradientStop(C(0.188, 0.149, 0.188), 0.36), new GradientStop(C(0.62, 0.329, 0.231), 0.52),
-                new GradientStop(C(0.937, 0.612, 0.29), 0.62), new GradientStop(C(0.937, 0.612, 0.29), 1),
-            },
-        };
+        // Gök: grafit laciverti, ufka doğru bir ton açılır.
+        var sky = new LinearGradientBrush(PerdeColors.Rgb(0x10, 0x14, 0x1E), PerdeColors.Rgb(0x26, 0x2E, 0x3F), new Point(0, 0), new Point(0, waterline))
+        { MappingMode = BrushMappingMode.Absolute };
         drawing.Children.Add(new GeometryDrawing(sky, null, bounds));
-        // Işık hüzmeleri: güneşten göğe beş ince kama.
-        var beams = new StreamGeometry();
-        using (var g = beams.Open())
+        // İnce hilal ay.
+        var moon = new CombinedGeometry(GeometryCombineMode.Exclude, new EllipseGeometry(new Point(w * 0.8, h * 0.17), 3.1, 3.1),
+            new EllipseGeometry(new Point(w * 0.8 + 1.4, h * 0.17 - 0.9), 2.9, 2.9));
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.Rgb(0xE9, 0xE4, 0xD3)), null, moon));
+        var random = new Random(1907);
+        // Uzak silüet: alçak, soluk.
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.Rgb(0x1B, 0x21, 0x2D)), null, Skyline(random, w, waterline, 4, 11, 3, 7)));
+        // Yakın silüet ve pencereler.
+        var near = Skyline(random, w, waterline, 7, 24, 5, 12, out var towers);
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.Rgb(0x0E, 0x11, 0x18)), null, near));
+        var lit = new GeometryGroup();
+        var reflections = new GeometryGroup();
+        foreach (var (left, top, width) in towers)
         {
-            foreach (var (from, to) in new[] { (-0.8, -0.66), (-0.44, -0.33), (-0.1, 0.0), (0.2, 0.28), (0.52, 0.66) })
-            {
-                g.BeginFigure(new Point(sunX, horizon), true, true);
-                g.LineTo(new Point(sunX + w * from, 0), false, false);
-                g.LineTo(new Point(sunX + w * to, 0), false, false);
-            }
+            for (var y = top + 1.6; y < waterline - 1.2; y += 2.2)
+                for (var x = left + 0.9; x < left + width - 1.1; x += 1.8)
+                {
+                    if (random.NextDouble() > 0.16) continue;
+                    lit.Children.Add(new RectangleGeometry(new Rect(x, y, 0.8, 1.0)));
+                    // Yansıma: su çizgisinin altında, pencerenin aynası, kırık ve kısa.
+                    var depth = waterline - y;
+                    var ry = waterline + depth * 0.55;
+                    if (ry < h - 1) reflections.Children.Add(new RectangleGeometry(new Rect(x - 0.3, ry, 1.4 + random.NextDouble() * 1.4, 0.35)));
+                }
         }
-        var beamFill = new LinearGradientBrush(PerdeColors.WithAlpha(C(1, 0.85, 0.6), 0.2), Color.FromArgb(0, 255, 217, 153), new Point(0, horizon), new Point(0, 0))
-        { MappingMode = BrushMappingMode.Absolute };
-        drawing.Children.Add(new GeometryDrawing(beamFill, null, beams));
-        // Güneş ve hâlesi.
-        var halo = new RadialGradientBrush
-        {
-            MappingMode = BrushMappingMode.Absolute, Center = new Point(sunX, horizon), GradientOrigin = new Point(sunX, horizon), RadiusX = w * 0.42, RadiusY = w * 0.42,
-            GradientStops =
-            {
-                new GradientStop(PerdeColors.WithAlpha(C(1, 0.78, 0.47), 0.8), 0), new GradientStop(PerdeColors.WithAlpha(C(0.95, 0.5, 0.25), 0.22), 0.5),
-                new GradientStop(Color.FromArgb(0, 242, 128, 64), 1),
-            },
-        };
-        drawing.Children.Add(new GeometryDrawing(halo, null, bounds));
-        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(C(1, 0.9, 0.72)), null, new EllipseGeometry(new Point(sunX, horizon), h * 0.08, h * 0.08)));
-        // Uzak ve yakın tepeler (güneşin altını örter).
-        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.WithAlpha(C(0.231, 0.153, 0.188), 0.92)), null, Ridge(w, h, horizon, h * 0.07, 0.2, 2.3)));
-        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(C(0.122, 0.09, 0.118)), null, Ridge(w, h, horizon + h * 0.035, h * 0.05, 1.4, 3.1)));
-        var groundTop = horizon + h * 0.05;
-        var ground = new LinearGradientBrush(C(0.122, 0.09, 0.118), C(0.035, 0.035, 0.043), new Point(0, groundTop), new Point(0, h)) { MappingMode = BrushMappingMode.Absolute };
-        drawing.Children.Add(new GeometryDrawing(ground, null, new RectangleGeometry(new Rect(0, groundTop, w, h - groundTop))));
-        // Ufka koşan yol (perspektif) ve ince amber ufuk çizgisi.
-        var road = new StreamGeometry();
-        using (var g = road.Open())
-        {
-            g.BeginFigure(new Point(sunX - 1.5 * w / 1000, groundTop), true, true);
-            g.LineTo(new Point(sunX + 1.5 * w / 1000, groundTop), false, false);
-            g.LineTo(new Point(sunX + w * 0.2, h), false, false);
-            g.LineTo(new Point(sunX - w * 0.34, h), false, false);
-        }
-        var roadFill = new LinearGradientBrush(PerdeColors.WithAlpha(amber, 0.3), PerdeColors.WithAlpha(amber, 0.04), new Point(0, groundTop), new Point(0, h))
-        { MappingMode = BrushMappingMode.Absolute };
-        drawing.Children.Add(new GeometryDrawing(roadFill, null, road));
-        var line = new LinearGradientBrush
-        {
-            StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5),
-            GradientStops = { new GradientStop(PerdeColors.WithAlpha(amber, 0), 0), new GradientStop(PerdeColors.WithAlpha(amber, 0.75), 0.5), new GradientStop(PerdeColors.WithAlpha(amber, 0), 1) },
-        };
-        drawing.Children.Add(new GeometryDrawing(line, null, new RectangleGeometry(new Rect(0, groundTop, w, 0.4))));
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.WithAlpha(yellow, 0.85)), null, lit));
+        // Su: silüetten koyu, düz.
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.Rgb(0x0A, 0x0D, 0x13)), null, new RectangleGeometry(new Rect(0, waterline, w, h - waterline))));
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.WithAlpha(yellow, 0.28)), null, reflections));
+        // Kıyı çizgisi.
+        drawing.Children.Add(new GeometryDrawing(new SolidColorBrush(PerdeColors.Rgb(0x2B, 0x31, 0x3D)), null, new RectangleGeometry(new Rect(0, waterline, w, 0.35))));
         drawing.ClipGeometry = bounds;
         var brush = new DrawingBrush(drawing) { Stretch = Stretch.Fill };
         brush.Freeze();
         return brush;
+    }
+
+    private static Geometry Skyline(Random random, double w, double baseline, double minHeight, double maxHeight, double minWidth, double maxWidth) =>
+        Skyline(random, w, baseline, minHeight, maxHeight, minWidth, maxWidth, out _);
+
+    /// <summary>Yan yana dikdörtgen binalar (bazılarının üstünde ince anten); su çizgisine oturur.</summary>
+    private static Geometry Skyline(Random random, double w, double baseline, double minHeight, double maxHeight, double minWidth, double maxWidth,
+                                    out List<(double Left, double Top, double Width)> towers)
+    {
+        towers = [];
+        var group = new GeometryGroup();
+        for (var x = -2.0; x < w + 2;)
+        {
+            var width = minWidth + random.NextDouble() * (maxWidth - minWidth);
+            var height = minHeight + random.NextDouble() * (maxHeight - minHeight);
+            var top = baseline - height;
+            group.Children.Add(new RectangleGeometry(new Rect(x, top, width, height + 0.5)));
+            if (random.NextDouble() < 0.18) group.Children.Add(new RectangleGeometry(new Rect(x + width / 2 - 0.2, top - 3.5, 0.4, 3.5)));
+            towers.Add((x, top, width));
+            x += width + (random.NextDouble() < 0.25 ? 1.2 : 0);
+        }
+        group.Freeze();
+        return group;
     }
 
     /// <summary>Yumuşak dalgalı tepe sırası (iki sinüsün toplamı), alta kadar dolu.</summary>

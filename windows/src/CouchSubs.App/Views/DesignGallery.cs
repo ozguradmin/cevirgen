@@ -118,7 +118,7 @@ public sealed class DesignGallery : UserControl
             Steps = [new("PlayStation hesabı", "İkinci hesapla giriş yapıldı.", StepPhase.Done), new("PS5 bulundu", null, StepPhase.Current), new("Eşleşme ve ilk görüntü", null, StepPhase.Todo)],
         });
         var preview = new PerdePreview { ShowArea = true };
-        preview.SetLine("Lucia:", "Hazır olduğunda haber ver, gidiyoruz.", 13);
+        preview.SetLine("Deniz:", "Hazır olduğunda haber ver, gidiyoruz.", 13);
         preview.SetPills(new Chip { Text = "CANLI", Tone = ChipTone.GlassLive });
         stack.Children.Add(preview);
         var covers = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("xxs", "xs", "0", "xs") };

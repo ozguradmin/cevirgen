@@ -16,7 +16,7 @@ public partial class TestStep : UserControl
     {
         InitializeComponent();
         // Perde önizlemesi: örnek Türkçe altyazı plakası (Mac DSPerdePreview).
-        Preview.SetLine("Lucia:", "Hazır olduğunda haber ver, gidiyoruz.", 15);
+        Preview.SetLine("Deniz:", "Hazır olduğunda haber ver, gidiyoruz.", 15);
         Loaded += (_, _) =>
         {
             ShowTarget();
