@@ -18,20 +18,22 @@ namespace CouchSubs.App.Views;
 
 /// <summary>
 /// Canlı ekranın TV önizlemesi (taslak: Main.dc.html › "TV görüntüsü"): 1920 × 1080'in gerçek oranında son oyun karesi
-/// (yoksa düz sahne), %90 güvenli alan çizgisi ve üstünde TV'de şu an görünen Türkçe satırlar. Satırlar kullanıcının gerçek
-/// altyazı görünümüyle çizilir, önizleme genişliğine ölçeklenir (<see cref="LivePreviewLayout"/>): yazı boyu, kalınlık,
-/// kenarlık, zemin ve yerleşim (üstünde / örtsün / sabit); üstteki eski satırlar (above) küçük ve soluk. Kare saniyede en
-/// çok 4 kez çizilir.
+/// (yoksa düz sahne), %90 güvenli alan çizgisi ve üstünde TV'de şu an görünen Türkçe satırlar. Kare oranı korunarak sığdırılır;
+/// satırlar kullanıcının gerçek altyazı görünümüyle çizilir ve karenin genişliğine ölçeklenir (<see cref="LivePreviewLayout"/>;
+/// yazı boyu 1920 genişlikli TV'nin pikseli): yazı boyu, kalınlık, kenarlık, zemin ve yerleşim (üstünde / örtsün / sabit);
+/// üstteki eski satırlar (above) küçük ve soluk. "güvenli alan" ve "ALTYAZI GİZLİ" etiketleri güvenli alanın dışındaki
+/// bantta durur, oyunun yazılarının üstüne binmez. Kare saniyede en çok 4 kez çizilir.
 /// </summary>
 public sealed class LivePreview : ContentControl
 {
     private readonly Grid stage = new() { ClipToBounds = true };
-    private readonly Image image = new() { Stretch = Stretch.UniformToFill };
+    private readonly Image image = new() { Stretch = Stretch.Fill, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
     private readonly StackPanel lines = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Rectangle safeArea = new() { StrokeThickness = 1, StrokeDashArray = [4, 4], IsHitTestVisible = false };
     private readonly TextBlock safeLabel = new() { Text = "güvenli alan %90", IsHitTestVisible = false };
     private readonly TextBlock hiddenTag = new() { Text = "ALTYAZI GİZLİ", Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly Grid overlay = new();
+    private readonly SampleScene scene = new();
     private WriteableBitmap? bitmap;
     private long lastDraw;
     private IReadOnlyList<SubtitleStack.Line> shown = [];
@@ -42,7 +44,7 @@ public sealed class LivePreview : ContentControl
     {
         Focusable = false;
         stage.Background = PerdeColors.Frozen(PerdeColors.Rgb(0x3C, 0x42, 0x4C));
-        stage.Children.Add(new SampleScene());
+        stage.Children.Add(scene);
         stage.Children.Add(image);
         safeArea.Stroke = PerdeColors.Frozen(Color.FromArgb(0x47, 0xFF, 0xFF, 0xFF));
         stage.Children.Add(safeArea);
@@ -88,7 +90,12 @@ public sealed class LivePreview : ContentControl
         if (bitmap is null || bitmap.PixelWidth != frame.Width || bitmap.PixelHeight != frame.Height)
             bitmap = new WriteableBitmap(frame.Width, frame.Height, 96, 96, PixelFormats.Bgr32, null);
         bitmap.WritePixels(new Int32Rect(0, 0, frame.Width, frame.Height), frame.Pixels, frame.Stride, 0);
+        var resized = !ReferenceEquals(image.Source, bitmap);
         image.Source = bitmap;
+        // Kare gelince düz sahne kalkar; 16:9 olmayan karenin yanlarında koyu bant kalır (TV de böyle gösterir).
+        scene.Visibility = Visibility.Collapsed;
+        stage.Background = Brushes.Black;
+        if (resized) Layout();
     }
 
     /// <summary>TV'de görünen satırlar (yukarıdan aşağı), görünüm ve İngilizce satırın karedeki yeri.</summary>
@@ -107,62 +114,49 @@ public sealed class LivePreview : ContentControl
         var width = stage.ActualWidth;
         var height = stage.ActualHeight;
         if (width <= 0 || height <= 0) return;
-        var scale = LivePreviewLayout.Scale(width);
-        safeArea.Margin = new Thickness(width * 0.05, height * 0.05, width * 0.05, height * 0.05);
-        safeLabel.Margin = new Thickness(width * 0.054, height * 0.056, 0, 0);
-        safeLabel.FontSize = Math.Max(9, 18 * scale);
-        hiddenTag.Margin = new Thickness(0, height * 0.056, width * 0.054, 0);
-        hiddenTag.FontSize = Math.Max(10, 20 * scale);
+        // Oyun karesinin önizlemedeki yeri (oranı korunarak sığdırılır). Türkçe satırlar karenin genişliğine göre ölçeklenir:
+        // kullanıcının yazı boyu 1920 genişlikli TV'nin pikselidir; karedeki İngilizce de kare → önizleme oranıyla küçülür.
+        // Böylece önizlemedeki İngilizce/Türkçe oranı TV'dekiyle aynıdır.
+        var (x, y, w, h) = image.Source is BitmapSource frame
+            ? LivePreviewLayout.FrameRect(frame.PixelWidth, frame.PixelHeight, width, height)
+            : (0d, 0d, width, height);
+        image.Margin = new Thickness(x, y, width - x - w, height - y - h);
+        var scale = LivePreviewLayout.Scale(w);
+        safeArea.Margin = new Thickness(x + w * 0.05, y + h * 0.05, width - x - w + w * 0.05, height - y - h + h * 0.05);
+        // Etiketler güvenli alan çizgisinin dışındaki %5'lik bantta durur: oyunun sol üstteki görev yazısının ya da altyazının
+        // üstüne binmez. Bant çok darsa (küçük önizleme) gizlenir.
+        var band = h * 0.05;
+        safeLabel.FontSize = Math.Clamp(band * 0.62, 8, 11);
+        safeLabel.Margin = new Thickness(x + w * 0.05, y + h * 0.95 + Math.Max(0, (band - safeLabel.FontSize * 1.3) / 2), 0, 0);
+        safeLabel.Visibility = band >= 12 ? Visibility.Visible : Visibility.Collapsed;
+        hiddenTag.FontSize = Math.Clamp(band * 0.62, 9, 12);
+        hiddenTag.Margin = new Thickness(0, y + Math.Max(0, (band - hiddenTag.FontSize * 1.3) / 2), width - x - w + w * 0.05, 0);
 
         lines.Children.Clear();
-        foreach (var line in shown) lines.Children.Add(MakeLine(line, width, scale));
+        foreach (var line in shown)
+        {
+            var current = line.Role == SubtitleStack.Role.Current;
+            var visual = SubtitleLine.Make(line.Wrapped.Text, style, scale, current, line.Wrapped.Scale);
+            visual.Margin = new Thickness(0, line == shown[0] ? 0 : 4 * scale, 0, 0);
+            visual.Opacity = line.Role switch { SubtitleStack.Role.Current => 1, SubtitleStack.Role.Previous => 0.78, _ => 0.6 } * (line.Fading ? 0.5 : 1);
+            lines.Children.Add(visual);
+        }
         var anchor = LivePreviewLayout.Anchor(style, english);
-        var band = style.BackgroundShape == SubtitleBackgroundShape.Band;
-        var left = band ? 0 : width * anchor.Left;
-        var right = band ? 0 : width * anchor.Right;
+        var fullBand = style.BackgroundShape == SubtitleBackgroundShape.Band;
+        var left = x + (fullBand ? 0 : w * anchor.Left);
+        var right = width - x - w + (fullBand ? 0 : w * anchor.Right);
         // DesiredSize kenar boşluğunu da içerir: önceki yerleşimin üst boşluğu ölçüye karışmasın.
         lines.Margin = new Thickness(left, 0, right, 0);
         lines.Measure(new Size(Math.Max(0, width), double.PositiveInfinity));
         var blockHeight = lines.DesiredSize.Height;
         double top;
-        if (anchor.Top is { } fromTop) top = height * fromTop;
-        else if (anchor.Center is { } center) top = height * center - blockHeight / 2;
-        else top = height * (1 - (anchor.Bottom ?? 0.07)) - blockHeight;
-        // TV'deki keepOnScreen: blok ekranın dışına taşmaz.
-        top = Math.Clamp(top, 0, Math.Max(0, height - blockHeight));
+        if (anchor.Top is { } fromTop) top = h * fromTop;
+        else if (anchor.Center is { } center) top = h * center - blockHeight / 2;
+        else top = h * (1 - (anchor.Bottom ?? 0.07)) - blockHeight;
+        // TV'deki keepOnScreen: blok karenin dışına taşmaz.
+        top = y + Math.Clamp(top, 0, Math.Max(0, h - blockHeight));
         lines.VerticalAlignment = VerticalAlignment.Top;
         lines.Margin = new Thickness(left, top, right, 0);
-    }
-
-    /// <summary>Bir satır: zemin kutusu (koyuluk ayardaki gibi) ve içinde kenarlıklı yazı; üst satırlar %80 boy, soluk.</summary>
-    private FrameworkElement MakeLine(SubtitleStack.Line line, double width, double scale)
-    {
-        var current = line.Role == SubtitleStack.Role.Current;
-        var wrapped = line.Wrapped;
-        var font = Math.Max(1, LivePreviewLayout.FontPx(style, width, current) * wrapped.Scale);
-        var text = new OutlinedText
-        {
-            Text = wrapped.Text,
-            FontSize = font,
-            FontWeight = style.Bold ? FontWeights.Bold : FontWeights.SemiBold,
-            Fill = new SolidColorBrush(SpeakerText.Rgb(style.TextRgb)),
-            Stroke = Brushes.Black,
-            StrokeThickness = LivePreviewLayout.OutlinePx(style, width, current),
-        };
-        text.SetResourceReference(OutlinedText.FontFamilyProperty, "TextFont");
-        var alpha = LivePreviewLayout.BackgroundAlpha(style) * (current ? 1 : 0.83);
-        var band = style.BackgroundShape == SubtitleBackgroundShape.Band;
-        return new Border
-        {
-            Background = alpha <= 0 ? Brushes.Transparent : new SolidColorBrush(SpeakerText.Rgb(style.BackgroundRgb, (byte)Math.Round(alpha * 255))),
-            CornerRadius = new CornerRadius(band ? 0 : 10 * scale),
-            // Zeminsiz görünümde kutu payı yok (satırlar taslaktaki gibi sıkı durur).
-            Padding = alpha <= 0 ? new Thickness(0) : current ? new Thickness(26 * scale, 10 * scale, 26 * scale, 10 * scale) : new Thickness(20 * scale, 6 * scale, 20 * scale, 6 * scale),
-            Margin = new Thickness(0, line == shown[0] ? 0 : 4 * scale, 0, 0),
-            HorizontalAlignment = band ? HorizontalAlignment.Stretch : HorizontalAlignment.Center,
-            Opacity = line.Role switch { SubtitleStack.Role.Current => 1, SubtitleStack.Role.Previous => 0.78, _ => 0.6 } * (line.Fading ? 0.5 : 1),
-            Child = text,
-        };
     }
 
     /// <summary>Kare yokken düz sahne (taslaktaki gökyüzü, ufuk ve iki gölge; degrade yok).</summary>

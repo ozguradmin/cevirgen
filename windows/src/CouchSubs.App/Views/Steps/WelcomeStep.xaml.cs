@@ -50,8 +50,10 @@ public partial class WelcomeStep : UserControl
             var rule = new Border { Height = 1, Margin = Sp.T("0", "0", "0", "m") };
             rule.SetResourceReference(Border.BackgroundProperty, "borderBrush");
             foot.Children.Add(rule);
-            foot.Children.Add(Label("GEREKENLER", "mutedBrush"));
-            var needs = new TextBlock { Text = option.Needs, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = Sp.T("0", "xxs", "0", "0") };
+            // Seçilemeyen seçenek (yalnız gerçek bir neden varsa: bu derlemede Xbox bağlantısı yok) nedenini söyler.
+            var unavailable = Unavailable(option.Id);
+            foot.Children.Add(Label(unavailable is null ? "GEREKENLER" : "BU BİLGİSAYARDA YOK", unavailable is null ? "mutedBrush" : "warnBrush"));
+            var needs = new TextBlock { Text = unavailable ?? option.Needs, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = Sp.T("0", "xxs", "0", "0") };
             needs.SetResourceReference(TextBlock.ForegroundProperty, "mutedBrush");
             foot.Children.Add(needs);
             var steps = Label(option.StepsText.ToUpper(new System.Globalization.CultureInfo("tr-TR")), "amberTextBrush");
@@ -72,8 +74,13 @@ public partial class WelcomeStep : UserControl
             var button = new RadioButton { Content = body, Tag = option.Id, VerticalContentAlignment = VerticalAlignment.Stretch, BorderThickness = new Thickness(index == 0 ? 0 : 1, 0, 0, 0) };
             button.SetResourceReference(StyleProperty, "PlatformOption");
             System.Windows.Automation.AutomationProperties.SetName(button, $"{option.Name}. {option.How} Gerekenler: {option.Needs}. {option.StepsText}");
-            // Xbox yardımcısı bu derlemede yoksa Xbox seçilemez.
-            button.IsEnabled = option.Id != SetupPlatform.Xbox || Controller.XboxAvailable;
+            // İlk açılışta dört seçenek de seçilebilir görünür; yalnız Xbox bağlantısı bu derlemede yoksa Xbox soluk ve nedeni yazılı.
+            button.IsEnabled = unavailable is null;
+            if (unavailable is not null)
+            {
+                button.ToolTip = unavailable;
+                ToolTipService.SetShowOnDisabled(button, true);
+            }
             button.IsChecked = option.Id == Controller.PendingPlatform;
             button.Checked += (_, _) => Controller.ChoosePlatform(option.Id);
             options[option.Id] = button;
@@ -81,6 +88,12 @@ public partial class WelcomeStep : UserControl
             index++;
         }
     }
+
+    /// <summary>Seçeneğin bu bilgisayarda seçilememe nedeni; seçilebiliyorsa null.</summary>
+    private string? Unavailable(SetupPlatform platform) =>
+        platform == SetupPlatform.Xbox && !Controller.XboxAvailable
+            ? "Bu sürümde Xbox bağlantısı yok. Xbox uygulamasında ya da yakalama kartıyla oynuyorsan Diğer'i seç."
+            : null;
 
     private static TextBlock Label(string text, string brush)
     {

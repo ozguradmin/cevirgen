@@ -58,9 +58,11 @@ internal static class DemoFrameRenderer
         using (var context = visual.RenderOpen())
         {
             DrawScene(context, scene);
-            DrawText(context, DemoScript.Objective.English, size: 24, x: 48, top: 0.08);
+            // Ölçüler 1080p oyundaki gibi (karede 720p): GTA tarzı altyazı 1080p'de ~33 px (burada 22), görev yazısı ~28 px
+            // (burada 19). Canlı ekrandaki önizleme Türkçeyi aynı oranla çizdiği için İngilizce ile Türkçe TV'deki gibi görünür.
+            DrawText(context, DemoScript.Objective.English, size: 19, x: 48, top: 0.08);
             for (var i = 0; i < english.Count; i++)
-                DrawText(context, english[i], size: 36, x: null, top: DemoFrames.SubtitleBaseline - (english.Count - 1 - i) * 54.0 / H);
+                DrawText(context, english[i], size: 22, x: null, top: DemoFrames.SubtitleBaseline - (english.Count - 1 - i) * 36.0 / H);
         }
         var bitmap = new RenderTargetBitmap(DemoFrames.Width, DemoFrames.Height, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
