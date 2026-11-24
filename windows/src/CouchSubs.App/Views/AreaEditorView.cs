@@ -136,7 +136,7 @@ public sealed class AreaEditorView : UserControl
     private FrameworkElement BuildStage()
     {
         var stack = new DockPanel { Margin = Sp.T("edge", "l", "edge", "l"), LastChildFill = true };
-        var hint = ScreenKit.Muted(controller.LastFrame is null
+        var hint = ScreenKit.Muted(controller.LastFrame is null && Services.LastFrameStore.Load() is null
             ? "Kutuyu tutup taşı, köşesinden çekip büyüt. Çevirgen yalnız kutuların içini okur. Henüz oyun karesi yok; çeviri başlayınca son kare burada görünür."
             : "Kutuyu tutup taşı, köşesinden çekip büyüt. Çevirgen yalnız kutuların içini okur. Seçili kutu ok tuşlarıyla kayar (Shift: büyük adım, Ctrl: boyut).", 14);
         hint.Margin = Sp.T("0", "0", "0", "s");
@@ -366,6 +366,8 @@ internal sealed class AreaSurface : FrameworkElement
             bitmap.Freeze();
             image = bitmap;
         }
+        // Çeviri kapalıyken önceki oturumun son gerçek karesi (Services/LastFrameStore); o da yoksa düz yüzey.
+        else image = Services.LastFrameStore.Load();
         AutomationProperties.SetName(this, "Oyun karesi ve okuma alanları. Ok tuşları seçili kutuyu kaydırır.");
     }
 
@@ -386,13 +388,20 @@ internal sealed class AreaSurface : FrameworkElement
             DrawBox(dc, box, size, box.Id == model.Selected);
     }
 
-    /// <summary>Kare yokken düz sahne (taslaktaki gökyüzü, ufuk ve bir gölge; degrade yok).</summary>
-    private static void DrawPlaceholder(DrawingContext dc, Size size)
+    /// <summary>
+    /// Kare yokken düz koyu TV yüzeyi, %90 güvenli alan çizgisi ve ortada kısa bir cümle (sahte sahne çizilmez).
+    /// </summary>
+    private void DrawPlaceholder(DrawingContext dc, Size size)
     {
-        dc.DrawRectangle(Fill(Color.FromRgb(0x3C, 0x42, 0x4C)), null, new Rect(size));
-        dc.DrawRectangle(Fill(Color.FromRgb(0x75, 0x87, 0x9A)), null, new Rect(0, 0, size.Width, size.Height * 0.48));
-        dc.DrawRectangle(Fill(Color.FromRgb(0x55, 0x60, 0x6E)), null, new Rect(0, size.Height * 0.48, size.Width, size.Height * 0.07));
-        dc.DrawRectangle(Fill(Color.FromRgb(0x2E, 0x33, 0x3B)), null, new Rect(size.Width * 0.14, size.Height * 0.28, size.Width * 0.18, size.Height * 0.44));
+        dc.DrawRectangle(Fill(Color.FromRgb(0x16, 0x18, 0x1D)), null, new Rect(size));
+        var guide = new Pen(Fill(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF)), 1) { DashStyle = new DashStyle([4, 4], 0) };
+        guide.Freeze();
+        dc.DrawRectangle(null, guide, new Rect(size.Width * 0.05, size.Height * 0.05, size.Width * 0.9, size.Height * 0.9));
+        var font = TryFindResource("TextFont") as FontFamily ?? new FontFamily("Segoe UI");
+        var text = new FormattedText("Çeviri başlayınca TV görüntüsü burada görünür", CultureInfo.GetCultureInfo("tr-TR"), FlowDirection.LeftToRight,
+            new Typeface(font, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 15, Fill(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF)),
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        dc.DrawText(text, new Point((size.Width - text.Width) / 2, size.Height * 0.42 - text.Height / 2));
     }
 
     private void DrawBox(DrawingContext dc, AreaBox box, Size size, bool selected)
@@ -407,9 +416,9 @@ internal sealed class AreaSurface : FrameworkElement
         var text = new FormattedText($"{model.Number(box)} · {model.DisplayName(box)}", CultureInfo.GetCultureInfo("tr-TR"), FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 12, Fill(Ink),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        if (TryFindResource("MonoFont") is FontFamily mono)
+        if (TryFindResource("TextFont") is FontFamily sans)
             text = new FormattedText(text.Text, CultureInfo.GetCultureInfo("tr-TR"), FlowDirection.LeftToRight,
-                new Typeface(mono, FontStyles.Normal, FontWeights.Medium, FontStretches.Normal), 12, Fill(Ink), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                new Typeface(sans, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 12, Fill(Ink), VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var tagHeight = text.Height + 4;
         var tagTop = r.Top - tagHeight - 1 >= 0 ? r.Top - tagHeight - 1 : r.Bottom + 1;
         var tag = new Rect(Math.Min(r.Left - 1, size.Width - text.Width - 16), tagTop, text.Width + 16, tagHeight);

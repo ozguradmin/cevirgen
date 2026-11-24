@@ -200,8 +200,16 @@ public partial class SettingsView : UserControl
         {
             ConsolePs5Row.Title = string.IsNullOrEmpty(ps5.Name) ? "PS5" : ps5.Name;
             ConsolePs5Row.Text = ps5.Host;
-            ConsolePs5Badge.Text = text["Connected"];
-            ConsolePs5Badge.Tone = Controls.ChipTone.Ok;
+            // Eşleşmiş PS5 yalnız görüntü gelirken "Bağlı"dır; çeviri durmuşken "Eşleşti" (tek renk modeli).
+            var state = controller.IsXbox ? DeviceState.Ready : controller.SourceState;
+            ConsolePs5Badge.Text = controller.IsRunning && state == DeviceState.Ready ? text["Connected"]
+                : state == DeviceState.Waiting ? "Bağlanıyor" : state == DeviceState.Error ? "Bağlanamadı" : "Eşleşti";
+            ConsolePs5Badge.Tone = state switch
+            {
+                DeviceState.Waiting => Controls.ChipTone.Amber,
+                DeviceState.Error => Controls.ChipTone.Live,
+                _ => Controls.ChipTone.Ok,
+            };
         }
         else
         {
@@ -268,7 +276,7 @@ public partial class SettingsView : UserControl
 
     /// <summary>"Başka PS5 ekle" / "PS5 eşle": PS5 eşleştirme adımı (hesap duruyorsa yalnız o).</summary>
     private void OnAddPs5(object sender, RoutedEventArgs e) =>
-        controller.RunSetupStep(controller.HasAccount ? OnboardingStep.Console : OnboardingStep.SecondAccount);
+        controller.RunSetupStep(controller.HasAccount ? OnboardingStep.Console : OnboardingStep.PsnLogin);
 
     /// <summary>"Eşleşmeyi kaldır": onaydan sonra PS5 eşleşmesi silinir (PSN hesabı kalır).</summary>
     private void OnForgetPs5(object sender, RoutedEventArgs e)
@@ -1110,11 +1118,10 @@ public partial class SettingsView : UserControl
         AutoReadGamePhone.IsChecked = false;
     }
 
-    /// <summary>TV durumu noktası: bağlı yeşil, yeniden bağlanıyor amber, bekliyor gri.</summary>
+    /// <summary>TV durumu noktası (tek renk modeli): bağlı ya da hazır yeşil, bekleniyor sarı-turuncu, kurulmamış gri.</summary>
     private void ShowTvStatus()
     {
-        TvStatusDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty,
-            controller.TvClients > 0 ? "successBrush" : controller.TvReconnecting ? "accentBrush" : "textTertiaryBrush");
+        TvStatusDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, DeviceStatus.Brush(controller.TvState));
         TvCardHost.Content = TvCard(controller.Tv, controller.HasTv, controller.TvClients > 0);
     }
 

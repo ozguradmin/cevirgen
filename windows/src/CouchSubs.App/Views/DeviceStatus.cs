@@ -1,32 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Shapes;
+using CouchSubs.App.Theme;
 using CouchSubs.Core;
 using CouchSubs.Shell;
 
 namespace CouchSubs.App.Views;
 
-/// <summary>Durum satırındaki bir öğenin rengi: yeşil bağlı/hazır, turuncu sorun, gri kurulmamış ya da bekliyor.</summary>
-public enum DeviceTone { Ok, Warn, Idle }
-
-/// <summary>Durum satırının bir öğesi ("● PS5-010").</summary>
-public sealed record DeviceItem(string Text, DeviceTone Tone, string Hint);
+/// <summary>Durum satırının bir öğesi ("● PS5-010"): ad, durum (renk) ve açıklama.</summary>
+public sealed record DeviceItem(string Text, DeviceState State, string Hint);
 
 /// <summary>
-/// Çevirgen üst çubuğundaki kısa cihaz durumu (taslak: Main.dc.html › üst çubuk) ve Canlı ekranın boş hâlindeki "bağlı
-/// olanlar" listesi: kaynak (PS5 adı / Xbox / pencere / deneme), çıkış (TV adı / bu bilgisayar) ve çeviri motoru.
+/// Çevirgen üst çubuğundaki kısa cihaz durumu ve Canlı ekranın boş hâlindeki liste: kaynak (PS5 adı / Xbox / pencere /
+/// deneme), çıkış (TV adı / bu bilgisayar) ve çeviri motoru. Renkler tek modelden (<see cref="DeviceStates"/>): yeşil hazır,
+/// sarı-turuncu bekleniyor, kırmızı hata, gri kapalı.
 /// </summary>
 public static class DeviceStatus
 {
     public static IReadOnlyList<DeviceItem> Items(AppController controller)
     {
         var text = Localizer.Current;
-        var running = controller.IsRunning;
         var items = new List<DeviceItem>();
 
         // Kaynak
-        var sourceTone = controller.DemoMode ? DeviceTone.Ok
-            : running ? controller.Ps5Tone switch { StatusTone.Good => DeviceTone.Ok, StatusTone.Warning => DeviceTone.Warn, _ => DeviceTone.Idle }
-            : controller.CanStart ? DeviceTone.Ok : DeviceTone.Idle;
         string source;
         if (controller.DemoMode) source = text["Demo Mode"];
         else if (controller.IsXbox ? controller.XboxReadsWindow : controller.Settings.FrameSource is FrameSource.CaptureWindow or FrameSource.RemotePlayWindow)
@@ -34,21 +32,25 @@ public static class DeviceStatus
                 ? Shorten(title) : controller.Settings.FrameSource == FrameSource.RemotePlayWindow && !controller.IsXbox ? "Remote Play" : "Pencere seçilmedi";
         else if (controller.IsXbox) source = controller.SelectedXboxConsole?.Name is { Length: > 0 } xbox ? xbox : "Xbox";
         else source = controller.Console?.Name is { Length: > 0 } name ? name : "PS5 kurulmadı";
-        items.Add(new DeviceItem(source, sourceTone, controller.Ps5StatusText));
+        items.Add(new DeviceItem(source, controller.SourceState, controller.Ps5StatusText));
 
         // Çıkış
-        if (!controller.ShowsOnTv) items.Add(new DeviceItem("Bu bilgisayar", DeviceTone.Ok, text["Computer Screen"]));
-        else if (!controller.HasTv) items.Add(new DeviceItem("TV kurulmadı", DeviceTone.Idle, controller.TvStatusText));
-        else
-        {
-            var tone = controller.TvTone == StatusTone.Warning ? DeviceTone.Warn : controller.TvClients > 0 || !running ? DeviceTone.Ok : DeviceTone.Idle;
-            items.Add(new DeviceItem(controller.Tv?.Name is { Length: > 0 } tv ? Shorten(tv) : "TV", tone, controller.TvStatusText));
-        }
+        if (!controller.ShowsOnTv) items.Add(new DeviceItem("Bu bilgisayar", controller.TvState, "Altyazı bu bilgisayarın ekranında"));
+        else if (!controller.HasTv) items.Add(new DeviceItem("TV kurulmadı", controller.TvState, "TV eşleşmedi: Ayarlar › Cihazlar › TV"));
+        else items.Add(new DeviceItem(controller.Tv?.Name is { Length: > 0 } tv ? Shorten(tv) : "TV", controller.TvState, controller.TvStatusText));
 
         // Çeviri motoru
-        var failing = controller.TranslatorStatus == TranslatorStatus.EngineFailed || (running && controller.OnlineIssue is not null);
-        items.Add(new DeviceItem(EngineName(controller.Settings), failing ? DeviceTone.Warn : DeviceTone.Ok,
-            $"{controller.Settings.SourceLanguage.ToUpperInvariant()} → {controller.Settings.TargetLanguage.ToUpperInvariant()}"));
+        var engine = controller.EngineState;
+        var hint = engine switch
+        {
+            DeviceState.Error => controller.OnlineIssue is { } issue
+                ? issue.Describe(controller.Settings.OnlineEngine, text, controller.Settings.LocalAiServer)
+                : "Ücretsiz çeviri bu bilgisayarda açılamadı. Çeviri sekmesinden başka bir motor seç.",
+            DeviceState.Waiting when controller.Settings.Engine == TranslationEngine.Free => "Ücretsiz çeviri modeli henüz inmedi.",
+            DeviceState.Waiting => "Bu motorun anahtarı eksik: Çeviri sekmesi.",
+            _ => $"{controller.Settings.SourceLanguage.ToUpperInvariant()} → {controller.Settings.TargetLanguage.ToUpperInvariant()}",
+        };
+        items.Add(new DeviceItem(EngineName(controller.Settings), engine, hint));
         return items;
     }
 
@@ -57,9 +59,40 @@ public static class DeviceStatus
     {
         var engine = settings.Engine;
         if (engine == TranslationEngine.Free) return "Ücretsiz çeviri";
+        if (engine == TranslationEngine.Custom) return settings.CustomAiModel is { Length: > 0 } model ? Shorten(model) : BlindTest.EngineName(engine);
         if (engine.Provider() is { } provider && !provider.IsLocal())
             return Localizer.Current[provider.Model(settings.ModelFor(provider)).Label];
         return engine.DisplayName();
+    }
+
+    /// <summary>Durumun tema rengi (nokta): yeşil hazır, sarı-turuncu bekleniyor, kırmızı hata, gri kapalı.</summary>
+    public static string Brush(DeviceState state) => state switch
+    {
+        DeviceState.Ready => "successBrush",
+        DeviceState.Waiting => "warnBrush",
+        DeviceState.Error => "liveBrush",
+        _ => "faintBrush",
+    };
+
+    /// <summary>Durum noktası (7 px).</summary>
+    public static Ellipse Dot(DeviceState state, double size = 7)
+    {
+        var dot = new Ellipse { Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center, Margin = Sp.T("0", "0", "xs", "0") };
+        dot.SetResourceReference(Shape.FillProperty, Brush(state));
+        System.Windows.Automation.AutomationProperties.SetName(dot, state.Name());
+        return dot;
+    }
+
+    /// <summary>Nokta + yazı (tek satır).</summary>
+    public static StackPanel Line(DeviceState state, string text, string brush = "mutedBrush", double size = 13)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(Dot(state));
+        var label = new TextBlock { Text = text, FontSize = size, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap,
+            TextTrimming = TextTrimming.CharacterEllipsis };
+        label.SetResourceReference(TextBlock.ForegroundProperty, brush);
+        row.Children.Add(label);
+        return row;
     }
 
     private static string Shorten(string value) => value.Length <= 28 ? value : value[..27] + "…";

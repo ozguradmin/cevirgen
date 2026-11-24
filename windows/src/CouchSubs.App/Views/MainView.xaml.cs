@@ -30,8 +30,13 @@ public partial class MainView : UserControl
     /// <summary>Sessizlik nedeni ve sayılar saniyede bir yenilenir.</summary>
     private readonly DispatcherTimer tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Border emptyState;
-    private readonly StackPanel emptyDevices = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "m", "0", "0") };
-    private readonly Button startButton = new() { Content = "Çeviriyi başlat", MinHeight = 56, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly StackPanel emptyDevices = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "l", "0", "0") };
+    private readonly TextBlock emptyMessage = new()
+    {
+        Text = "Çeviri başlayınca TV görüntüsü burada görünür", FontSize = 15, HorizontalAlignment = HorizontalAlignment.Center,
+        TextAlignment = TextAlignment.Center, Margin = Sp.T("0", "0", "0", "m"), Foreground = PerdeColors.Frozen(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF)),
+    };
+    private readonly Button startButton = new() { Content = "Çeviriyi başlat", HorizontalAlignment = HorizontalAlignment.Center };
 
     public MainView(AppController controller)
     {
@@ -51,6 +56,9 @@ public partial class MainView : UserControl
             connectionWatch.Start();
             tick.Start();
             Preview.SetFrame(controller.LastFrame);
+            // Çeviri kapalıyken önceki oturumun son gerçek karesi (yoksa düz yüzey).
+            if (!controller.IsRunning) Preview.SetStill(Services.LastFrameStore.Load());
+            ShowEmptyState();
             ShowStage();
         };
         Services.CrashWatch.Changed += OnCrashChanged;
@@ -152,17 +160,22 @@ public partial class MainView : UserControl
         ShowFeed();
     }
 
-    /// <summary>Çeviri kapalıyken önizlemenin üstünde: büyük sarı "Çeviriyi başlat" ve bağlı olanlar (taslak: boş hâl).</summary>
+    /// <summary>
+    /// Çeviri kapalıyken önizlemenin üstünde (taslak: boş hâl): kare yoksa kısa bir cümle, tek sarı "Çeviriyi başlat" ve
+    /// cihazların durumu (yeşil hazır, sarı-turuncu bekleniyor, kırmızı hata, gri kapalı). Başlatılamıyorsa ne eksik olduğu
+    /// ve oraya giden düğme (çıkmaz yok).
+    /// </summary>
     private Border BuildEmptyState()
     {
         startButton.SetResourceReference(StyleProperty, "PrimaryButton");
         startButton.Padding = Sp.T("xl", "0", "xl", "0");
         startButton.Click += async (_, _) => await ShellWindow.ToggleTranslationAsync(controller);
-        var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        emptyMessage.SetResourceReference(TextBlock.FontFamilyProperty, "TextFont");
+        var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 560 };
+        stack.Children.Add(emptyMessage);
         stack.Children.Add(startButton);
         stack.Children.Add(emptyDevices);
-        var shade = new Border { Background = new SolidColorBrush(Color.FromArgb(0x99, 0x0F, 0x10, 0x14)), Child = stack };
-        return shade;
+        return new Border { Child = stack };
     }
 
     private void ShowEmptyState()
@@ -170,28 +183,31 @@ public partial class MainView : UserControl
         var idle = !controller.IsRunning && !controller.DemoMode;
         emptyState.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
         if (!idle) return;
+        // Gerçek kare varken yazılar okunsun diye kare hafifçe karartılır; kare yoksa düz yüzey yeter.
+        emptyState.Background = Preview.HasFrame ? new SolidColorBrush(Color.FromArgb(0xA6, 0x0B, 0x0C, 0x10)) : Brushes.Transparent;
+        emptyMessage.Visibility = Preview.HasFrame ? Visibility.Collapsed : Visibility.Visible;
         startButton.Content = controller.IsStarting ? Localizer.Current["Starting…"] : "Çeviriyi başlat";
         startButton.IsEnabled = !controller.IsStarting && controller.CanStart;
         emptyDevices.Children.Clear();
+        var white = PerdeColors.Frozen(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
         foreach (var item in DeviceStatus.Items(controller))
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "xxs", "0", "0") };
-            var dot = new Ellipse { Width = 7, Height = 7, VerticalAlignment = VerticalAlignment.Center, Margin = Sp.T("0", "0", "xs", "0") };
-            dot.SetResourceReference(Shape.FillProperty, ShellWindow.ToneBrush(item.Tone));
-            row.Children.Add(dot);
             var line = item.Hint.Contains(item.Text, StringComparison.OrdinalIgnoreCase) ? item.Hint : $"{item.Text} · {item.Hint}";
-            row.Children.Add(new TextBlock { Text = line, FontSize = 13, Foreground = Brushes.White, TextWrapping = TextWrapping.NoWrap,
-                MaxWidth = 520, TextTrimming = TextTrimming.CharacterEllipsis });
+            var row = DeviceStatus.Line(item.State, line, size: 13);
+            row.HorizontalAlignment = HorizontalAlignment.Center;
+            row.Margin = Sp.T("0", "xxs", "0", "0");
+            row.ToolTip = item.State.Name();
+            ((TextBlock)row.Children[1]).Foreground = white;
+            ((TextBlock)row.Children[1]).MaxWidth = 520;
             emptyDevices.Children.Add(row);
         }
         if (!controller.CanStart)
         {
-            var why = new TextBlock
-            {
-                Text = "Başlamak için eksik olanı tamamla: Ayarlar › Cihazlar.", FontSize = 13, Foreground = Brushes.White,
-                HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "s", "0", "0"),
-            };
-            emptyDevices.Children.Add(why);
+            var fix = new Button { Content = "Eksik olanı tamamla: Ayarlar › Cihazlar", HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "m", "0", "0") };
+            fix.SetResourceReference(StyleProperty, "TextLink");
+            fix.Foreground = white;
+            fix.Click += (_, _) => ShellWindow.Navigate(SettingsGroup.Devices);
+            emptyDevices.Children.Add(fix);
         }
     }
 

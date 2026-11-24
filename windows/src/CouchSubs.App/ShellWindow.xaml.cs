@@ -55,6 +55,7 @@ public partial class ShellWindow : Window
         this.controller = controller;
         current = this;
         InitializeComponent();
+        FocusCue.Apply(this);
         ApplyMinimumSize();
         SourceInitialized += (_, _) => PaintCaption();
         // Hareket kapısı: pencere önde değilken (arka planda, simge durumunda) ve çeviri sürerken sürekli animasyonlar durur.
@@ -155,6 +156,8 @@ public partial class ShellWindow : Window
             ShowStatus();
         if (e.PropertyName is nameof(AppController.Settings)) Motion.AnimationsEnabled = controller.Settings.TransitionAnimations;
         if (e.PropertyName is nameof(AppController.IsRunning)) MotionGate.Translating = controller.IsRunning;
+        // Çeviri durunca son gerçek kare saklanır: Canlı ekran ve Alanları düzenle sonraki açılışta sahte sahne yerine onu gösterir.
+        if (e.PropertyName is nameof(AppController.IsRunning) && !controller.IsRunning && !controller.DemoMode) LastFrameStore.Save(controller.LastFrame);
         if (e.PropertyName is nameof(AppController.IsRunning) && !controller.IsRunning && showingMain)
             PopupAdWindow.Offer(this, controller, PopupAdMoment.TranslationStopped);
         // Açılır reklam açılıştan sonra sunucudan geldiyse (ilk açılış, önbellek yok) açılış anı sayılır; kurallar aynı.
@@ -357,33 +360,22 @@ public partial class ShellWindow : Window
     // ───── Cihaz durumu ve başlat/durdur ─────
 
     /// <summary>
-    /// Üst çubuğun sağı: "● PS5-010  ● Oturma Odası TV'si  ● Gemini 2.5 Flash" (yeşil bağlı/hazır, turuncu sorun, gri
-    /// kurulmamış) ve çeviriyi başlat/durdur düğmesi.
+    /// Üst çubuğun sağı: "● PS5-010  ● Oturma Odası TV'si  ● Gemini 2.5 Flash" (yeşil hazır, sarı-turuncu bekleniyor,
+    /// kırmızı hata, gri kapalı; <see cref="DeviceStates"/>) ve çeviriyi başlat/durdur düğmesi.
     /// </summary>
     private void ShowStatus()
     {
         StatusLine.Children.Clear();
         foreach (var item in DeviceStatus.Items(controller))
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("0", "0", "m", "0"), VerticalAlignment = VerticalAlignment.Center, ToolTip = item.Hint };
-            var dot = new Ellipse { Width = 7, Height = 7, VerticalAlignment = VerticalAlignment.Center, Margin = Sp.T("0", "0", "xs", "0") };
-            dot.SetResourceReference(Shape.FillProperty, ToneBrush(item.Tone));
-            row.Children.Add(dot);
-            var label = new TextBlock { Text = item.Text, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
-            label.SetResourceReference(TextBlock.ForegroundProperty, "mutedBrush");
-            row.Children.Add(label);
-            System.Windows.Automation.AutomationProperties.SetName(row, $"{item.Text}: {item.Hint}");
+            var row = DeviceStatus.Line(item.State, item.Text);
+            row.Margin = Sp.T("0", "0", "m", "0");
+            row.ToolTip = item.Hint;
+            System.Windows.Automation.AutomationProperties.SetName(row, $"{item.Text}: {item.State.Name()}. {item.Hint}");
             StatusLine.Children.Add(row);
         }
         ShowToggle();
     }
-
-    internal static string ToneBrush(DeviceTone tone) => tone switch
-    {
-        DeviceTone.Ok => "successBrush",
-        DeviceTone.Warn => "warnBrush",
-        _ => "faintBrush",
-    };
 
     /// <summary>Başlat/durdur: çeviri sürerken kareli "Çeviriyi durdur", durmuşken "Çeviriyi başlat"; deneme modunda çıkış.</summary>
     private void ShowToggle()

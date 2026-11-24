@@ -52,10 +52,10 @@
                     </Button>
                 </StackPanel>
                 <WrapPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="GameTitle" Style="{StaticResource ScreenTitle}" FontSize="26" Margin="{t:Sp '0,0,m,0'}" VerticalAlignment="Bottom"
+                    <TextBlock x:Name="GameTitle" Style="{StaticResource ScreenTitle}" FontSize="22" Margin="{t:Sp '0,0,m,0'}" VerticalAlignment="Bottom"
                                AutomationProperties.HeadingLevel="Level1" />
                     <Button x:Name="GameChangeButton" Style="{StaticResource TextLink}" Click="OnChangeGame" Margin="{t:Sp '0,0,m,0'}" VerticalAlignment="Bottom" />
-                    <TextBlock x:Name="TvMeta" Style="{StaticResource Timecode}" FontSize="13" VerticalAlignment="Bottom" Margin="{t:Sp '0,0,0,xxs'}" />
+                    <TextBlock x:Name="TvMeta" FontSize="13" Foreground="{DynamicResource mutedBrush}" TextWrapping="NoWrap" VerticalAlignment="Bottom" Margin="{t:Sp '0,0,0,xxs'}" />
                 </WrapPanel>
             </DockPanel>
 
@@ -254,8 +254,8 @@
         <Border Grid.Column="1" BorderBrush="{DynamicResource borderBrush}" BorderThickness="1,0,0,0">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="{t:Sp 'cue,m,cue,s'}">
-                    <TextBlock x:Name="FeedCount" DockPanel.Dock="Right" Style="{StaticResource Timecode}" VerticalAlignment="Bottom" />
-                    <TextBlock Text="DÖKÜM" Style="{StaticResource MonoLabel}" VerticalAlignment="Bottom" AutomationProperties.HeadingLevel="Level2" />
+                    <TextBlock x:Name="FeedCount" DockPanel.Dock="Right" FontSize="12" Foreground="{DynamicResource mutedBrush}" TextWrapping="NoWrap" VerticalAlignment="Bottom" />
+                    <TextBlock Text="Döküm" Style="{StaticResource MonoLabel}" VerticalAlignment="Bottom" AutomationProperties.HeadingLevel="Level2" />
                 </DockPanel>
                 <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource borderBrush}" BorderThickness="0,1,0,0">
                     <Button Style="{StaticResource LinkButton}" Click="OnHistory" Margin="{t:Sp 'cue,item'}" HorizontalAlignment="Left"
@@ -271,7 +271,7 @@
                                     <Border x:Name="Cue" BorderBrush="{DynamicResource borderBrush}" BorderThickness="0,1,0,0" Padding="{t:Sp 'cue,s'}">
                                         <StackPanel>
                                             <DockPanel>
-                                                <TextBlock x:Name="Label" DockPanel.Dock="Right" Text="{Binding Label}" Style="{StaticResource Timecode}" />
+                                                <TextBlock x:Name="Label" DockPanel.Dock="Right" Text="{Binding Label}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource mutedBrush}" TextWrapping="NoWrap" />
                                                 <TextBlock x:Name="Time" Text="{Binding Timecode}" Style="{StaticResource Timecode}" />
                                             </DockPanel>
                                             <TextBlock Text="{Binding English}" FontSize="13" Foreground="{DynamicResource mutedBrush}" TextWrapping="Wrap" Margin="{t:Sp '0,xxs,0,0'}" />

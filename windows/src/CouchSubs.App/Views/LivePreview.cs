@@ -18,7 +18,7 @@ namespace CouchSubs.App.Views;
 
 /// <summary>
 /// Canlı ekranın TV önizlemesi (taslak: Main.dc.html › "TV görüntüsü"): 1920 × 1080'in gerçek oranında son oyun karesi
-/// (yoksa düz sahne), %90 güvenli alan çizgisi ve üstünde TV'de şu an görünen Türkçe satırlar. Kare oranı korunarak sığdırılır;
+/// (çeviri kapalıyken önceki oturumun son gerçek karesi; o da yoksa düz koyu yüzey; sahte sahne çizilmez), %90 güvenli alan çizgisi ve üstünde TV'de şu an görünen Türkçe satırlar. Kare oranı korunarak sığdırılır;
 /// satırlar kullanıcının gerçek altyazı görünümüyle çizilir ve karenin genişliğine ölçeklenir (<see cref="LivePreviewLayout"/>;
 /// yazı boyu 1920 genişlikli TV'nin pikseli): yazı boyu, kalınlık, kenarlık, zemin ve yerleşim (üstünde / örtsün / sabit);
 /// üstteki eski satırlar (above) küçük ve soluk. "güvenli alan" ve "ALTYAZI GİZLİ" etiketleri güvenli alanın dışındaki
@@ -31,9 +31,8 @@ public sealed class LivePreview : ContentControl
     private readonly StackPanel lines = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Rectangle safeArea = new() { StrokeThickness = 1, StrokeDashArray = [4, 4], IsHitTestVisible = false };
     private readonly TextBlock safeLabel = new() { Text = "güvenli alan %90", IsHitTestVisible = false };
-    private readonly TextBlock hiddenTag = new() { Text = "ALTYAZI GİZLİ", Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+    private readonly TextBlock hiddenTag = new() { Text = "Altyazı gizli", Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly Grid overlay = new();
-    private readonly SampleScene scene = new();
     private WriteableBitmap? bitmap;
     private long lastDraw;
     private IReadOnlyList<SubtitleStack.Line> shown = [];
@@ -43,17 +42,18 @@ public sealed class LivePreview : ContentControl
     public LivePreview()
     {
         Focusable = false;
-        stage.Background = PerdeColors.Frozen(PerdeColors.Rgb(0x3C, 0x42, 0x4C));
-        stage.Children.Add(scene);
+        // Kare yokken düz, koyu TV yüzeyi (iki temada da: TV ekranı koyudur).
+        stage.Background = PerdeColors.Frozen(PerdeColors.Rgb(0x16, 0x18, 0x1D));
         stage.Children.Add(image);
-        safeArea.Stroke = PerdeColors.Frozen(Color.FromArgb(0x47, 0xFF, 0xFF, 0xFF));
+        safeArea.Stroke = PerdeColors.Frozen(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF));
         stage.Children.Add(safeArea);
-        safeLabel.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
-        safeLabel.Foreground = PerdeColors.Frozen(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF));
+        safeLabel.SetResourceReference(TextBlock.FontFamilyProperty, "TextFont");
+        safeLabel.Foreground = PerdeColors.Frozen(Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF));
         safeLabel.HorizontalAlignment = HorizontalAlignment.Left;
         safeLabel.VerticalAlignment = VerticalAlignment.Top;
         stage.Children.Add(safeLabel);
-        hiddenTag.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
+        hiddenTag.SetResourceReference(TextBlock.FontFamilyProperty, "TextFont");
+        hiddenTag.FontWeight = FontWeights.SemiBold;
         hiddenTag.Foreground = PerdeColors.Frozen(PerdeColors.Rgb(0xFF, 0xD2, 0x3F));
         hiddenTag.HorizontalAlignment = HorizontalAlignment.Right;
         hiddenTag.VerticalAlignment = VerticalAlignment.Top;
@@ -77,8 +77,23 @@ public sealed class LivePreview : ContentControl
         }
     }
 
-    /// <summary>Kare var mı (yoksa düz sahne görünür).</summary>
+    /// <summary>Kare var mı (canlı ya da önceki oturumdan; yoksa düz yüzey görünür).</summary>
     public bool HasFrame => image.Source is not null;
+
+    /// <summary>Canlı kare geldi mi (önceki oturumun karesi sayılmaz).</summary>
+    public bool HasLiveFrame => bitmap is not null && ReferenceEquals(image.Source, bitmap);
+
+    /// <summary>
+    /// Çeviri kapalıyken önceki oturumun son gerçek karesi (<see cref="Services.LastFrameStore"/>); null ise düz yüzey. Canlı
+    /// kare geldiyse ona dokunulmaz.
+    /// </summary>
+    public void SetStill(ImageSource? still)
+    {
+        if (HasLiveFrame) return;
+        image.Source = still;
+        stage.Background = still is null ? PerdeColors.Frozen(PerdeColors.Rgb(0x16, 0x18, 0x1D)) : Brushes.Black;
+        Layout();
+    }
 
     /// <summary>Kareyi çizer (saniyede en çok 4 kez); null ise son kare kalır.</summary>
     public void SetFrame(Frame? frame)
@@ -92,8 +107,7 @@ public sealed class LivePreview : ContentControl
         bitmap.WritePixels(new Int32Rect(0, 0, frame.Width, frame.Height), frame.Pixels, frame.Stride, 0);
         var resized = !ReferenceEquals(image.Source, bitmap);
         image.Source = bitmap;
-        // Kare gelince düz sahne kalkar; 16:9 olmayan karenin yanlarında koyu bant kalır (TV de böyle gösterir).
-        scene.Visibility = Visibility.Collapsed;
+        // 16:9 olmayan karenin yanlarında koyu bant kalır (TV de böyle gösterir).
         stage.Background = Brushes.Black;
         if (resized) Layout();
     }
@@ -157,47 +171,6 @@ public sealed class LivePreview : ContentControl
         top = y + Math.Clamp(top, 0, Math.Max(0, h - blockHeight));
         lines.VerticalAlignment = VerticalAlignment.Top;
         lines.Margin = new Thickness(left, top, right, 0);
-    }
-
-    /// <summary>Kare yokken düz sahne (taslaktaki gökyüzü, ufuk ve iki gölge; degrade yok).</summary>
-    private sealed class SampleScene : Grid
-    {
-        public SampleScene()
-        {
-            IsHitTestVisible = false;
-            RowDefinitions.Add(new RowDefinition { Height = new GridLength(48, GridUnitType.Star) });
-            RowDefinitions.Add(new RowDefinition { Height = new GridLength(7, GridUnitType.Star) });
-            RowDefinitions.Add(new RowDefinition { Height = new GridLength(45, GridUnitType.Star) });
-            Add(new Border { Background = PerdeColors.Frozen(PerdeColors.Rgb(0x75, 0x87, 0x9A)) }, 0);
-            Add(new Border { Background = PerdeColors.Frozen(PerdeColors.Rgb(0x55, 0x60, 0x6E)) }, 1);
-            var shapes = new Grid();
-            shapes.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14, GridUnitType.Star) });
-            shapes.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18, GridUnitType.Star) });
-            shapes.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30, GridUnitType.Star) });
-            shapes.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(9, GridUnitType.Star) });
-            shapes.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(29, GridUnitType.Star) });
-            shapes.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28, GridUnitType.Star) });
-            shapes.RowDefinitions.Add(new RowDefinition { Height = new GridLength(8, GridUnitType.Star) });
-            shapes.RowDefinitions.Add(new RowDefinition { Height = new GridLength(36, GridUnitType.Star) });
-            shapes.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28, GridUnitType.Star) });
-            var tall = new Border { Background = PerdeColors.Frozen(PerdeColors.Rgb(0x2E, 0x33, 0x3B)) };
-            SetColumn(tall, 1);
-            SetRow(tall, 1);
-            SetRowSpan(tall, 2);
-            shapes.Children.Add(tall);
-            var narrow = new Border { Background = PerdeColors.Frozen(PerdeColors.Rgb(0x26, 0x2A, 0x31)) };
-            SetColumn(narrow, 3);
-            SetRow(narrow, 2);
-            shapes.Children.Add(narrow);
-            SetRowSpan(shapes, 3);
-            Children.Add(shapes);
-        }
-
-        private void Add(Border part, int row)
-        {
-            SetRow(part, row);
-            Children.Add(part);
-        }
     }
 }
 
