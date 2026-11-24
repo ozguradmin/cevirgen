@@ -80,14 +80,8 @@ dotnet test windows/CouchSubs.Windows.slnx -c Release --no-build
 
 TV uygulaması `tv-android/` (Android TV) ve `tv-webos/` (TV sayfası), sunucu `server/cevirgen-api/` (Cloudflare Worker) altındadır. Sürüm paketi: `scripts/release-cevirgen.ps1`.
 
-## Lisans ve teşekkür
+## Lisans
 
-Çevirgen, Sinan Yorulmaz'ın **[CouchSubs](https://github.com/yorulmazsinan/couchsubs)** uygulamasının değiştirilmiş bir sürümüdür (v0.1.0-beta.88 üzerine, 23 Kasım 2026'dan itibaren). CouchSubs © 2026 Sinan Yorulmaz. İkisi de [GNU AGPL-3.0](LICENSE) ile lisanslıdır; değişikliklerin tamamı git geçmişinde, özeti [NOTICE](NOTICE) dosyasındadır. Çevirgen, CouchSubs'ın yazarı ya da yayıncısı ile bağlantılı değildir; CouchSubs'ın çeviri paketleri Çevirgen'de yer almaz.
-
-- Uzaktan Oynatma bağlantısı: [chiaki-ng](https://github.com/chiaki-ng/chiaki-ng) (AGPL-3.0)
-- Çeviri modeli: OPUS-MT, Helsinki Üniversitesi (CC BY 4.0)
-- Yazı tanıma: PP-OCR, PaddlePaddle (Apache-2.0)
-- Yazı tipleri: IBM Plex, Archivo (SIL OFL 1.1)
-- Diğer bileşenler: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+[GNU AGPL-3.0](LICENSE). Çevirgen, açık kaynak CouchSubs projesinden türetilmiş ve geliştirilmiştir; telif ve değişiklik bildirimleri [NOTICE](NOTICE), kullanılan bileşenler [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) dosyasındadır.
 
 Çevirgen; Sony Interactive Entertainment, Microsoft ya da herhangi bir oyun yayıncısıyla bağlantılı değildir. "PlayStation" ve "PS5" Sony Interactive Entertainment Inc.'in, "Xbox" Microsoft Corporation'ın ticari markalarıdır. Ekran görüntülerindeki oyun sahnesi Çevirgen'in kendi çizimidir.

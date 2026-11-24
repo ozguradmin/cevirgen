@@ -27,6 +27,6 @@ An anonymous usage count (random ID, version, platform every 5 minutes) and, to 
 
 Support and feedback: **destek@ozgurguler.tech** · Developer: [ozgurguler.tech](https://ozgurguler.tech/professional) · [Report an issue](https://github.com/ozguradmin/cevirgen/issues)
 
-## License and credits
+## License
 
-Çevirgen is a modified version of **[CouchSubs](https://github.com/yorulmazsinan/couchsubs)** by Sinan Yorulmaz (based on v0.1.0-beta.88, modified from 2026-11-23). CouchSubs © 2026 Sinan Yorulmaz. Both are licensed under the [GNU AGPL-3.0](LICENSE); see [NOTICE](NOTICE) for the summary of changes. Çevirgen is not affiliated with CouchSubs, Sony Interactive Entertainment, Microsoft or any game publisher; CouchSubs' translation packs are not part of Çevirgen. Remote Play via [chiaki-ng](https://github.com/chiaki-ng/chiaki-ng) (AGPL-3.0); translation model OPUS-MT (University of Helsinki, CC BY 4.0); fonts IBM Plex and Archivo (SIL OFL 1.1); more in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+[GNU AGPL-3.0](LICENSE). Çevirgen is derived from the open-source CouchSubs project; copyright and modification notices are in [NOTICE](NOTICE), third-party components in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Sony Interactive Entertainment, Microsoft or any game publisher.
