@@ -43,6 +43,9 @@ $packDir = Join-Path $work 'package'
 if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "Geçersiz sürüm: $Version (ör. 1.1.0 ya da 1.2.0-beta.1)" }
 if (-not (Test-Path $Dotnet)) { throw "dotnet bulunamadı: $Dotnet" }
 if (-not (Test-Path (Join-Path $NativeFrom 'couchsubs_native.dll'))) { throw "-NativeFrom klasöründe couchsubs_native.dll yok: $NativeFrom" }
+# Önceki sürümlerin ara klasörleri (her biri ~760 MB; yeniden üretilebilir) silinir, disk dolmasın.
+Get-ChildItem (Split-Path $work) -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne $Version } |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 # dist/releases önceki sürümleri tutar (vpk fark paketlerini onlardan üretir); aynı sürüm ikinci kez paketlenmez.
 if (Test-Path (Join-Path $OutputDir "CevirgenApp-$Version-full.nupkg")) {
     throw "$Version zaten paketlenmiş ($OutputDir). Yeniden paketlemek için o sürümün dosyalarını ve releases.win.json'daki kaydını sil."
