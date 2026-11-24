@@ -1616,4 +1616,23 @@ public partial class RegionWatcherTests
         await watcher.PassAsync(Shade(10), [MenuLabel]);
         Assert.Empty(server.Sent.Where(item => item.Text.Length > 0));
     }
+
+    /// <summary>Çevirgen: etiketin sağındaki parlak tuş simgesi bulunur; Türkçe sağa yaslanır (simgenin üstüne büyümez).</summary>
+    [Theory]
+    [InlineData(true, "right")]
+    [InlineData(false, "left")]
+    public void GlyphSideFindsTheButtonNextToALabel(bool glyphRight, string expected)
+    {
+        const int width = 200, height = 50;
+        var pixels = new byte[width * height * 4];
+        // Etiket 60–120 px arası, 20–30 px yüksekliğinde; simge 10 px ötede, 10×10 beyaz kare.
+        var x0 = glyphRight ? 124 : 46;
+        for (var y = 20; y < 30; y++)
+            for (var x = x0; x < x0 + 10; x++)
+                for (var c = 0; c < 3; c++) pixels[(y * width + x) * 4 + c] = 255;
+        var frame = new Frame(pixels, width, height, width * 4);
+        Assert.Equal(expected, RegionWatcher.GlyphSide(frame, new TextBox(60.0 / width, 20.0 / height, 120.0 / width, 30.0 / height)));
+        Assert.Null(RegionWatcher.GlyphSide(new Frame(new byte[width * height * 4], width, height, width * 4),
+            new TextBox(60.0 / width, 20.0 / height, 120.0 / width, 30.0 / height)));
+    }
 }

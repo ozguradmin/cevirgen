@@ -3545,8 +3545,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                     watcherRequested = phoneArea is not null || autoAreas.Count > 0 || missionArea is not null || noticeAreas.Count > 0;
                     return;
                 }
-                // Çevirgen: kullanıcının alanları da yarım saniyede bir okunur (menü açılınca Türkçesi hemen gelsin, kapanınca gitsin).
-                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server, RegionWatcher.AutoIntervalMs)
+                // Çevirgen: kullanıcının alanları ~0,3 sn'de bir okunur (menü açılınca Türkçesi hemen gelsin, kapanınca gitsin).
+                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server, RegionWatcher.UserIntervalMs)
                 {
                     Log = SubtitleLog.Write, SubtitleEcho = SubtitleEcho,
                     // Çevirgen: ek alanların ve ekran yazısının çevirileri ortak havuza; PS5'in Uzaktan Oynatma bildirimi ipucuna.

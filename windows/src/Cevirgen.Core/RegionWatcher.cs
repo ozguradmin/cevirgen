@@ -65,6 +65,9 @@ public sealed partial class RegionWatcher
     /// <summary>Otomatik bulunmuş alan varken okuma aralığı en çok bu kadardır (yazı belirdikten ~1 sn içinde Türkçesi).</summary>
     public const int AutoIntervalMs = 500;
 
+    /// <summary>Çevirgen: uygulamanın kullandığı okuma aralığı (kullanıcının alanları; altyazı yavaşlarsa Slowdown seyreltir).</summary>
+    public const int UserIntervalMs = 300;
+
     // Okunmuş bir aday aynı görüntüde kalıyorsa ikinci OCR turunu beklemeden gösterilebilir.
     private const int ConfirmationMs = 250;
 
@@ -640,12 +643,19 @@ public sealed partial class RegionWatcher
                     // Çeviri özgün yazının stilinde çizilsin: renkler, kalınlık, dar aile, hiza, büyük harf.
                     var own = lines.Where(line => Inside(line.Box!.Value, group.Box)).ToList();
                     (style, look) = TextStyleSampler.Sample(frame, group.Box, own, string.Join(' ', group.Paragraphs));
+                    // Çevirgen: kullanıcının tuş listesinde zemin sabit koyu plaka (sahneden alınan renk haritada mavi leke
+                    // oluyor, sahne kıpırdadıkça kutu titriyordu); yazının kendi rengi (seçili/soluk) kalır.
+                    if (labelList && style is { } sampled) style = sampled with { Background = LabelPlate };
                 }
                 list.Add(new Block(start, group.Paragraphs.Count, group.Box.PlacedIn(place), group.LineHeight * height, style, look,
                                    phone ? group.Phone : null));
                 start += group.Paragraphs.Count;
             }
             if (styled || labelList) list = AlignByNeighbours(list);
+            // Çevirgen: tuş simgesi etiketin hangi yanındaysa Türkçe öbür yana büyür (simgeyi örtmez).
+            if (labelList && frame is not null)
+                list = [.. list.Select(block => block.Look is { } own && GlyphSide(frame, block.Box) is { } side
+                    ? block with { Look = own with { Align = side } } : block)];
             blocks = list;
             key = TextKey(paragraphs) + "|" + string.Join(',', list.Select(block => block.Count));
         }
@@ -709,6 +719,44 @@ public sealed partial class RegionWatcher
         var rest = Enumerable.Range(0, lines.Count).Where(i => !taken.Contains(i)).Select(i => lines[i]).ToList();
         return [.. cards.SelectMany(card => Cevirgen.Core.MissionCard.Groups(card, lines))
             .Concat(ScreenTranslation.GroupsFromLines(rest, menuRows)).OrderBy(group => group.Box.Top)];
+    }
+
+    /// <summary>Çevirgen: kullanıcının tuş listesindeki etiketlerin zemini (TV'deki altyazı plakasıyla aynı koyu ton).</summary>
+    internal const string LabelPlate = "#141519";
+
+    /// <summary>
+    /// Çevirgen: etiketin hemen sağında ya da solunda parlak bir tuş simgesi (○ ✕ □ R3) var mı: varsa Türkçenin yaslanacağı
+    /// yan (simge sağdaysa "right": kutu sola büyür). Etiketin yüksekliği kadar bir şerit taranır; bir yan öbüründen
+    /// belirgin parlak değilse null. Kutu karenin oranıdır (0–1).
+    /// </summary>
+    internal static string? GlyphSide(Frame frame, TextBox box)
+    {
+        if (frame.Width <= 0 || frame.Height <= 0) return null;
+        var height = (box.Bottom - box.Top) * frame.Height;
+        if (height < 4) return null;
+        var top = Math.Clamp((int)(box.Top * frame.Height - height * 0.15), 0, frame.Height - 1);
+        var bottom = Math.Clamp((int)Math.Ceiling(box.Bottom * frame.Height + height * 0.15), top + 1, frame.Height);
+        var span = height * 1.3;
+        int Bright(double from, double to)
+        {
+            var x0 = Math.Clamp((int)from, 0, frame.Width);
+            var x1 = Math.Clamp((int)Math.Ceiling(to), x0, frame.Width);
+            var count = 0;
+            for (var y = top; y < bottom; y++)
+                for (var x = x0; x < x1; x++)
+                {
+                    var p = y * frame.Stride + x * 4;
+                    if (frame.Pixels[p] + frame.Pixels[p + 1] + frame.Pixels[p + 2] >= 3 * 200) count++;
+                }
+            return count;
+        }
+        var right = Bright(box.Right * frame.Width + 1, box.Right * frame.Width + span);
+        var left = Bright(box.Left * frame.Width - span, box.Left * frame.Width - 1);
+        var area = span * (bottom - top);
+        var floor = area * 0.06;
+        if (right >= floor && right > left * 1.5) return "right";
+        if (left >= floor && left > right * 1.5) return "left";
+        return null;
     }
 
     /// <summary>Tek satır kendi grubu (kendi kutusu ve simgeleriyle).</summary>

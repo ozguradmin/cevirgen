@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.4';
+  var APP_VERSION = '1.0.5';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -1463,12 +1463,13 @@
         && (item.text.split(/\s+/).length <= 2 || singleOriginal);
       if (styled) floor = Math.max(label ? 10 : SCREEN_MIN_FONT, Math.round(size * (label ? STYLED_LABEL_MIN_SCALE : STYLED_MIN_SCALE)));
       else if (manual && label) floor = Math.max(10, Math.round(size * STYLED_LABEL_MIN_SCALE));
-      if (manual && label) {
-        el.style.textAlign = manualAlign;
-        // En küçük genişlik (minWidth) kısa yazıyı ("EXIT") sağa uzatıp tuş simgesini örtüyordu: sağa yaslı etikette fazlası sola.
-        var ownWidth = (Math.min(1, box.right + pad) - left) * width;
-        if (manualAlign === 'right' && itemWidth > ownWidth) el.style.left = Math.max(0, left * width - (itemWidth - ownWidth)) + 'px';
-      }
+      if (manual && label) el.style.textAlign = manualAlign;
+      // Çevirgen: ek alandaki etiketin yaslandığı yan (bilgisayar tuş simgesinin yerinden bulur): sağa yaslıysa sağ kenar
+      // İngilizcenin sağ kenarında durur, en küçük genişlik ("EXIT" 80 px'ten dar) ve uzun Türkçe sola taşar; tuş simgesi
+      // örtülmez. Sola yaslıysa sol kenar zaten sabit.
+      var labelAlign = label && regionId && !phone ? ((item.style && item.style.align) || manualAlign) : null;
+      if (labelAlign === 'right' && left * width + itemWidth > (Math.min(1, box.right + pad)) * width + 1)
+        el.style.left = Math.max(0, Math.round(Math.min(1, box.right + pad) * width - itemWidth)) + 'px';
       if (bubble) {
         floor = Math.min(size, Math.max(Math.round(BUBBLE_MIN_FONT * height / 1080), Math.round(size * BUBBLE_MIN_SCALE)));
         el.className += ' bubble';
