@@ -126,6 +126,36 @@ public sealed record RemotePopup(string Id, Uri Image, Uri Link);
 public sealed record Announcement(string Id, string Text, Uri? Link);
 
 /// <summary>
+/// Canlı ekrandaki destek alanı (sunucudaki <c>support</c>): tek satır yazı, düğme adı, https bağlantı ve isteğe bağlı küçük
+/// simge (https). Yoksa ya da geçersizse uygulamanın kendi metni kullanılır ("GitHub'da yıldız ver").
+/// </summary>
+public sealed record RemoteSupport(string Id, string Text, string Button, Uri Link, Uri? Icon);
+
+/// <summary>
+/// "Hangi oyunu oynuyorsun?" seçicisinde bir oyun (sunucudaki <c>games</c>): kimlik uygulamanın oyun/paket kimliğiyle aynı
+/// (<c>gta-6</c>), kapak isteğe bağlı ve yalnız https; <paramref name="Aliases"/> aramada da bulunan adlar ("GTA 6").
+/// Kullanıcının kendi kapağı (<see cref="GameCoverStore"/>) her zaman bu kapaktan önce gelir.
+/// </summary>
+public sealed record RemoteGame(string Id, string Title, Uri? Cover, IReadOnlyList<string> Aliases)
+{
+    /// <summary>Kimlik: küçük harf, rakam ve tire, 1–64 (sunucudaki doğrulamayla aynı).</summary>
+    public static bool IsValidId(string? id) =>
+        id is { Length: >= 1 and <= 64 } && id.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+
+    /// <summary>Oyunun adı ya da takma adlarından biri bu ada (<see cref="GameName.Key"/> ile) denk mi.</summary>
+    public bool Matches(string? name)
+    {
+        var key = GameName.Key(name);
+        return key.Length > 0 && (GameName.Key(Title) == key || Aliases.Any(alias => GameName.Key(alias) == key));
+    }
+
+    public bool Equals(RemoteGame? other) =>
+        other is not null && Id == other.Id && Title == other.Title && Cover == other.Cover && Aliases.SequenceEqual(other.Aliases);
+
+    public override int GetHashCode() => HashCode.Combine(Id, Title, Cover);
+}
+
+/// <summary>
 /// Sunucunun <c>/v1/config</c> yanıtı. <see cref="Parse"/> bozuk ya da eksik girdiyi atlar: https olmayan simge, görsel
 /// ya da bağlantı, boş başlık; kök nesne değilse yanıtın tamamı geçersizdir (null).
 /// </summary>
@@ -133,14 +163,29 @@ public sealed record RemoteConfig(int Version, IReadOnlyList<RemoteAd> Ads, IRea
 {
     public static readonly RemoteConfig Empty = new(1, [], [], null);
 
+    /// <summary>En çok bu kadar oyun okunur (sunucu da en çok 500 kabul eder).</summary>
+    public const int MaxGames = 500;
+
+    /// <summary>
+    /// Oyun seçicisinin oyunları ve kapakları (isteğe bağlı <c>games</c>). Kimliği geçersiz ya da adı boş olan oyun atlanır;
+    /// https olmayan kapak yok sayılır (oyun kapaksız listede kalır); aynı kimlik ikinci kez gelirse ilki kalır.
+    /// </summary>
+    public IReadOnlyList<RemoteGame> Games { get; init; } = [];
+
+    /// <summary>
+    /// Destek alanının metni (isteğe bağlı <c>support</c>). Yoksa, <c>null</c> ise ya da geçersizse (yazı veya düğme boş,
+    /// bağlantı https değil) null: uygulamanın kendi metni kalır. Simge https değilse yok sayılır.
+    /// </summary>
+    public RemoteSupport? Support { get; init; }
+
     /// <summary>Yerel önbellek dosyasının adı (veri klasöründe): son geçerli yanıtın kendisi.</summary>
     public const string CacheFileName = "remote-config.json";
 
     public bool Equals(RemoteConfig? other) =>
         other is not null && Version == other.Version && Ads.SequenceEqual(other.Ads) && Popups.SequenceEqual(other.Popups)
-        && Equals(Announcement, other.Announcement);
+        && Equals(Announcement, other.Announcement) && Games.SequenceEqual(other.Games) && Equals(Support, other.Support);
 
-    public override int GetHashCode() => HashCode.Combine(Version, Ads.Count, Popups.Count, Announcement);
+    public override int GetHashCode() => HashCode.Combine(Version, Ads.Count, Popups.Count, Announcement, Games.Count);
 
     public static RemoteConfig? Parse(string? json)
     {
@@ -173,12 +218,42 @@ public sealed record RemoteConfig(int Version, IReadOnlyList<RemoteAd> Ads, IRea
                 var announcementLink = Https(linkText);
                 announcement = new Announcement(Text(a, "id") is { Length: > 0 } id ? id : text.Trim(), text.Trim(), announcementLink);
             }
-            return new RemoteConfig(version, ads, popups, announcement);
+            return new RemoteConfig(version, ads, popups, announcement) { Games = ParseGames(root), Support = ParseSupport(root) };
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    private static RemoteSupport? ParseSupport(JsonElement root)
+    {
+        if (!root.TryGetProperty("support", out var item) || item.ValueKind != JsonValueKind.Object) return null;
+        var text = Text(item, "text")?.Trim();
+        var button = Text(item, "button")?.Trim();
+        if (string.IsNullOrEmpty(text) || text.Length > 200 || string.IsNullOrEmpty(button) || button.Length > 40
+            || Https(Text(item, "link")) is not { } link) return null;
+        return new RemoteSupport(Text(item, "id")?.Trim() is { Length: > 0 } id ? id : text, text, button, link, Https(Text(item, "icon")));
+    }
+
+    private static List<RemoteGame> ParseGames(JsonElement root)
+    {
+        var games = new List<RemoteGame>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var game in Items(root, "games"))
+        {
+            if (games.Count >= MaxGames) break;
+            var id = Text(game, "id")?.Trim();
+            var title = Text(game, "title")?.Trim();
+            if (!RemoteGame.IsValidId(id) || string.IsNullOrEmpty(title) || title.Length > 120 || !seen.Add(id!)) continue;
+            var aliases = new List<string>();
+            if (game.TryGetProperty("aliases", out var list) && list.ValueKind == JsonValueKind.Array)
+                foreach (var alias in list.EnumerateArray())
+                    if (alias.ValueKind == JsonValueKind.String && alias.GetString()?.Trim() is { Length: > 0 and <= 120 } name && aliases.Count < 20)
+                        aliases.Add(name);
+            games.Add(new RemoteGame(id!, title, Https(Text(game, "cover")), aliases));
+        }
+        return games;
     }
 
     private static IEnumerable<JsonElement> Items(JsonElement root, string name) =>

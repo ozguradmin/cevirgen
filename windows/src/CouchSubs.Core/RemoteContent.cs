@@ -13,20 +13,33 @@ public sealed record ResolvedAd(RemoteAd Ad, string IconFile);
 /// <summary>Görseli diske inmiş açılır reklam.</summary>
 public sealed record ResolvedPopup(RemotePopup Popup, string ImageFile);
 
-/// <summary>Arayüzün kullanacağı uzaktan içerik: görseli olmayan reklam listede yoktur.</summary>
+/// <summary>Destek alanı; simgesi diske inmişse <paramref name="IconFile"/> (yoksa null: simgesiz).</summary>
+public sealed record ResolvedSupport(RemoteSupport Support, string? IconFile);
+
+/// <summary>Oyun seçicisinin bir oyunu; kapağı diske inmişse <paramref name="CoverFile"/> (yoksa null: yazıyla karo).</summary>
+public sealed record ResolvedGame(RemoteGame Game, string? CoverFile);
+
+/// <summary>Arayüzün kullanacağı uzaktan içerik: görseli olmayan reklam listede yoktur; kapağı inmeyen oyun kapaksız kalır.</summary>
 public sealed record RemoteContent(IReadOnlyList<ResolvedAd> Ads, IReadOnlyList<ResolvedPopup> Popups, Announcement? Announcement)
 {
     public static readonly RemoteContent Empty = new([], [], null);
 
-    public bool Equals(RemoteContent? other) =>
-        other is not null && Ads.SequenceEqual(other.Ads) && Popups.SequenceEqual(other.Popups) && Equals(Announcement, other.Announcement);
+    /// <summary>Oyun seçicisinin oyunları (sunucudaki sırayla).</summary>
+    public IReadOnlyList<ResolvedGame> Games { get; init; } = [];
 
-    public override int GetHashCode() => HashCode.Combine(Ads.Count, Popups.Count, Announcement);
+    /// <summary>Sunucudaki destek alanı; yoksa null (uygulamanın kendi metni).</summary>
+    public ResolvedSupport? Support { get; init; }
+
+    public bool Equals(RemoteContent? other) =>
+        other is not null && Ads.SequenceEqual(other.Ads) && Popups.SequenceEqual(other.Popups) && Equals(Announcement, other.Announcement)
+        && Games.SequenceEqual(other.Games) && Equals(Support, other.Support);
+
+    public override int GetHashCode() => HashCode.Combine(Ads.Count, Popups.Count, Announcement, Games.Count);
 }
 
 /// <summary>
-/// Uzaktan ayarlar (<c>GET /v1/config</c>): uygulama güncellemesi gerekmeden reklam, açılır reklam ve duyuru. İstek düz
-/// GET'tir: çerez, kimlik ya da kullanıcıya ait hiçbir bilgi gitmez. Son geçerli yanıt veri klasörüne yazılır
+/// Uzaktan ayarlar (<c>GET /v1/config</c>): uygulama güncellemesi gerekmeden reklam, açılır reklam, duyuru, oyun kapakları
+/// ve destek alanı. İstek düz GET'tir: çerez, kimlik ya da kullanıcıya ait hiçbir bilgi gitmez. Son geçerli yanıt veri klasörüne yazılır
 /// (<see cref="RemoteConfig.CacheFileName"/>); ağ yokken o kullanılır. Görseller yalnız https'ten, en çok 2 MB, yalnız
 /// PNG/JPEG/GIF/WEBP olarak iner ve adresin SHA-256 özetiyle adlandırılıp <c>remote-assets</c> klasöründe saklanır;
 /// görseli inmeyen reklam atlanır. Hiçbir yöntem hata fırlatmaz; sorunlar yalnız günlüğe yazılır.
@@ -123,11 +136,22 @@ public sealed class RemoteConfigClient : IDisposable
         var popups = new List<ResolvedPopup>();
         foreach (var popup in config.Popups)
             if (await ImageAsync(popup.Image, download, cancellationToken).ConfigureAwait(false) is { } file) popups.Add(new ResolvedPopup(popup, file));
+        // Kapak inmezse oyun yine listede (adıyla karo); kapak sonraki bakışta yeniden denenir.
+        var games = new List<ResolvedGame>();
+        foreach (var game in config.Games)
+            games.Add(new ResolvedGame(game, game.Cover is { } cover ? await ImageAsync(cover, download, cancellationToken).ConfigureAwait(false) : null));
+        // Destek alanı simgesiz de gösterilir; simge inince eklenir.
+        ResolvedSupport? support = config.Support is { } remote
+            ? new ResolvedSupport(remote, remote.Icon is { } icon ? await ImageAsync(icon, download, cancellationToken).ConfigureAwait(false) : null)
+            : null;
         if (download) Prune(config);
-        return new RemoteContent(ads, popups, config.Announcement);
+        return new RemoteContent(ads, popups, config.Announcement) { Games = games, Support = support };
     }
 
-    /// <summary>Görselin önbellekteki dosyası; yoksa ve <paramref name="download"/> ise indirir. Olmazsa null.</summary>
+    /// <summary>
+    /// Görselin önbellekteki dosyası; yoksa ve <paramref name="download"/> ise indirir. Olmazsa null. Reklam, açılır reklam ve oyun
+    /// kapakları aynı kurallarla (yalnız https, en çok 2 MB, PNG/JPEG/GIF/WEBP imzası) iner.
+    /// </summary>
     public async Task<string?> ImageAsync(Uri url, bool download = true, CancellationToken cancellationToken = default)
     {
         if (url.Scheme != Uri.UriSchemeHttps) return null;
@@ -196,7 +220,9 @@ public sealed class RemoteConfigClient : IDisposable
         try
         {
             if (!Directory.Exists(AssetFolder)) return;
-            var keep = config.Ads.Select(ad => ad.Icon).Concat(config.Popups.Select(popup => popup.Image)).Select(ImageFileName)
+            var keep = config.Ads.Select(ad => ad.Icon).Concat(config.Popups.Select(popup => popup.Image))
+                .Concat(config.Games.Select(game => game.Cover).OfType<Uri>())
+                .Concat(config.Support?.Icon is { } icon ? [icon] : Array.Empty<Uri>()).Select(ImageFileName)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var file in Directory.EnumerateFiles(AssetFolder))
                 if (!keep.Contains(Path.GetFileName(file))) File.Delete(file);

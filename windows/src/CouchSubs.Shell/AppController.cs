@@ -2806,6 +2806,20 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     public IReadOnlyList<string> GameSuggestions(string query) =>
         GameCatalog.Suggestions(query, GameCatalog.PackGames(installedPacks), LastPlayedGame);
 
+    /// <summary>
+    /// Son seçilen oyunlar, en yenisi başta (en çok <see cref="GamePicker.MaxRecent"/>). Eski kayıtta liste yoksa bu PS5'te
+    /// son seçilen oyun.
+    /// </summary>
+    public IReadOnlyList<string> RecentGames =>
+        store.Load<List<string>>(StoreKeys.RecentGames) is { Count: > 0 } saved ? saved : LastPlayedGame is { } last ? [last] : [];
+
+    /// <summary>Kullanıcının kendi kapak dosyası (paket ya da oyun kimliğiyle; Ayarlar › Gelişmiş › Oyun paketleri), yoksa null.</summary>
+    public Func<string, string?> UserCover { get; set; } = id => GameCoverStore.PathFor(id) is { } path && File.Exists(path) ? path : null;
+
+    /// <summary>Oyun seçicisinin karoları (<see cref="GamePicker.Tiles"/>): son oynananlar başta, kapaklarıyla.</summary>
+    public IReadOnlyList<GameTile> GameTiles(string query) =>
+        GamePicker.Tiles(query, RecentGames, GameCatalog.PackShelf(installedPacks), RemoteGames, playedGame, UserCover);
+
     /// <summary>Kullanıcı bir oyun seçti ya da adını yazdı; seçim PS5'in adıyla saklanır.</summary>
     public void ChooseGame(string name)
     {
@@ -2817,6 +2831,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             saved[consoleName] = clean;
             store.Save(StoreKeys.LastGames, saved);
         }
+        store.Save(StoreKeys.RecentGames, GamePicker.WithRecent(RecentGames, clean).ToList());
         AskingGame = false;
         PublishGame();
     }
@@ -3616,6 +3631,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private void AddToHistory(string source, string translation, LineOrigin origin)
     {
         if (!history.Add(source, translation, origin)) return;
+        CountSupportLine();
         Changed(nameof(History), nameof(SessionStats));
         SaveHistory();
     }

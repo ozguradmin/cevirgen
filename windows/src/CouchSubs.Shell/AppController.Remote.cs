@@ -6,7 +6,7 @@ using CouchSubs.Core;
 namespace CouchSubs.Shell;
 
 /// <summary>
-/// Çevirgen: uzaktan ayarlar (reklam bandı, açılır reklam, duyuru) ve anonim kullanım sayımı. Arayüzden bağımsızdır:
+/// Çevirgen: uzaktan ayarlar (reklam bandı, açılır reklam, duyuru, oyun kapakları) ve anonim kullanım sayımı. Arayüzden bağımsızdır:
 /// görünümler <see cref="RemoteAds"/>, <see cref="RemotePopups"/>, <see cref="CurrentAnnouncement"/> ve
 /// <see cref="AnonymousCount"/>'u okur; değişiklikler <see cref="AppController.PropertyChanged"/> (ve duyuru için
 /// <see cref="AnnouncementChanged"/>) ile arayüz iş parçacığında bildirilir. Ağ işleri arka planda yürür, açılışı
@@ -16,6 +16,8 @@ public sealed partial class AppController
 {
     /// <summary>İlk açılışta ve Ayarlar'daki "Anonim sayım" satırında gösterilecek açıklama.</summary>
     public const string AnonymousCountDisclosure = UsageCounter.Disclosure;
+    /// <summary>İlk açılıştaki platform sorusunun düz yazısı: açıklama ve "Ayarlar › Uygulama'dan kapatabilirsin." (anahtar yok).</summary>
+    public const string AnonymousCountOnboardingText = UsageCounter.OnboardingDisclosure;
     /// <summary>Kapatılan duyuruların kimlikleri (veri klasöründe); kapatılan duyuru geri gelmez.</summary>
     public const string DismissedAnnouncementsFileName = "dismissed-announcements.json";
     private const int MaxDismissedAnnouncements = 200;
@@ -37,6 +39,12 @@ public sealed partial class AppController
 
     /// <summary>Açılır reklamlar (görseli diske inmiş olanlar). Ne zaman gösterileceği <see cref="PopupAdPolicy"/>'de.</summary>
     public IReadOnlyList<ResolvedPopup> RemotePopups => remoteContent.Popups;
+
+    /// <summary>
+    /// Oyun seçicisinin sunucudaki oyunları (<c>games</c>): adları, takma adları ve diske inmiş kapakları (inmediyse null).
+    /// Kullanıcının kendi kapağı bunlardan önce gelir (<see cref="GameTiles"/>).
+    /// </summary>
+    public IReadOnlyList<ResolvedGame> RemoteGames => remoteContent.Games;
 
     /// <summary>Gösterilecek duyuru: sunucudaki duyuru, kullanıcı kapatmadıysa. Yoksa null.</summary>
     public Announcement? CurrentAnnouncement => currentAnnouncement;
@@ -175,6 +183,8 @@ public sealed partial class AppController
         remoteContent = content;
         if (!old.Ads.SequenceEqual(content.Ads)) Changed(nameof(RemoteAds));
         if (!old.Popups.SequenceEqual(content.Popups)) Changed(nameof(RemotePopups));
+        if (!old.Games.SequenceEqual(content.Games)) Changed(nameof(RemoteGames));
+        if (!Equals(old.Support, content.Support)) Changed(nameof(Support));
         UpdateAnnouncement();
     }
 

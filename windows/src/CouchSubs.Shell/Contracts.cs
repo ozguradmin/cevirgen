@@ -18,6 +18,10 @@ public static class StoreKeys
     public const string Tv = "tv";
     /// <summary>PS5'in adına göre son seçilen oyun ("Hangi oyunu oynuyorsunuz?" kartının ilk önerisi).</summary>
     public const string LastGames = "lastGames";
+    /// <summary>Son seçilen oyunlar, en yenisi başta (en çok 8): oyun seçicisinde önce bunlar gelir.</summary>
+    public const string RecentGames = "recentGames";
+    /// <summary>Çevrilen satır sayısı (destek alanı için; en çok 20'ye kadar sayılır).</summary>
+    public const string SupportLines = "supportLines";
     public const string TvKey = "tvKey";
     public const string TvDevKey = "tvDevKey";
     /// <summary>Samsung ve Android TV'ye CouchSubs'ın kurduğu sürüm (LG'de sürüm TV'den okunur).</summary>

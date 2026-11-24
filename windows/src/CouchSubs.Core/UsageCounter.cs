@@ -16,9 +16,15 @@ namespace CouchSubs.Core;
 public sealed partial class UsageCounter : IDisposable
 {
     /// <summary>İlk açılışta ve Ayarlar'da gösterilecek açıklama.</summary>
-    public const string Disclosure =
+    public const string Disclosure = DisclosureBody + " Ayarlardan kapatabilirsin.";
+
+    /// <summary>Ne gönderildiği ve ne saklanmadığı (açıklamanın "kapatabilirsin" cümlesinden önceki kısmı).</summary>
+    public const string DisclosureBody =
         "Çevirgen kaç kişinin kullandığını görmek için 5 dakikada bir rastgele bir kimlik, sürüm ve platform gönderir. " +
-        "Adın, oyunun, altyazıların ya da IP adresin saklanmaz. Ayarlardan kapatabilirsin.";
+        "Adın, oyunun, altyazıların ya da IP adresin saklanmaz.";
+
+    /// <summary>İlk açılıştaki platform sorusunda düz yazı (orada anahtar yok; kapatmak yalnız Ayarlar › Uygulama'da).</summary>
+    public const string OnboardingDisclosure = DisclosureBody + " Ayarlar › Uygulama'dan kapatabilirsin.";
 
     public const bool EnabledByDefault = true;
     public const string IdFileName = "install-id";
