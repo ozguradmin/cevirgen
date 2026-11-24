@@ -3,7 +3,7 @@
 // askıya alınmış, soket açık). Yeni bilgisayar/telefon akışı `link` olayıyla kimliğini bildirir; TV her ping'de
 // /ack?c=<kimlik> gönderir (alındı kesilirse bilgisayar/telefon bağlantıyı kapatıp yeniden bağlanır). Bilgisayar/telefon
 // kimliği tanımazsa (404) TV beklemeden yeniden bağlanır. `link` göndermeyen eski sürüme alındı gitmez.
-// Android TV sayfası (scripts/tv-live-page.js) gerçek ağla sahte bir CouchSubs sunucusuna karşı çalışır.
+// Android TV sayfası (scripts/tv-live-page.js) gerçek ağla sahte bir Çevirgen sunucusuna karşı çalışır.
 // Çalıştırma: node --test scripts/tv-ack.test.js
 'use strict';
 

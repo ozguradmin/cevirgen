@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Android TV uygulamasının sayfası (tv-webos/i18n.js, tv-android/platform.js, tv-webos/app.js) Node'da, gerçek ağla:
-// gerçek bir CouchSubs sunucusuna (Windows C#, Mac/iPhone Swift, Android telefon Kotlin) bağlanır, gelen olayları
+// gerçek bir Çevirgen sunucusuna (Windows C#, Mac/iPhone Swift, Android telefon Kotlin) bağlanır, gelen olayları
 // sayfanın kendi koduyla işler. Uçtan uca testlerde kullanılır: sunucuyu başlatan test bu betiği alt süreç olarak açar,
 // altyazı gönderir ve panelin tanı satırını ("sub 1 · ...") bekler.
 //

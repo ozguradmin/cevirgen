@@ -290,8 +290,8 @@ static void cs_crash_write_summary(cs_out *out, const wchar_t *dump_name, const 
 	const CONTEXT *context = cs_crash_pointers->ContextRecord;
 	cs_modules_read(&modules);
 
-	cs_out_str(out, "CouchSubs çökme kaydı\r\n");
-	cs_out_str(out, "Bu dosya ve yanındaki .dmp yalnız bu bilgisayarda durur; CouchSubs bunları hiçbir yere göndermez.\r\n");
+	cs_out_str(out, "Çevirgen çökme kaydı\r\n");
+	cs_out_str(out, "Bu dosya ve yanındaki .dmp yalnız bu bilgisayarda durur; Çevirgen bunları hiçbir yere göndermez.\r\n");
 	cs_out_bytes(out, cs_crash_header, cs_crash_header_len);
 	cs_out_str(out, "Zaman: ");
 	cs_out_dec(out, now->wYear, 4); cs_out_str(out, "-"); cs_out_dec(out, now->wMonth, 2); cs_out_str(out, "-"); cs_out_dec(out, now->wDay, 2);

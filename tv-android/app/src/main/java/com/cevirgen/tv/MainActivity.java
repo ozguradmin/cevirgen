@@ -36,7 +36,7 @@ import java.util.List;
  * - Uygulama içinde: HDMI girişini TvView ile tam ekran gösterir; üstünde şeffaf WebView'de LG ve Samsung'la
  *   ortak arayüz çalışır. Görüntü hiç gelmezse (bazı TV'lerde TvView siyah kalıyor) ve izin varsa katmana geçer.
  * - Katman: HDMI'yı TV kendi giriş ekranında gösterir, altyazıyı OverlayService üstte çizer. Bu ekran yalnız servisi
- *   başlatıp kapanır; servis çalışırken CouchSubs yeniden açılırsa katman kapanır.
+ *   başlatıp kapanır; servis çalışırken Çevirgen yeniden açılırsa katman kapanır.
  *
  * Google Play paketinde katman modu yoktur (BuildConfig.OVERLAY_MODE): orada yalnız uygulama
  * içinde çalışır, katman gerektiğinde ne yapılacağı anlatılır.
@@ -47,7 +47,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     /** Katman açılamadı; neden DisplayMode.FAILED_* (uygulama yeniden katmana geçmez, nedeni gösterir). */
     static final String EXTRA_OVERLAY_FAILED = "overlayFailed";
     private static final String EXTRA_DISPLAY_MODE = "displayMode";
-    /** CouchSubs ekranı TV'nin kendi giriş ekranından kendini geri aldı (bkz. ScreenReclaim): ekran ve mod değişmez. */
+    /** Çevirgen ekranı TV'nin kendi giriş ekranından kendini geri aldı (bkz. ScreenReclaim): ekran ve mod değişmez. */
     private static final String EXTRA_RECLAIM = "reclaim";
     private static final long WATCH_EVERY_MS = 1000;
     private static final long HELP_VISIBLE_MS = 25_000;
@@ -82,7 +82,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     private int retuneAttempts;
     private final FallbackWatch watch = new FallbackWatch();
     private boolean watching;
-    /** Kullanıcı katman açıkken CouchSubs'ı kumandadan açtı: bu ekran kayıtlı tercih katman olsa da uygulama içinde kalır. */
+    /** Kullanıcı katman açıkken Çevirgen'i kumandadan açtı: bu ekran kayıtlı tercih katman olsa da uygulama içinde kalır. */
     private boolean leftOverlay;
     /** Ekran önde mi; arka plandayken görüntü izlenmez. */
     private boolean resumed;
@@ -92,7 +92,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     private final PageRestarts pageRestarts = new PageRestarts();
     /** Görüntü geldikten sonraki kesinti: bir kez yeniden açılır, olmazsa söylenir (bkz. PictureOutage). */
     private final PictureOutage outage = new PictureOutage();
-    /** Sinyal değişirken TV'nin kendi giriş ekranı öne gelince CouchSubs'ın geri alınması (#794). */
+    /** Sinyal değişirken TV'nin kendi giriş ekranı öne gelince Çevirgen'in geri alınması (#794). */
     private final ScreenReclaim reclaim = new ScreenReclaim();
     /** Ekranın son duraklatıldığı an (onPause). */
     private long pausedAt = -1;
@@ -113,7 +113,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     private static final Handler RELEASE = new Handler(Looper.getMainLooper());
     private int releaseGeneration;
 
-    /** Açık CouchSubs ekranı (yoksa null): bilgisayarın/telefonun adres yayını ona iletilir (bkz. AddressReceiver). */
+    /** Açık Çevirgen ekranı (yoksa null): bilgisayarın/telefonun adres yayını ona iletilir (bkz. AddressReceiver). */
     private static volatile MainActivity current;
 
     /** Bilgisayar/telefon adresini bildirdi: açık sayfa o adrese geçer; ekran ve görüntü modu değişmez. */
@@ -145,7 +145,7 @@ public class MainActivity extends Activity implements TvPage.Host {
                 finish();
                 return;
             }
-            // Kumandadan yeniden açıldı: katman kapanır, CouchSubs ekranı açılır (panel görünsün; eskiden uygulama da
+            // Kumandadan yeniden açıldı: katman kapanır, Çevirgen ekranı açılır (panel görünsün; eskiden uygulama da
             // kapanıyordu ve kullanıcı ekrana hiç ulaşamıyordu).
             OverlayService.stop(this);
             Toast.makeText(this, R.string.overlay_stopped, Toast.LENGTH_LONG).show();
@@ -440,7 +440,7 @@ public class MainActivity extends Activity implements TvPage.Host {
             showOverlayFailed();
             return;
         }
-        // CouchSubs ekranı kapanır, katman arka planda sürer. TV girişleri uygulamalara açmıyorsa (#275) TV HDMI'ya
+        // Çevirgen ekranı kapanır, katman arka planda sürer. TV girişleri uygulamalara açmıyorsa (#275) TV HDMI'ya
         // kendiliğinden geçmez: kullanıcı ana ekranda kalır ve uygulama "kapandı" sanılır. Bu yüzden ne yapılacağı söylenir.
         boolean manualInput = HdmiInputs.list(this).isEmpty();
         Toast.makeText(this, manualInput ? R.string.overlay_started_manual_input : message, Toast.LENGTH_LONG).show();
@@ -711,7 +711,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     }
 
     /**
-     * CouchSubs'tan çıkış (kumandada Geri, giriş seçicide "Çık", çeviri durunca bilgisayarın isteği): HDMI girişi
+     * Çevirgen'den çıkış (kumandada Geri, giriş seçicide "Çık", çeviri durunca bilgisayarın isteği): HDMI girişi
      * bırakılır, TvView ekrandan kaldırılır ve ekran görev listesinden de çıkarılarak kapanır; arkada giriş tutan bir şey
      * kalmaz.
      */
@@ -832,8 +832,8 @@ public class MainActivity extends Activity implements TvPage.Host {
         boolean leftByUser = userLeaving;
         userLeaving = false;
         // #794: PS5 açılınca, HDR devreye girince ya da bildirimle TV kendi HDMI ekranını öne çekti; görüntü uygulamada
-        // geliyordu. Katmana geçilmez, CouchSubs ekranı kısa süre sonra geri alınır.
-        // Geri alma hakkı dolduysa (TV sürekli geri itiyor) izin varsa katmana geçilir: eskiden CouchSubs arkada kalıyor,
+        // geliyordu. Katmana geçilmez, Çevirgen ekranı kısa süre sonra geri alınır.
+        // Geri alma hakkı dolduysa (TV sürekli geri itiyor) izin varsa katmana geçilir: eskiden Çevirgen arkada kalıyor,
         // altyazı bağlantısı açık olduğundan telefon/bilgisayar TV'yi "bağlı" görüyor ama yazı görünmeyen ekrana
         // çiziliyordu ("telefonda altyazı sürüyor, TV'de yok; test yazısı çıkıyor").
         ScreenReclaim.Action taken = isFinishing() || tvView == null ? ScreenReclaim.Action.NONE
@@ -864,7 +864,7 @@ public class MainActivity extends Activity implements TvPage.Host {
     }
 
     /**
-     * #794: TV'nin kendi giriş ekranından CouchSubs'ı geri öne getirir. Android 8-9'da her zaman; Android 10+ arka plandan
+     * #794: TV'nin kendi giriş ekranından Çevirgen'i geri öne getirir. Android 8-9'da her zaman; Android 10+ arka plandan
      * açma kısıtı yalnız "diğer uygulamaların üzerinde göster" izni olan uygulamaya izin verir (masaüstünün kurduğu APK'da
      * var, Play paketinde yok); izin yoksa sistem açmayı sessizce engeller, eski davranış kalır.
      */
@@ -898,7 +898,7 @@ public class MainActivity extends Activity implements TvPage.Host {
 
     /**
      * Arka plandayken katmana geçilmez (kullanıcı başka bir şey izliyor olabilir); öne gelince saat yeniden başlar.
-     * HDMI girişi bırakılır (#453): TV'nin kendi giriş ekranı açılırken CouchSubs girişi tutarsa aynı HDMI'yı tek
+     * HDMI girişi bırakılır (#453): TV'nin kendi giriş ekranı açılırken Çevirgen girişi tutarsa aynı HDMI'yı tek
      * oturuma veren TV'lerde (Thomson, Philips) o ekran yeşil ya da siyah kalıyordu. onStop beklenmez: yeni ekran
      * (TV'nin HDMI oynatıcısı) bu ekranın onStop'undan önce açılır ve girişi o anda ister.
      */

@@ -6,11 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * Bilgisayar ya da telefon, TV'de zaten çalışan CouchSubs'a kendi adresini ekranı öne çekmeden bildirir
+ * Bilgisayar ya da telefon, TV'de zaten çalışan Çevirgen'e kendi adresini ekranı öne çekmeden bildirir
  * ({@code am broadcast -a com.cevirgen.tv.action.ADDRESS -n com.cevirgen.tv/.AddressReceiver --es params '{...}'}).
  *
  * X @conmeyz (Philips 55PUS7303, Android 8): "TV'de bağlı görünüyor, panelde sub 0; silip yükleyince düzeldi". Uygulama
- * çalışırken kayıtlı eski bir adrese (aynı bilgisayarın eski portu, başka bir CouchSubs) bağlı kalırsa bilgisayar onu
+ * çalışırken kayıtlı eski bir adrese (aynı bilgisayarın eski portu, başka bir Çevirgen) bağlı kalırsa bilgisayar onu
  * bulamıyordu: 0.9.56'dan (#805) beri bilgisayar/telefon çalışan uygulamaya {@code am start} göndermiyor (ekranı öne
  * çekip katmana atıyordu), adresini de hiç iletmiyordu. Yayın ekranı ve görüntü modunu değiştirmez; adres yalnız açık
  * sayfaya (uygulama içi ya da katman) gider, sayfa o adrese geçer (app.js applyParams).

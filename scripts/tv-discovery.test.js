@@ -58,13 +58,13 @@ function element() {
   return el;
 }
 
-// alive: CouchSubs'ın çalıştığı adresler ("http://ip:8787"). localIp: TV'nin söylediği kendi adresi (yoksa null).
+// alive: Çevirgen'in çalıştığı adresler ("http://ip:8787"). localIp: TV'nin söylediği kendi adresi (yoksa null).
 // consolePort: platform.findConsolePort'un yanıtı ([port, ad, bağlı HDMI sayısı]); savedHdmi: kayıtlı giriş.
 // resolution: verilirse platform videoResolution bildirir (Samsung gibi); her çağrıda bu değer callback'e gelir.
 // closeWhenHidden: platform arka planda bağlantıyı bırakmak istiyor mu (Samsung gibi).
 // panelTips: panel ipucunun önceki açılışlarda kaç kez gösterildiği.
 // hello: adrese göre /hello yanıtındaki kimlik ve bağlı TV sayısı ({ id, tvs }); verilmeyen adres eski sürüm gibi yalnız
-// {"app":"couchsubs"} döner. savedId: TV'nin kayıtlı CouchSubs kimliği. params: başlatma parametreleri.
+// {"app":"couchsubs"} döner. savedId: TV'nin kayıtlı Çevirgen kimliği. params: başlatma parametreleri.
 // auth: sunucunun eşleştirme durumu; storedKeys/identities: TV'de kayıtlı anahtarlar ve sunucu kimlikleri.
 // noPicture: görüntü vermeyen girişler; noPictureHelp: görüntü gelmezse app.js kutuyu açar (LG, Samsung gibi);
 // labels: platform.inputLabel'ın verdiği giriş adları.
@@ -288,7 +288,7 @@ test('LG: kayıtlı adres yanıt vermezse aynı ağda yeni kaynak bulunur, kayı
   assert.strictEqual(tv.server(), 'http://192.168.1.42:8787');
 });
 
-// #884, #891: LG'de geliştirici modu kapalıyken ya da anahtar bu bilgisayarda değilken CouchSubs TV'deki sürümü
+// #884, #891: LG'de geliştirici modu kapalıyken ya da anahtar bu bilgisayarda değilken Çevirgen TV'deki sürümü
 // okuyamıyor, TV uygulaması eski kalıyor ve hiç uyarı çıkmıyordu. TV sürümünü altyazı akışıyla kendisi bildirir.
 test('altyazı akışı TV uygulamasının sürümünü (appinfo.json ile aynı) bildirir', () => {
   const tv = startTv({
@@ -316,7 +316,7 @@ test('platform adres söyleyemiyorsa (localAddress yok) da kayıtlı adresin ağ
 });
 
 // #469, #484: telefondan kurulan TV'de kayıtlı adres yoktur; TV kendi adresini de söyleyemezse eskiden hiçbir adres
-// denenmiyor, TV "Ağda CouchSubs aranıyor…" ekranında kalıyordu.
+// denenmiyor, TV "Ağda Çevirgen aranıyor…" ekranında kalıyordu.
 test('kayıtlı adres yok ve TV adresini söyleyemiyorsa yaygın ev ağları taranır, telefon bulunur', () => {
   const phone = 'http://192.168.0.34:8787';
   const tv = startTv({
@@ -336,7 +336,7 @@ test('platform adres sormayı hiç bilmiyorsa (localAddress yok) ve kayıt yoksa
   assert.strictEqual(tv.saved(), phone);
 });
 
-test('tahminli taramada CouchSubs bulunan ağda durulur, sonraki ağlar denenmez', () => {
+test('tahminli taramada Çevirgen bulunan ağda durulur, sonraki ağlar denenmez', () => {
   const phone = 'http://192.168.1.77:8787';
   const later = 'http://192.168.0.5:8787';
   const tv = startTv({ alive: new Set([phone, later]), hasLocalAddress: true, localIp: null });
@@ -394,11 +394,11 @@ test('kayıtlı adres çalışıyorsa tarama yapılmaz ve kayıt değişmez', ()
   assert.strictEqual(tv.saved(), 'http://192.168.1.109:8787');
 });
 
-// GitHub #425: aynı ağda iki CouchSubs (iki bilgisayar/telefon) varken TV ilk yanıt verene bağlanıyordu.
+// GitHub #425: aynı ağda iki Çevirgen (iki bilgisayar/telefon) varken TV ilk yanıt verene bağlanıyordu.
 const A = 'http://192.168.1.20:8787';
 const B = 'http://192.168.1.50:8787';
 
-test('iki CouchSubs varken kayıtlı kimlik ilk bulunandan önce gelir', () => {
+test('iki Çevirgen varken kayıtlı kimlik ilk bulunandan önce gelir', () => {
   const tv = startTv({
     saved: 'http://192.168.1.109:8787', savedId: 'id-b',
     alive: new Set([A, B]), hello: { [A]: { id: 'id-a', tvs: 0 }, [B]: { id: 'id-b', tvs: 0 } },
@@ -409,7 +409,7 @@ test('iki CouchSubs varken kayıtlı kimlik ilk bulunandan önce gelir', () => {
   assert.strictEqual(tv.saved(), B);
 });
 
-test('ilk kez açılan TV, başka TV\'ye hizmet eden CouchSubs yerine boşta olana bağlanır ve kimliğini kaydeder', () => {
+test('ilk kez açılan TV, başka TV\'ye hizmet eden Çevirgen yerine boşta olana bağlanır ve kimliğini kaydeder', () => {
   const tv = startTv({
     alive: new Set([A, B]), hello: { [A]: { id: 'id-a', tvs: 1 }, [B]: { id: 'id-b', tvs: 0 } },
     hasLocalAddress: true, localIp: '192.168.1.30'
@@ -419,7 +419,7 @@ test('ilk kez açılan TV, başka TV\'ye hizmet eden CouchSubs yerine boşta ola
   assert.strictEqual(tv.stored('serverId'), 'id-b');
 });
 
-test('kendi CouchSubs\'ı kapalıyken başka TV\'ye hizmet eden CouchSubs\'a geçilmez', () => {
+test('kendi Cevirgen\'ı kapalıyken başka TV\'ye hizmet eden Cevirgen\'a geçilmez', () => {
   const tv = startTv({
     saved: 'http://192.168.1.109:8787', savedId: 'id-b',
     alive: new Set([A]), hello: { [A]: { id: 'id-a', tvs: 1 } },
@@ -431,7 +431,7 @@ test('kendi CouchSubs\'ı kapalıyken başka TV\'ye hizmet eden CouchSubs\'a ge�
   assert.strictEqual(tv.stored('serverId'), 'id-b');
 });
 
-test('kayıtlı kimlik varken iki yabancı CouchSubs arasından tahminle seçilmez', () => {
+test('kayıtlı kimlik varken iki yabancı Çevirgen arasından tahminle seçilmez', () => {
   const tv = startTv({
     saved: 'http://192.168.1.109:8787', savedId: 'id-c',
     alive: new Set([A, B]), hello: { [A]: { id: 'id-a', tvs: 0 }, [B]: { id: 'id-b', tvs: 0 } },
@@ -441,7 +441,7 @@ test('kayıtlı kimlik varken iki yabancı CouchSubs arasından tahminle seçilm
   assert.strictEqual(tv.saved(), 'http://192.168.1.109:8787');
 });
 
-test('bilgisayarın başlatma parametresiyle verdiği CouchSubs\'ın kimliği kaydedilir', () => {
+test('bilgisayarın başlatma parametresiyle verdiği Cevirgen\'ın kimliği kaydedilir', () => {
   const tv = startTv({
     savedId: 'id-a', params: { server: B },
     alive: new Set([A, B]), hello: { [A]: { id: 'id-a', tvs: 0 }, [B]: { id: 'id-b', tvs: 0 } },
@@ -454,7 +454,7 @@ test('bilgisayarın başlatma parametresiyle verdiği CouchSubs\'ın kimliği ka
   assert.strictEqual(tv.lastOpened(), B + '/events');
 });
 
-test('kendi CouchSubs\'ı kapalıyken boştaki tek CouchSubs kullanılır, kendisi yeni adreste dönünce ona geçilir', () => {
+test('kendi Cevirgen\'ı kapalıyken boştaki tek Çevirgen kullanılır, kendisi yeni adreste dönünce ona geçilir', () => {
   const C = 'http://192.168.1.31:8787';
   const back = 'http://192.168.1.60:8787';
   const alive = new Set([C]);
@@ -473,9 +473,9 @@ test('kendi CouchSubs\'ı kapalıyken boştaki tek CouchSubs kullanılır, kendi
   assert.strictEqual(tv.saved(), back);
 });
 
-// X (beta.79): TV "bağlı" ama altyazı gelmiyor. Kayıtlı CouchSubs (bilgisayar) açık ama boşta, çeviri telefondan:
-// TV eskiden kayıtlı kimliğe bağlı kalıyordu. /hello "live" ile çeviren CouchSubs'a geçilir, kendisi çevirince dönülür.
-test('kayıtlı CouchSubs boştayken çeviren CouchSubs\'a geçilir, kayıtlı çevirmeye başlayınca ona dönülür', () => {
+// X (beta.79): TV "bağlı" ama altyazı gelmiyor. Kayıtlı Çevirgen (bilgisayar) açık ama boşta, çeviri telefondan:
+// TV eskiden kayıtlı kimliğe bağlı kalıyordu. /hello "live" ile çeviren Çevirgen'e geçilir, kendisi çevirince dönülür.
+test('kayıtlı Çevirgen boştayken çeviren Cevirgen\'a geçilir, kayıtlı çevirmeye başlayınca ona dönülür', () => {
   const hello = { [A]: { id: 'id-a', tvs: 0, live: 1 }, [B]: { id: 'id-b', tvs: 0, live: 0 } };
   const tv = startTv({
     saved: B, savedId: 'id-b', alive: new Set([A, B]), hello,
@@ -485,7 +485,7 @@ test('kayıtlı CouchSubs boştayken çeviren CouchSubs\'a geçilir, kayıtlı �
   assert.strictEqual(tv.lastOpened(), B + '/events');
   tv.clock.advance(60000);
   assert.strictEqual(tv.lastOpened(), A + '/events');
-  // Kayıtlı kimlik değişmez: kendi CouchSubs'ı çevirmeye başlayınca ona dönülür.
+  // Kayıtlı kimlik değişmez: kendi Çevirgen'i çevirmeye başlayınca ona dönülür.
   assert.strictEqual(tv.stored('serverId'), 'id-b');
   hello[A] = { id: 'id-a', tvs: 1, live: 1 };
   tv.clock.advance(120000);
@@ -495,20 +495,20 @@ test('kayıtlı CouchSubs boştayken çeviren CouchSubs\'a geçilir, kayıtlı �
   assert.strictEqual(tv.lastOpened(), B + '/events');
 });
 
-test('çeviren ama başka TV\'ye hizmet eden CouchSubs\'a geçilmez; kayıtlı ve çeviren CouchSubs\'ta kalınır', () => {
+test('çeviren ama başka TV\'ye hizmet eden Cevirgen\'a geçilmez; kayıtlı ve çeviren Cevirgen\'ta kalınır', () => {
   const pick = startTv({ alive: new Set(), hasLocalAddress: false }).pickServer;
   const idleSaved = { address: B, id: 'id-b', tvs: 1, live: 0 };
   assert.strictEqual(pick([{ address: A, id: 'id-a', tvs: 1, live: 1 }, idleSaved], 'id-b', B), idleSaved);
   assert.strictEqual(pick([{ address: A, id: 'id-a', tvs: 0, live: 1 }, idleSaved], 'id-b', B).address, A);
-  // Şu an bağlı olunan çeviren CouchSubs (tvs bizi de sayar) seçili kalır.
+  // Şu an bağlı olunan çeviren Çevirgen (tvs bizi de sayar) seçili kalır.
   assert.strictEqual(pick([{ address: A, id: 'id-a', tvs: 1, live: 1 }, idleSaved], 'id-b', A).address, A);
-  // İki yabancı çeviren CouchSubs arasından tahminle seçilmez: kayıtlı olanda kalınır.
+  // İki yabancı çeviren Çevirgen arasından tahminle seçilmez: kayıtlı olanda kalınır.
   assert.strictEqual(pick([{ address: A, id: 'id-a', tvs: 0, live: 1 }, { address: 'http://192.168.1.70:8787', id: 'id-c', tvs: 0, live: 1 }, idleSaved], 'id-b', B), idleSaved);
-  // Kayıtlı CouchSubs çeviriyorsa başkasına bakılmaz.
+  // Kayıtlı Çevirgen çeviriyorsa başkasına bakılmaz.
   assert.strictEqual(pick([{ address: A, id: 'id-a', tvs: 0, live: 1 }, { address: B, id: 'id-b', tvs: 1, live: 1 }], 'id-b', B).address, B);
 });
 
-test('kimlik vermeyen eski CouchSubs sürümleri eskisi gibi bulunur', () => {
+test('kimlik vermeyen eski Çevirgen sürümleri eskisi gibi bulunur', () => {
   const pick = startTv({ alive: new Set(), hasLocalAddress: false }).pickServer;
   assert.strictEqual(pick([{ address: A, id: null, tvs: null }], 'id-b').address, A);
   assert.strictEqual(pick([{ address: A, id: null, tvs: null }, { address: B, id: null, tvs: null }], null).address, A);
@@ -678,7 +678,7 @@ test('Samsung: arka plana düşen uygulama bağlantıyı kapatır, yeniden bağl
   assert.strictEqual(tv.lastOpened(), 'http://192.168.1.109:8787/events');
 });
 
-// X (TCL Q6C Google TV): PS5 60 Hz'e geçince TV kendi HDMI oynatıcısını öne çekiyor, CouchSubs arka planda kalıyordu;
+// X (TCL Q6C Google TV): PS5 60 Hz'e geçince TV kendi HDMI oynatıcısını öne çekiyor, Çevirgen arka planda kalıyordu;
 // bağlantı açık kaldığı için telefon "TV bağlı" görüyor, deneme yazısı bile görünmeyen sayfaya gidiyordu.
 test('Android TV uygulama içi: Activity arka plana düşünce bağlantı bırakılır, öne gelince kurulur', () => {
   const tv = startTv({ saved: 'http://192.168.1.109:8787', alive: new Set(['http://192.168.1.109:8787']),

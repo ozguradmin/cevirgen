@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Cevirgen.App/Cevirgen.App.csproj" />
+    <Project Path="src/Cevirgen.Core/Cevirgen.Core.csproj" />
+    <Project Path="src/Cevirgen.RemotePlay/Cevirgen.RemotePlay.csproj" />
+    <Project Path="src/Cevirgen.Shell/Cevirgen.Shell.csproj" />
+    <Project Path="src/Cevirgen.Translation/Cevirgen.Translation.csproj" />
+    <Project Path="src/Cevirgen.TvHelper/Cevirgen.TvHelper.csproj" />
+    <Project Path="src/Cevirgen.TvInstall/Cevirgen.TvInstall.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cevirgen.Core.Tests/Cevirgen.Core.Tests.csproj" />
+    <Project Path="tests/Cevirgen.RemotePlay.Tests/Cevirgen.RemotePlay.Tests.csproj" />
+    <Project Path="tests/Cevirgen.Shell.Tests/Cevirgen.Shell.Tests.csproj" />
+    <Project Path="tests/Cevirgen.Translation.Tests/Cevirgen.Translation.Tests.csproj" />
+    <Project Path="tests/Cevirgen.TvInstall.Tests/Cevirgen.TvInstall.Tests.csproj" />
+  </Folder>
+</Solution>

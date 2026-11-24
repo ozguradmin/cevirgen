@@ -25,7 +25,7 @@ public class DisplayModeTest {
 
     @Test
     public void relaunchFromRemoteOpensTheAppInsteadOfClosing() {
-        // Kumandadan açıldı (parametre yok): katman kapanır, CouchSubs ekranı açılır.
+        // Kumandadan açıldı (parametre yok): katman kapanır, Çevirgen ekranı açılır.
         assertEquals(DisplayMode.Relaunch.OPEN_APP, DisplayMode.whileOverlay(""));
         assertEquals(DisplayMode.Relaunch.OPEN_APP, DisplayMode.whileOverlay(null));
         // Bilgisayar yeni adresle açtı: katman sürer.

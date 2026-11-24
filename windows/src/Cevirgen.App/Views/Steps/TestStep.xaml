@@ -1,0 +1,55 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- Deneme (Perde, Mac TryItStep): solda adım çizelgesi (PS5 bağlantısı, çeviri, TV'de altyazı) ve "Deneme Altyazısı Gönder"; sağda
+     perde önizlemesi (örnek Türkçe altyazı plakası) ve "TV'de bu altyazıyı görüyor musunuz?". İşlev eski adımla aynı. -->
+<UserControl x:Class="Cevirgen.App.Views.Steps.TestStep"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:Cevirgen.App.Controls"
+             xmlns:t="clr-namespace:Cevirgen.App.Theme">
+    <c:StepLayout x:Name="Layout" Title="{t:T 'Let\'s Try It'}"
+                  Message="{t:T 'We test each part one by one. You should see a sample Turkish subtitle on the TV.'}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="{t:Sp l}" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <c:Card VerticalAlignment="Top">
+                <StackPanel>
+                    <c:StepTimeline x:Name="Timeline" />
+                    <Button x:Name="Send" Content="{t:T 'Send Test Subtitle'}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch"
+                            Margin="{t:Sp '0,l,0,0'}" Click="OnSend" />
+                    <!-- TV seçilmediyse ("TV'm yok") pencerenin yeri burada ayarlanabilir. -->
+                    <Button x:Name="Adjust" Content="{t:T 'Position the subtitles'}" HorizontalAlignment="Stretch" Margin="{t:Sp '0,s,0,0'}" Click="OnAdjust"
+                            Visibility="Collapsed" />
+                    <!-- TV kurulumu bitti: her çeviride TV uygulaması kendiliğinden açılmaya çalışılır; açılmazsa TV'den açılır. -->
+                    <TextBlock x:Name="AutoOpenNote" Style="{StaticResource HintText}" Margin="{t:Sp '0,m,0,0'}" TextWrapping="Wrap"
+                               Text="{t:T 'Every time you start translating, Çevirgen tries to open the TV app by itself. If it doesn\'t open, open Çevirgen on the TV.'}" />
+                    <!-- Ücretsiz model karşılamadan sonra arka planda iner; inerken ilerleme burada. -->
+                    <StackPanel x:Name="ModelPanel" Margin="{t:Sp '0,m,0,0'}" Visibility="Collapsed">
+                        <TextBlock x:Name="ModelText" Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                        <ProgressBar x:Name="ModelBar" Minimum="0" Maximum="1" Height="4" Margin="{t:Sp '0,xs,0,0'}" />
+                        <Button x:Name="ModelRetry" Content="Yeniden dene" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,s,0,0'}"
+                                Click="OnRetryModel" Visibility="Collapsed" />
+                    </StackPanel>
+                </StackPanel>
+            </c:Card>
+            <c:SpacedStack Grid.Column="2" Gap="l" VerticalAlignment="Top">
+                <c:Card>
+                    <c:PerdePreview x:Name="Preview" />
+                </c:Card>
+                <c:Card x:Name="Question" Title="{t:T 'Do you see it on the TV?'}" Visibility="Collapsed">
+                    <StackPanel>
+                        <!-- İlişkili ardışık düğmeler alt alta, aralar 12 (Mac DSButtonStack). -->
+                        <c:SpacedStack Gap="related">
+                            <Button Content="{t:T 'Yes, I see it'}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch" Click="OnYes" IsDefault="True" />
+                            <Button Content="{t:T 'No'}" HorizontalAlignment="Stretch" Click="OnNo" />
+                        </c:SpacedStack>
+                        <TextBlock x:Name="Hint" Style="{StaticResource HintText}" Margin="{t:Sp '0,s,0,0'}"
+                                   Text="{t:T 'If you don\'t see it, make sure the Çevirgen TV app is open and connect the TV again.'}" />
+                    </StackPanel>
+                </c:Card>
+            </c:SpacedStack>
+        </Grid>
+    </c:StepLayout>
+</UserControl>

@@ -4,7 +4,7 @@ package com.cevirgen.tv;
 import java.util.Locale;
 
 /**
- * Görüntü modu: HDMI CouchSubs'ın içinde mi gösterilir, yoksa TV kendi giriş ekranında gösterir ve altyazı onun üstündeki
+ * Görüntü modu: HDMI Çevirgen'in içinde mi gösterilir, yoksa TV kendi giriş ekranında gösterir ve altyazı onun üstündeki
  * şeffaf pencerede mi durur ("katman"). Bazı TV'lerde (TCL, Philips ve diğer bazı Android TV / Google TV'ler) uygulamanın
  * içinde HDMI görüntüsü siyah kalıyor; katman modu bunu çözer. Seçim bilgisayardaki/telefondaki Ayarlar › TV'de bölümünden
  * gelir (style olayının displayMode alanı) ya da elle: adb shell am start -n com.cevirgen.tv/.MainActivity --es displayMode overlay
@@ -38,17 +38,17 @@ final class DisplayMode {
         IN_APP_OVERLAY_FAILED
     }
 
-    /** Katman çalışırken CouchSubs yeniden açıldı: ne yapılacağı. */
+    /** Katman çalışırken Çevirgen yeniden açıldı: ne yapılacağı. */
     enum Relaunch {
         /** Bilgisayar ya da telefon yeni adresle açtı: katman sürer, adres ona iletilir, ekran açılmaz. */
         FORWARD_TO_OVERLAY,
-        /** Kullanıcı kumandadan açtı: katman kapanır ve CouchSubs ekranı (panel) açılır. */
+        /** Kullanıcı kumandadan açtı: katman kapanır ve Çevirgen ekranı (panel) açılır. */
         OPEN_APP
     }
 
     /**
      * Eskiden kumandadan açılınca katman kapanıp uygulama da kapanıyordu: kullanıcı ekranı hiç göremiyor, "uygulamaya
-     * giremiyorum, PlayStation ekranına atıyor" diyordu. Artık kullanıcı açtıysa CouchSubs ekranı gelir.
+     * giremiyorum, PlayStation ekranına atıyor" diyordu. Artık kullanıcı açtıysa Çevirgen ekranı gelir.
      */
     static Relaunch whileOverlay(String launchParams) {
         return launchParams == null || launchParams.isEmpty() ? Relaunch.OPEN_APP : Relaunch.FORWARD_TO_OVERLAY;
@@ -64,11 +64,11 @@ final class DisplayMode {
     }
 
     /**
-     * CouchSubs ekranı açıkken yeniden açıldı (onNewIntent): kayıtlı tercih katmansa katmana geçilsin mi.
+     * Çevirgen ekranı açıkken yeniden açıldı (onNewIntent): kayıtlı tercih katmansa katmana geçilsin mi.
      *
      * Bilgisayarın ya da telefonun adresiyle gelen açılış (launchParams dolu) ekranı hiç değiştirmez, yalnız adres sayfaya
      * iletilir. X'te bildirildi (Android TV 8, 0.9.54, Mac beta.74): Mac TV uygulamasını bağlı görmediği birkaç saniyede
-     * adresiyle yeniden açıyordu; kullanıcı katmanı kapatıp CouchSubs'ı kumandadan açmışken bu açılış onu yeniden katmana
+     * adresiyle yeniden açıyordu; kullanıcı katmanı kapatıp Çevirgen'i kumandadan açmışken bu açılış onu yeniden katmana
      * atıyor, ekran kapanıyordu ("çevirili ekran gelip hemen başka bir ekrana geçiyor, HDMI seçemiyorum"). Kullanıcı
      * katmandan çıktıysa (leftOverlay) kumandadan yeniden açılış da katmana atmaz.
      */

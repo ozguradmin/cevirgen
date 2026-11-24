@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
-<!-- CouchSubs OBS katmanı: OBS'de "Tarayıcı kaynağı" olarak eklenir, Türkçe altyazıyı şeffaf zemin üstünde gösterir.
+<!-- Çevirgen OBS katmanı: OBS'de "Tarayıcı kaynağı" olarak eklenir, Türkçe altyazıyı şeffaf zemin üstünde gösterir.
      Mac ve Windows uygulaması bu dosyayı /obs adresinden verir (aynı dosya). Adres parametreleri:
      ?size=48 (yazı boyu, 1080p'de piksel), ?bottom=8 (alttan uzaklık, %), ?bg=60 (altyazı kutusunun koyuluğu, 0-100),
      ?bg=green | black | magenta (tüm sayfanın zemini; şeffaflık tanımayan yayın programlarında chroma key ile silinir),
@@ -9,7 +9,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CouchSubs OBS</title>
+<title>Çevirgen OBS</title>
 <style>
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
   /* Yazı keskin çizilsin: gri tonlu kenar yumuşatma (renkli alt piksel yumuşatma video kaynağında kenarda renk
@@ -92,8 +92,8 @@
   var TEXT_COLORS = { white: '#FFFFFF', yellow: '#FFE135' };
   var turkish = (navigator.language || 'tr').toLowerCase().indexOf('tr') === 0;
   var TEXTS = turkish
-    ? { waiting: 'CouchSubs: altyazı bekleniyor', offline: 'CouchSubs uygulamasına bağlanılamadı' }
-    : { waiting: 'CouchSubs: waiting for subtitles', offline: 'Cannot reach the CouchSubs app' };
+    ? { waiting: 'Çevirgen: altyazı bekleniyor', offline: 'Çevirgen uygulamasına bağlanılamadı' }
+    : { waiting: 'Çevirgen: waiting for subtitles', offline: 'Cannot reach the Çevirgen app' };
 
   if (pageColor) document.documentElement.style.background = document.body.style.background = pageColor;
 

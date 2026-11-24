@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { startPage } = require('./tv-live-page');
 
-// Anahtarsız (auth 0) en küçük CouchSubs sunucusu: sayfa ağda sunucu aramaz, doğrudan akışa bağlanır.
+// Anahtarsız (auth 0) en küçük Çevirgen sunucusu: sayfa ağda sunucu aramaz, doğrudan akışa bağlanır.
 function couchsubs() {
   const streams = [];
   const server = http.createServer((req, res) => {

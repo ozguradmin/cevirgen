@@ -14,7 +14,7 @@ public class HdmiSessionTest {
 
     @Test
     public void inputIsReleasedWhenTheScreenLeaves() {
-        // #453: kumandadan Giriş › HDMI 2 seçilince CouchSubs girişi tutmaya devam ediyordu; TV'nin ekranı yeşil kalıyordu.
+        // #453: kumandadan Giriş › HDMI 2 seçilince Çevirgen girişi tutmaya devam ediyordu; TV'nin ekranı yeşil kalıyordu.
         HdmiSession session = new HdmiSession();
         assertTrue(session.want(HDMI2));
         assertTrue(session.toBackground());

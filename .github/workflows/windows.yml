@@ -177,7 +177,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchsubs-native
+          name: cevirgen-native
           path: build/native/couchsubs_native.dll
           if-no-files-found: error
 
@@ -211,7 +211,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: couchsubs-native
+          name: cevirgen-native
           path: windows/native/bin
 
       # Paketler depoda değil (özel R2); sürüm etiketinde zorunlu (paketsiz Windows paketi çıkmaz).
@@ -225,16 +225,16 @@ jobs:
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then python scripts/fetch-packs.py --require; else python scripts/fetch-packs.py; fi
 
       - name: Derle
-        run: dotnet build windows/CouchSubs.Windows.slnx -c Release
+        run: dotnet build windows/Cevirgen.slnx -c Release
 
       # Zamanlamaya bakan testler var; test projeleri aynı anda koşup işlemciyi paylaşmasın.
       - name: Testler
-        run: dotnet test windows/CouchSubs.Windows.slnx -c Release --no-build -m:1
+        run: dotnet test windows/Cevirgen.slnx -c Release --no-build -m:1
 
       - uses: actions/download-artifact@v4
         if: inputs.with-android
         with:
-          name: couchsubs-android
+          name: cevirgen-android
           path: android-apk
 
       - name: TV paketleri
@@ -256,26 +256,27 @@ jobs:
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION=0.1.0-dev; fi
           PACK_ARGS=()
           if [[ -n "$PACKS_APP_SECRET" ]]; then
-            PACK_ARGS=(-p:CouchSubsPacksSecret="$PACKS_APP_SECRET")
+            PACK_ARGS=(-p:CevirgenPacksSecret="$PACKS_APP_SECRET")
           else
             echo "::warning title=Paket indirme kapalı::PACKS_APP_SECRET yok; Windows paketinde paket indirme kapalı."
           fi
           USAGE_ARGS=()
           if [[ "$GITHUB_REF_TYPE" == tag && -n "$GA_MEASUREMENT_ID" && -n "$GA_API_SECRET" ]]; then
-            USAGE_ARGS=(-p:CouchSubsGaMeasurementId="$GA_MEASUREMENT_ID" -p:CouchSubsGaApiSecret="$GA_API_SECRET")
+            USAGE_ARGS=(-p:CevirgenGaMeasurementId="$GA_MEASUREMENT_ID" -p:CevirgenGaApiSecret="$GA_API_SECRET")
           else
             echo "::warning title=Kullanım verisi kapalı::GA_MEASUREMENT_ID/GA_API_SECRET yok ya da sürüm etiketi değil; Windows paketinde ölçüm kapalı."
           fi
-          dotnet publish windows/src/CouchSubs.App -c Release -r win-x64 --self-contained -o publish/CouchSubs -p:Version="$VERSION" \
-            -p:CouchSubsPacksUrl=https://couchsubs-packs.enmera.workers.dev \
-            -p:CouchSubsPacksFallbackUrl=https://couchsubs-packs.enmeraapps.com "${USAGE_ARGS[@]}" "${PACK_ARGS[@]}"
+          # Paket sunucusunun adresi (CevirgenPacksUrl / CevirgenPacksFallbackUrl) Çevirgen'in kendi paket sunucusu kurulunca
+          # buraya eklenir; adres yoksa uygulamada paket indirme kapalıdır.
+          dotnet publish windows/src/Cevirgen.App -c Release -r win-x64 --self-contained -o publish/Cevirgen -p:Version="$VERSION" \
+            "${USAGE_ARGS[@]}" "${PACK_ARGS[@]}"
 
       # CTranslate2'nin resmi Windows wheel'i CPU ve NVIDIA CUDA kodunu içerir. Python uygulamayla birlikte
       # gelir; kullanıcının Python kurması gerekmez. CUDA bulunmazsa uygulama CPU'ya döner.
       - name: CTranslate2 çalışma zamanı
         shell: pwsh
         run: |
-          $runtime = Join-Path (Resolve-Path publish/CouchSubs) 'ct2'
+          $runtime = Join-Path (Resolve-Path publish/Cevirgen) 'ct2'
           New-Item -ItemType Directory -Force $runtime | Out-Null
           $zip = Join-Path $env:RUNNER_TEMP 'python-embed.zip'
           Invoke-WebRequest 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip' -OutFile $zip
@@ -306,21 +307,21 @@ jobs:
             Sort-Object { [version]$_.Parent.Parent.Name } -Descending | Select-Object -First 1
           if (-not $crt) { throw "Visual C++ redist klasörü (Microsoft.VC14x.CRT) bulunamadı" }
           Write-Host "Kaynak: $($crt.FullName)"
-          Copy-Item "$($crt.FullName)\*.dll" publish/CouchSubs/
-          Copy-Item "$($crt.FullName)\*.dll" publish/CouchSubs/ct2/
+          Copy-Item "$($crt.FullName)\*.dll" publish/Cevirgen/
+          Copy-Item "$($crt.FullName)\*.dll" publish/Cevirgen/ct2/
           Get-ChildItem $crt.FullName -Filter *.dll | ForEach-Object { "{0,-28} {1}" -f $_.Name, $_.VersionInfo.FileVersion }
 
       # Türkçe dublajın ses motoru (Kyutai pocket-tts, MIT): sabit sürüm, özeti denetlenir.
       - name: Dublaj ses motoru
         shell: bash
-        run: ./scripts/fetch-pocket-tts.sh windows publish/CouchSubs/tts
+        run: ./scripts/fetch-pocket-tts.sh windows publish/Cevirgen/tts
 
       # Kurulum dosyası ve zip bu klasörden çıkar: CTranslate2 ve her yerel DLL/exe'nin istediği Visual C++
       # DLL'leri yanında değilse derleme durur. Bağımlılıklar dumpbin ile dosyaların kendi içe aktarma tablosundan okunur.
       - name: CTranslate2 ve Visual C++ DLL'leri yayın klasöründe mi
         shell: pwsh
         run: |
-          $dir = Resolve-Path publish/CouchSubs
+          $dir = Resolve-Path publish/Cevirgen
           foreach ($f in "ct2/python.exe", "ct2/python312.dll", "ct2/worker.py",
                          "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll") {
             if (-not (Test-Path (Join-Path $dir $f))) { throw "$f yayın klasöründe yok" }
@@ -355,10 +356,10 @@ jobs:
         shell: pwsh
         run: |
           $env:COUCHSUBS_DOWNLOAD_TEST_MODELS = '1'
-          $env:COUCHSUBS_CT2_RUNTIME = (Resolve-Path publish/CouchSubs/ct2).Path
+          $env:COUCHSUBS_CT2_RUNTIME = (Resolve-Path publish/Cevirgen/ct2).Path
           $env:CUDA_VISIBLE_DEVICES = '-1'
           $env:COUCHSUBS_TEST_EXPECT_GPU_FALLBACK = '1'
-          dotnet test windows/tests/CouchSubs.Translation.Tests/CouchSubs.Translation.Tests.csproj -c Release --no-build -m:1 --filter 'FullyQualifiedName~TranslationIntegrationTests'
+          dotnet test windows/tests/Cevirgen.Translation.Tests/Cevirgen.Translation.Tests.csproj -c Release --no-build -m:1 --filter 'FullyQualifiedName~TranslationIntegrationTests'
 
       # Kurulum dosyası ve uygulama içi güncelleme paketleri (Velopack, MIT). Sürümde önceki sürüm indirilir; yalnız
       # değişen parçalar (delta) da üretilir. Her derlemede denenir ki paketleme hatası sürüm anında çıkmasın.
@@ -366,19 +367,19 @@ jobs:
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME.TrimStart("v") } else { "0.1.0-dev" }
-          Copy-Item -Recurse publish/CouchSubs pack
-          Copy-Item LICENSE, THIRD-PARTY-NOTICES.md pack/
+          Copy-Item -Recurse publish/Cevirgen pack
+          Copy-Item LICENSE, NOTICE, THIRD-PARTY-NOTICES.md, README.md pack/
           dotnet tool install -g vpk --version 1.2.161
           if ($env:GITHUB_REF_TYPE -eq "tag") {
-            vpk download github --repoUrl https://github.com/yorulmazsinan/couchsubs -o Releases
+            vpk download github --repoUrl https://github.com/ozguradmin/cevirgen -o Releases
             if ($LASTEXITCODE -ne 0) { Write-Host "Önceki Velopack sürümü yok; yalnız tam paket üretilecek." }
           }
           # --framework webview2: PlayStation giriş penceresi WebView2 ister; eksik bilgisayarlarda kurulum onu da kurar.
-          vpk pack --packId CouchSubsApp --packVersion $version --packDir pack --mainExe CouchSubs.exe --framework webview2 `
-            --packTitle CouchSubs --packAuthors Enmera --icon windows/src/CouchSubs.App/Assets/CouchSubs.ico --outputDir Releases
+          vpk pack --packId CevirgenApp --packVersion $version --packDir pack --mainExe Cevirgen.exe --framework webview2 `
+            --packTitle 'Çevirgen' --packAuthors 'Çevirgen' --icon windows/src/Cevirgen.App/Assets/Cevirgen.ico --outputDir Releases
           if ($LASTEXITCODE -ne 0) { throw "vpk pack başarısız" }
           New-Item -ItemType Directory installer | Out-Null
-          Move-Item Releases/CouchSubsApp-win-Setup.exe installer/CouchSubs-windows-Setup.exe
+          Move-Item Releases/CevirgenApp-win-Setup.exe installer/CevirgenApp-win-Setup.exe
           # Bu sürümün güncelleme dosyaları; önceki sürümden indirilen paketler sürüme yeniden eklenmez.
           Get-ChildItem Releases -File |
             Where-Object { ($_.Name -like "*$version*" -or $_.Name -like "releases.*.json" -or $_.Name -like "assets.*.json" -or $_.Name -eq "RELEASES") -and $_.Name -notlike "*Portable*" } |
@@ -388,27 +389,27 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchsubs-windows-installer
+          name: cevirgen-windows-installer
           path: installer/*
           if-no-files-found: error
 
       - name: Yerel DLL yayın klasöründe mi
         shell: pwsh
         run: |
-          if (-not (Test-Path publish/CouchSubs/couchsubs_native.dll)) { throw "couchsubs_native.dll yayın klasöründe yok" }
-          if (-not (Test-Path publish/CouchSubs/tts/pocket-tts.exe)) { throw "pocket-tts.exe yayın klasöründe yok" }
+          if (-not (Test-Path publish/Cevirgen/couchsubs_native.dll)) { throw "couchsubs_native.dll yayın klasöründe yok" }
+          if (-not (Test-Path publish/Cevirgen/tts/pocket-tts.exe)) { throw "pocket-tts.exe yayın klasöründe yok" }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchsubs-windows
-          path: publish/CouchSubs
+          name: cevirgen-windows
+          path: publish/Cevirgen
           if-no-files-found: error
 
       # Ekranların görünümü: uygulama bütün ekranları açık ve koyu temada PNG'ye döker.
       - name: Ekran görüntüleri
         shell: pwsh
         run: |
-          $p = Start-Process publish/CouchSubs/CouchSubs.exe -ArgumentList "--render-screens", "$PWD/screens" -PassThru
+          $p = Start-Process publish/Cevirgen/Cevirgen.exe -ArgumentList "--render-screens", "$PWD/screens" -PassThru
           if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "ekran görüntüsü aracı zamanında bitmedi" }
           if (Test-Path screens/errors.txt) { Get-Content screens/errors.txt; throw "ekranlardan biri hata verdi" }
           $count = (Get-ChildItem screens -Filter *.png).Count
@@ -420,7 +421,7 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: |
-          $p = Start-Process publish/CouchSubs/CouchSubs.exe -ArgumentList "--olc-bosta", "10", "$PWD/bosta.txt" -PassThru
+          $p = Start-Process publish/Cevirgen/Cevirgen.exe -ArgumentList "--olc-bosta", "10", "$PWD/bosta.txt" -PassThru
           if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Host "ölçüm zamanında bitmedi" }
           if (Test-Path bosta.txt) { Get-Content bosta.txt -Encoding UTF8 } else { Write-Host "ölçüm sonucu yok" }
 
@@ -428,50 +429,50 @@ jobs:
       - name: Eksik DLL ile açılış
         shell: pwsh
         run: |
-          Copy-Item publish/CouchSubs broken -Recurse
-          Remove-Item broken/CouchSubs.RemotePlay.dll
-          $p = Start-Process broken/CouchSubs.exe -ArgumentList "--render-screens", "$PWD/broken-out" -PassThru
+          Copy-Item publish/Cevirgen broken -Recurse
+          Remove-Item broken/Cevirgen.RemotePlay.dll
+          $p = Start-Process broken/Cevirgen.exe -ArgumentList "--render-screens", "$PWD/broken-out" -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); throw "uygulama eksik DLL ile takıldı" }
           if (-not (Test-Path broken-out/errors.txt)) { throw "eksik DLL bildirilmedi (çıkış kodu $($p.ExitCode))" }
           $text = Get-Content broken-out/errors.txt -Raw
           $text
-          if ($text -notmatch "CouchSubs\.RemotePlay\.dll") { throw "hata metni eksik dosyayı söylemiyor" }
+          if ($text -notmatch "Cevirgen\.RemotePlay\.dll") { throw "hata metni eksik dosyayı söylemiyor" }
 
-      # Kurulum, CouchSubs.exe'yi --veloapp-install ile çağırır; 30 saniyede 0 ile dönmezse "Yükleme Kısmen Başarılı"
+      # Kurulum, Cevirgen.exe'yi --veloapp-install ile çağırır; 30 saniyede 0 ile dönmezse "Yükleme Kısmen Başarılı"
       # uyarısı çıkar (#676). Kanca, güvenlik yazılımının engelleyebileceği DLL'ler (Velopack, uygulamanın kendi
       # DLL'leri) yokken de 0 ile dönmeli; normal açılış da sessizce kapanmak yerine eksik dosyayı söylemeli.
       - name: Kurulum kancası DLL'ler eksikken de 0 ile döner
         shell: pwsh
         run: |
           function Invoke-Hook($folder, $hook) {
-            $p = Start-Process "$folder/CouchSubs.exe" -ArgumentList $hook, "0.1.0-dev" -PassThru
+            $p = Start-Process "$folder/Cevirgen.exe" -ArgumentList $hook, "0.1.0-dev" -PassThru
             $null = $p.Handle
             if (-not $p.WaitForExit(30000)) { $p.Kill(); throw "$hook kancası 30 saniyede bitmedi ($folder)" }
             if ($p.ExitCode -ne 0) { throw "$hook kancası $($p.ExitCode) ile döndü ($folder)" }
           }
           $hooks = "--veloapp-install", "--veloapp-updated", "--veloapp-obsolete", "--veloapp-uninstall"
-          foreach ($hook in $hooks) { Invoke-Hook publish/CouchSubs $hook }
-          Copy-Item publish/CouchSubs hook-broken -Recurse
-          Remove-Item hook-broken/Velopack.dll, hook-broken/CouchSubs.Shell.dll, hook-broken/CouchSubs.Core.dll
+          foreach ($hook in $hooks) { Invoke-Hook publish/Cevirgen $hook }
+          Copy-Item publish/Cevirgen hook-broken -Recurse
+          Remove-Item hook-broken/Velopack.dll, hook-broken/Cevirgen.Shell.dll, hook-broken/Cevirgen.Core.dll
           foreach ($hook in $hooks) { Invoke-Hook hook-broken $hook }
-          $p = Start-Process hook-broken/CouchSubs.exe -ArgumentList "--render-screens", "$PWD/hook-broken-out" -PassThru
+          $p = Start-Process hook-broken/Cevirgen.exe -ArgumentList "--render-screens", "$PWD/hook-broken-out" -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); throw "uygulama eksik DLL ile takıldı" }
           if (-not (Test-Path hook-broken-out/errors.txt)) { throw "eksik DLL bildirilmedi" }
           $text = Get-Content hook-broken-out/errors.txt -Raw
           $text
-          if ($text -notmatch "Velopack|CouchSubs\.(Shell|Core)") { throw "hata metni eksik dosyayı söylemiyor" }
+          if ($text -notmatch "Velopack|Cevirgen\.(Shell|Core)") { throw "hata metni eksik dosyayı söylemiyor" }
 
-      # Yerel çökme kaydı (GitHub #587): uygulama erişim ihlaliyle kapanınca %LOCALAPPDATA%\CouchSubs\cokme klasörüne
+      # Yerel çökme kaydı (GitHub #587): uygulama erişim ihlaliyle kapanınca %LOCALAPPDATA%\Cevirgen\cokme klasörüne
       # özet ve küçük döküm yazılmalı, sonraki açılış kaydı bulup tamamlamalı ve bir kez bildirmeli. Çökme yalnız
       # --crash-test argümanıyla yapılır. Türler: yerel (P/Invoke altında yerel kodda), is-parcacigi (yerel iş
       # parçacığında), atlama (bırakılmış belleğe atlama), yonetilen (yönetilen kodda geçersiz adrese yazma).
       - name: Çökme kaydı
         shell: pwsh
         run: |
-          $dir = Join-Path $env:LOCALAPPDATA 'CouchSubs\cokme'
+          $dir = Join-Path $env:LOCALAPPDATA 'Cevirgen\cokme'
           function Get-Records { @(Get-ChildItem $dir -Filter 'cokme-*.txt' -ErrorAction SilentlyContinue) }
           function Invoke-App([string[]]$arguments) {
-            $p = Start-Process publish/CouchSubs/CouchSubs.exe -ArgumentList $arguments -PassThru
+            $p = Start-Process publish/Cevirgen/Cevirgen.exe -ArgumentList $arguments -PassThru
             $null = $p.Handle
             if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "uygulama zamanında kapanmadı: $arguments" }
             return $p.ExitCode
@@ -526,7 +527,7 @@ jobs:
             # bir erişim ihlalidir, dağıtılan başka bir istisna değil.
             if ($kind -in 'yonetilen', 'paralel-yonetilen') {
               $net = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = '.NET Runtime'; StartTime = (Get-Date).AddMinutes(-3) } -ErrorAction SilentlyContinue |
-                Where-Object { $_.Message -match 'CouchSubs' } | Select-Object -First 1
+                Where-Object { $_.Message -match 'Cevirgen' } | Select-Object -First 1
               if ($net) {
                 Write-Host "${kind}: .NET Runtime kaydı:`n$($net.Message)"
                 Write-Host "${kind}: DispatchEx tepede: $($net.Message -match 'System\.Runtime\.EH\.DispatchEx'), AccessViolationException: $($net.Message -match 'AccessViolationException')"
@@ -543,17 +544,17 @@ jobs:
       - name: Okuma hattı yük testi
         shell: pwsh
         run: |
-          $dir = Join-Path $env:LOCALAPPDATA 'CouchSubs\cokme'
+          $dir = Join-Path $env:LOCALAPPDATA 'Cevirgen\cokme'
           Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
           function Invoke-Stress($name, $seconds) {
             $out = "$PWD\stress-$name.txt"
-            $p = Start-Process publish/CouchSubs/CouchSubs.exe -ArgumentList '--stress-okuma', $seconds, $out -PassThru
+            $p = Start-Process publish/Cevirgen/Cevirgen.exe -ArgumentList '--stress-okuma', $seconds, $out -PassThru
             $null = $p.Handle
             if (-not $p.WaitForExit(($seconds + 180) * 1000)) { $p.Kill(); throw "yük testi ($name) zamanında bitmedi" }
             if (Test-Path $out) { Get-Content $out -Encoding UTF8 }
             if ($p.ExitCode -ne 0) {
               # Çökme kaydı tamamlanır ve dökümle birlikte yapıta konur.
-              $r = Start-Process publish/CouchSubs/CouchSubs.exe -ArgumentList '--crash-report', "$PWD\crash-stress-$name.txt" -PassThru
+              $r = Start-Process publish/Cevirgen/Cevirgen.exe -ArgumentList '--crash-report', "$PWD\crash-stress-$name.txt" -PassThru
               $null = $r.WaitForExit(120000)
               if (Test-Path "$PWD\crash-stress-$name.txt") { Get-Content "$PWD\crash-stress-$name.txt" -Encoding UTF8 }
               New-Item -ItemType Directory -Force stress-cokme | Out-Null
@@ -571,7 +572,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: couchsubs-cokme
+          name: cevirgen-cokme
           path: |
             crash-*.txt
             stress-*.txt
@@ -581,6 +582,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: couchsubs-screens
+          name: cevirgen-screens
           path: screens
           if-no-files-found: error

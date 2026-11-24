@@ -2,25 +2,25 @@
 package com.cevirgen.tv;
 
 /**
- * HDMI sinyali değişirken TV'nin kendi giriş ekranı CouchSubs'ı önden itince ekranın geri alınıp alınmayacağı (#794).
+ * HDMI sinyali değişirken TV'nin kendi giriş ekranı Çevirgen'i önden itince ekranın geri alınıp alınmayacağı (#794).
  *
  * GitHub #794 (birden çok Android TV): "uygulamayı açtık; PlayStation açılınca, TV'de HDR devreye girince ya da kenarda bir
  * bildirim gelince normal HDMI girişine geçiyor, uygulamaya yeniden girmek gerekiyor". PS5 açılınca ya da görüntü biçimi
  * (HDR, çözünürlük) değişince TV sistemi kendi HDMI oynatıcısını öne çekiyor (tahmin: HDMI-CEC "etkin kaynak" ya da
  * üreticinin giriş uygulaması; TV'den TV'ye değişiyor). Bu, kullanıcının çıkması değildir: görüntü uygulamada zaten
- * gelmişse ve ekran sinyal olayından hemen sonra önden çekildiyse CouchSubs kısa süre sonra kendini yeniden öne getirir.
+ * gelmişse ve ekran sinyal olayından hemen sonra önden çekildiyse Çevirgen kısa süre sonra kendini yeniden öne getirir.
  *
  * Kullanıcının kendisi çıkmasıyla karışmasın diye:
  * - yalnız TvView'in sinyal olayından (görüntü geldi/gitti, bağlantı koptu, görüntü boyu ya da görüntü izi gerçekten
  *   değişti) en çok {@link #SIGNAL_WINDOW_MS} sonra;
- * - CouchSubs'ın kendi açtığı girişin ilk {@link #AFTER_TUNE_MS}'sindeki olaylar sayılmaz (açılışta Ana tuşu);
+ * - Çevirgen'in kendi açtığı girişin ilk {@link #AFTER_TUNE_MS}'sindeki olaylar sayılmaz (açılışta Ana tuşu);
  * - kullanıcı ekran çekilmeden hemen önce ({@link #USER_KEY_MS} içinde) kumandada bir tuşa bastıysa sayılmaz;
  * - dakikada en çok {@link #MAX_PER_MINUTE} kez (TV ile sonsuz itişme olmasın).
  *
  * X'te bildirildi (TCL Google TV, 0.9.56 sonrası): "son güncellemeden sonra ayarlar tuşu uygulamadan atıyor". Tahmin (kod;
  * gerçek TV'de doğrulanmadı): bazı TV'ler görüntü değişmeden de boy/iz olayı gönderiyor (onVideoSizeChanged aynı boyla,
  * onTracksChanged aynı izlerle). Ayarlar tuşu hızlı ayarlar panelini açınca ekran o olaydan hemen sonra önden çekilmiş
- * oluyor, panel devralma sayılıyordu: CouchSubs 0,8 sn sonra kendini panelin üstüne getiriyor, birkaç denemede hak dolunca
+ * oluyor, panel devralma sayılıyordu: Çevirgen 0,8 sn sonra kendini panelin üstüne getiriyor, birkaç denemede hak dolunca
  * katmana geçip ekranını kapatıyordu (uygulamadan atılma). Artık boy/iz olayı yalnız gerçekten değiştiyse sayılır ve
  * kullanıcının bastığı tuştan hemen sonraki çekilme devralma değildir.
  *
@@ -47,7 +47,7 @@ final class ScreenReclaim {
         java.util.Arrays.fill(reclaims, -1);
     }
 
-    /** TvView bir sinyal olayı bildirdi; tunedAt: CouchSubs girişi en son ne zaman açtı (-1: açmadı). */
+    /** TvView bir sinyal olayı bildirdi; tunedAt: Çevirgen girişi en son ne zaman açtı (-1: açmadı). */
     void signal(long now, long tunedAt) {
         if (tunedAt >= 0 && now - tunedAt < AFTER_TUNE_MS) return;
         lastSignal = now;
@@ -95,11 +95,11 @@ final class ScreenReclaim {
     enum Action {
         /** Devralma değil (kullanıcı çıktı ya da sinyal olayı yok): eski davranış. */
         NONE,
-        /** CouchSubs ekranı geri öne getirilir. */
+        /** Çevirgen ekranı geri öne getirilir. */
         RECLAIM,
         /**
          * Devralma ama dakikadaki geri alma hakkı doldu (TV sürekli geri itiyor): izin varsa katmana geçilir. Yoksa
-         * CouchSubs arkada kalır; altyazı bağlantısı açık olduğundan bilgisayar/telefon TV'yi "bağlı" görür ama
+         * Çevirgen arkada kalır; altyazı bağlantısı açık olduğundan bilgisayar/telefon TV'yi "bağlı" görür ama
          * yazı görünmeyen ekrana çizilir (bkz. MainActivity.onStop).
          */
         GIVE_UP

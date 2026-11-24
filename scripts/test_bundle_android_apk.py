@@ -37,7 +37,7 @@ class BundleAndroidApkTests(unittest.TestCase):
             arg = "build/source.apk" if use_relative else posix(caller / "build/source.apk")
             process = subprocess.run([bash_executable(), posix(repo / "scripts/bundle-android-apk.sh"), arg],
                                      cwd=caller, capture_output=True, text=True, errors="replace")
-            output = repo / "dist/tv-app/couchsubs-androidtv_0.9.73.apk"
+            output = repo / "dist/tv-app/cevirgen-androidtv_0.9.73.apk"
             return process, output.read_bytes() if output.exists() else None
 
     def test_caller_relative_source_path(self):
@@ -67,7 +67,7 @@ class BundleAndroidApkTests(unittest.TestCase):
             (root / "tv-android/app").mkdir(parents=True)
             (root / "tv-android/app/build.gradle").write_text("versionName '0.9.73'\n", encoding="utf-8")
             shutil.copy2(SCRIPT, root / "scripts/bundle-android-apk.sh")
-            release = root / "dist/tv-app/couchsubs-androidtv_0.9.73.apk"
+            release = root / "dist/tv-app/cevirgen-androidtv_0.9.73.apk"
             release.parent.mkdir(parents=True)
             release.write_bytes(b"last good release")
             process = subprocess.run([bash_executable(), posix(root / "scripts/bundle-android-apk.sh"),

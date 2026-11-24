@@ -1,0 +1,96 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- 22621 SDK'sı GraphicsCaptureSession.IsBorderRequired'ı (sarı yakalama çerçevesi) getirir; uygulama yine 19041'de çalışır,
+         yeni API'ler ApiInformation ile denetlenir. -->
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <!-- Yalnız tepsi simgesi (NotifyIcon) için; WinForms türleri tam adla kullanılır. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Cevirgen</AssemblyName>
+    <RootNamespace>Cevirgen.App</RootNamespace>
+    <ApplicationIcon>Assets\Cevirgen.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <!-- Velopack kurulum ve güncelleme kancaları WPF başlamadan çalışmalı (Program.Main). -->
+    <StartupObject>Cevirgen.App.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
+    <!-- Gelişmiş yazı tanıma (PP-OCRv6): DirectML ile her ekran kartında, yoksa işlemcide (MIT). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+  </ItemGroup>
+
+  <!-- Paket sunucusu (upstream server/packs biçiminde): `dotnet publish -p:CevirgenPacksUrl=https://…` ile verilir; boşsa paket indirme kapalı (PackUpdater). -->
+  <ItemGroup>
+    <AssemblyMetadata Include="CevirgenPacksUrl" Value="$(CevirgenPacksUrl)" />
+    <!-- Yedek adres: workers.dev'e ulaşılamazsa (ağ hatası/zaman aşımı/5xx) denenir (#583); `-p:CevirgenPacksFallbackUrl=https://…`. -->
+    <AssemblyMetadata Include="CevirgenPacksFallbackUrl" Value="$(CevirgenPacksFallbackUrl)" />
+    <!-- İstek imzasının sırrı (PackSigning): depoda değil, `-p:CevirgenPacksSecret=…` (CI: PACKS_APP_SECRET). Boşsa paket indirme kapalı. -->
+    <AssemblyMetadata Include="CevirgenPacksSecret" Value="$(CevirgenPacksSecret)" />
+  </ItemGroup>
+
+  <!-- Çevirgen sunucusu (uzaktan ayarlar, anonim sayım): boşsa koddaki sabit (CevirgenApi.DefaultUrl); `-p:CevirgenApiUrl=https://…` ile değişir. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="CevirgenApiUrl" Value="$(CevirgenApiUrl)" />
+  </ItemGroup>
+
+  <!-- Kullanım verisi (GA4 Measurement Protocol): `-p:CevirgenGaMeasurementId=G-… -p:CevirgenGaApiSecret=…` ile verilir
+       (CI: GA_MEASUREMENT_ID, GA_API_SECRET sırları); boşsa ölçüm tamamen kapalı (UsageStats). -->
+  <ItemGroup>
+    <AssemblyMetadata Include="CevirgenGaMeasurementId" Value="$(CevirgenGaMeasurementId)" />
+    <AssemblyMetadata Include="CevirgenGaApiSecret" Value="$(CevirgenGaApiSecret)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\logo.png" />
+    <!-- Enmera logosu (açılış ve Hakkında; koyu ve açık zemin için). -->
+    <Resource Include="Assets\enmera-white.png" />
+    <Resource Include="Assets\enmera-black.png" />
+    <!-- Yeni arayüzün renk, yazı, ölçü ve hareket değerleri (Mac ile ortak; Theme/Palette.cs okur). -->
+    <EmbeddedResource Include="..\..\..\design\yeni-arayuz\tasarim.json" LogicalName="tasarim.json" />
+    <!-- Alt reklam bandı (Cebbin, Gramla, Bakkal): Mac ile ortak liste ve simgeler (Services/AdCatalog.cs). -->
+    <EmbeddedResource Include="..\..\..\design\yeni-arayuz\reklamlar.json" LogicalName="reklamlar.json" />
+    <!-- Açılır reklamın görseli (reklamlar.json › popups; Mac aynı dosyayı okur). -->
+    <!-- ShellWindow.xaml pencere simgesi olarak bunu okur; ApplicationIcon yalnız exe simgesidir. -->
+    <Resource Include="Assets\Cevirgen.ico" />
+    <!-- Arayüz yazıları (SIL OFL 1.1): IBM Plex Sans / Mono ve Archivo Condensed, durağan TTF; WPF değişken eksenleri
+         okumadığı için her ağırlık ayrı dosya. Lisans metinleri pakete de kopyalanır (Assets/Fonts/*.txt). -->
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Content Include="Assets\Fonts\*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- TV uygulaması paketleri (scripts/package-tv.sh ve Android TV derlemesi üretir); geliştirici modu açık TV'ye kurulur. -->
+  <ItemGroup>
+    <Content Include="..\..\..\dist\tv-app\*.ipk;..\..\..\dist\tv-app\*.wgt;..\..\..\dist\tv-app\*.apk" Link="tv-app\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\xbox-bridge\dist\bridge.cjs;..\..\xbox-bridge\dist\player.html;..\..\xbox-bridge\dist\player.js"
+             Link="xbox-bridge\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\xbox-bridge\dist\node.exe" Condition="Exists('..\..\xbox-bridge\dist\node.exe')"
+             Link="xbox-bridge\node.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\xbox-bridge\dist\licenses\*" Link="xbox-bridge\licenses\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cevirgen.Core\Cevirgen.Core.csproj" />
+    <ProjectReference Include="..\Cevirgen.Translation\Cevirgen.Translation.csproj" />
+    <ProjectReference Include="..\Cevirgen.RemotePlay\Cevirgen.RemotePlay.csproj" />
+    <ProjectReference Include="..\Cevirgen.Shell\Cevirgen.Shell.csproj" />
+    <ProjectReference Include="..\Cevirgen.TvInstall\Cevirgen.TvInstall.csproj" />
+  </ItemGroup>
+
+</Project>

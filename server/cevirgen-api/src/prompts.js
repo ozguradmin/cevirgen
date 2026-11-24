@@ -3,7 +3,7 @@
 // "Press/Hold/Tap/Use ... to ..." kumanda ipuçları. Tuş simgesi resimdir; yazı tanıma onu ya hiç okumaz ("Press  to
 // open the map") ya da harf/simge kalıntısı olarak okur ("Press @ to", "Hold I LI to", "Press [RB] to take cover").
 // Böyle satırlar konuşma değildir; çevrilince tuş kaybolur ve oyuncu hangi tuşa basacağını anlamaz (GTA 6). Uygulamadaki
-// ButtonPrompts (core/Sources/CouchSubsCore/Reading.swift, windows/src/CouchSubs.Core/Reading.cs, Android Reading.kt)
+// ButtonPrompts (core/Sources/CouchSubsCore/Reading.swift, windows/src/Cevirgen.Core/Reading.cs, Android Reading.kt)
 // ile aynı kural.
 
 const BUTTONS = new Set([

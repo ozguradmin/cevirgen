@@ -2,7 +2,7 @@
   "name": "couchsubs-xbox-bridge",
   "private": true,
   "version": "0.1.0",
-  "description": "Xbox home stream signalling for the Windows CouchSubs app",
+  "description": "Xbox home stream signalling for the Windows Çevirgen app",
   "scripts": {
     "build": "esbuild bridge.cjs --bundle --platform=node --target=node22 --outfile=dist/bridge.cjs && node copy-player.cjs"
   },

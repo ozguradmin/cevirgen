@@ -30,10 +30,10 @@ import android.widget.Toast;
  * TV HDMI'yı kendisi çizdiğinde bu sorun olmaz. "Diğer uygulamaların üzerinde göster" izni gerekir (bilgisayar ADB ile
  * kurarken verir).
  *
- * Pencere odak almaz: kumanda TV'de ve oyunda normal çalışır, CouchSubs'ın kumanda tuşları bu modda yoktur. Dokunmaya
+ * Pencere odak almaz: kumanda TV'de ve oyunda normal çalışır, Çevirgen'in kumanda tuşları bu modda yoktur. Dokunmaya
  * kapatılmaz (bkz. showWindow: Android 12L+ öyle pencereyi %80 opaklıkla çizer), dokunmalar sayfada yutulur.
  * Altyazıyı uygulama içindeki modla aynı sayfa çizer (TvPage), olaylar yine bilgisayardan SSE ile gelir.
- * Kapatmak için CouchSubs yeniden açılır.
+ * Kapatmak için Çevirgen yeniden açılır.
  */
 public class OverlayService extends Service implements TvPage.Host {
     private static final String TAG = "CevirgenOverlay";
@@ -123,7 +123,7 @@ public class OverlayService extends Service implements TvPage.Host {
             running = true;
             current = this;
         } else if (params != null && !params.isEmpty()) {
-            // CouchSubs yeni adresle yeniden başlatıldı; TV başka bir uygulamaya geçmiş olabilir, giriş yeniden açılır.
+            // Çevirgen yeni adresle yeniden başlatıldı; TV başka bir uygulamaya geçmiş olabilir, giriş yeniden açılır.
             tunedPort = 0;
             page.relaunch(params);
         }
@@ -224,7 +224,7 @@ public class OverlayService extends Service implements TvPage.Host {
      * Android bunu ele alınmadı sayıp uygulamayı kapatıyordu, katman sessizce kayboluyordu. Sayfa yeniden kurulur; kısa
      * sürede birkaç kez yinelenirse katman bırakılır ve nedeni söylenir.
      *
-     * Katman bırakılırken CouchSubs ekranı öne getirilmez (0.9.41'de getiriliyordu): katmanı kullanan TV'lerin çoğu HDMI'yı
+     * Katman bırakılırken Çevirgen ekranı öne getirilmez (0.9.41'de getiriliyordu): katmanı kullanan TV'lerin çoğu HDMI'yı
      * uygulamanın içinde gösteremiyor. Oyunun ortasında açılan ekran orada siyah kalır, 10 sn sonra yeniden katmana geçilir
      * (FallbackWatch), sayfa yine gider ve görüntü tekrar tekrar kararır. Görüntü TV'nin kendi giriş ekranında kalır.
      */
@@ -261,7 +261,7 @@ public class OverlayService extends Service implements TvPage.Host {
         Toast.makeText(this, R.string.overlay_choose_console_input, Toast.LENGTH_LONG).show();
     }
 
-    /** Bilgisayarda "Uygulama içinde" seçildi: katman kapanır, CouchSubs öne gelir. */
+    /** Bilgisayarda "Uygulama içinde" seçildi: katman kapanır, Çevirgen öne gelir. */
     @Override
     public void displayModeChanged(String mode) {
         if (!DisplayMode.IN_APP.equals(mode)) return;
@@ -269,7 +269,7 @@ public class OverlayService extends Service implements TvPage.Host {
         openApp(null);
     }
 
-    /** CouchSubs'ı öne getirir; failure doluysa katman açılamamıştır: ekran nedenini söyler, yeniden katmana geçmez. */
+    /** Çevirgen'i öne getirir; failure doluysa katman açılamamıştır: ekran nedenini söyler, yeniden katmana geçmez. */
     private void openApp(String failure) {
         Intent open = new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -278,7 +278,7 @@ public class OverlayService extends Service implements TvPage.Host {
         try {
             startActivity(open);
         } catch (RuntimeException ignored) {
-            // Arka plandan açılamadı; kullanıcı CouchSubs'ı kendisi açar.
+            // Arka plandan açılamadı; kullanıcı Çevirgen'i kendisi açar.
         }
     }
 

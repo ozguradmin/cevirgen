@@ -15,7 +15,7 @@ final class FallbackWatch {
     static final long LIMIT_MS = 10_000;
     /**
      * Bazı TV'ler (ör. MediaTek tabanlı Google TV'ler) uygulama HDMI'yı açtıktan ~1-2 sn sonra kendi HDMI oynatıcısını
-     * öne çeker; CouchSubs arka plana düşer ve altyazı hiç görünmez. Giriş açıldıktan bu süre içinde arka plana
+     * öne çeker; Çevirgen arka plana düşer ve altyazı hiç görünmez. Giriş açıldıktan bu süre içinde arka plana
      * itilirse katmana geçilir.
      */
     static final long TAKEOVER_MS = 5_000;

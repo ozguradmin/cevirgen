@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-/* CouchSubs'ın Windows uygulaması için libchiaki üstünde düz C arayüzü (couchsubs_native.dll).
+/* Çevirgen'in Windows uygulaması için libchiaki üstünde düz C arayüzü (couchsubs_native.dll).
  * C# tarafı yalnız bu başlıktaki işlevleri P/Invoke ile çağırır; libchiaki yapılarına doğrudan dokunmaz.
  * Bütün dizgeler UTF-8, bütün işlevler iş parçacığı güvenlidir. Dönüş değeri 0 = başarı, diğerleri hata. */
 #ifndef COUCHSUBS_NATIVE_H

@@ -33,7 +33,7 @@ class PackageTvTests(unittest.TestCase):
             out = root / "dist/tv-app"
             out.mkdir(parents=True)
             (out / "couchsubs-samsung_0.9.75.wgt").write_bytes(b"samsung WGT")
-            (out / "couchsubs-androidtv_0.9.75.apk").write_bytes(b"android APK")
+            (out / "cevirgen-androidtv_0.9.75.apk").write_bytes(b"android APK")
             old = out / "com.couchsubs.tv_0.9.75_all.ipk"
             old.write_bytes(b"last working LG installer")
             fake = Path(tmp) / "bin"
@@ -53,7 +53,7 @@ class PackageTvTests(unittest.TestCase):
         proc, files = self.package()
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(files["couchsubs-samsung_0.9.75.wgt"], b"samsung WGT")
-        self.assertEqual(files["couchsubs-androidtv_0.9.75.apk"], b"android APK")
+        self.assertEqual(files["cevirgen-androidtv_0.9.75.apk"], b"android APK")
         self.assertEqual(files["com.couchsubs.tv_0.9.75_all.ipk"], b"new LG installer")
 
     def test_failed_lg_packager_preserves_previous_installers(self):
@@ -61,7 +61,7 @@ class PackageTvTests(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(files["com.couchsubs.tv_0.9.75_all.ipk"], b"last working LG installer")
         self.assertEqual(files["couchsubs-samsung_0.9.75.wgt"], b"samsung WGT")
-        self.assertEqual(files["couchsubs-androidtv_0.9.75.apk"], b"android APK")
+        self.assertEqual(files["cevirgen-androidtv_0.9.75.apk"], b"android APK")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<UserControl x:Class="Cevirgen.App.Views.FirewallCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:Cevirgen.App.Controls"
+             xmlns:t="clr-namespace:Cevirgen.App.Theme"
+             Visibility="Collapsed">
+    <c:Card>
+        <StackPanel>
+            <TextBlock x:Name="Headline" FontWeight="SemiBold" Foreground="{DynamicResource warningBrush}" TextWrapping="Wrap" />
+            <TextBlock x:Name="Hint" Style="{StaticResource HintText}" Margin="{t:Sp '0,xs,0,0'}" TextWrapping="Wrap" />
+            <Button x:Name="Allow" HorizontalAlignment="Left" Margin="{t:Sp '0,s,0,0'}" Content="{t:T 'Allow Çevirgen through Windows Firewall'}" Click="OnAllow" />
+        </StackPanel>
+    </c:Card>
+</UserControl>

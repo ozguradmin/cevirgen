@@ -32,7 +32,7 @@
   // geçince; Ana ekran) altyazı bağlantısı bırakılır, öne gelince yeniden kurulur (Samsung'daki closeWhenHidden). Eskiden
   // bağlantı arka planda açık kalıyordu: telefon/bilgisayar "TV bağlı" görüyor, deneme yazısı bile görünmeyen sayfaya
   // gidiyordu; Android'in arka plan uygulamalarını dondurması da bağlantıyı yarı açık bırakıyordu. Bağlantı düşünce
-  // telefon/bilgisayar "CouchSubs'ı TV'de açın" der. Katman penceresi hep görünür: orada bırakılmaz.
+  // telefon/bilgisayar "Çevirgen'i TV'de açın" der. Katman penceresi hep görünür: orada bırakılmaz.
   window.__onBackground = function (hidden) {
     muted = !!hidden;
     if (lastAudio) lastAudio.muted = muted;

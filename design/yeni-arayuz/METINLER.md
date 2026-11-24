@@ -132,7 +132,7 @@ Kurulumda reklam yok.
 | EN | TR |
 |---|---|
 | Which console do you play on? | Hangi konsolda oynuyorsunuz? |
-| CouchSubs gets the picture from the console over your local network. Nothing is installed on your console. | CouchSubs görüntüyü konsoldan yerel ağ üzerinden alır. Konsolunuza hiçbir şey kurulmaz. |
+| Çevirgen gets the picture from the console over your local network. Nothing is installed on your console. | Çevirgen görüntüyü konsoldan yerel ağ üzerinden alır. Konsolunuza hiçbir şey kurulmaz. |
 | PlayStation 5 | PlayStation 5 |
 | With Remote Play | Uzaktan Oynatma ile |
 | Xbox Series | Xbox Series |
@@ -150,7 +150,7 @@ QR kodu yerel üretilir (Sony'nin resmi hesap açma sayfası). Dört madde tıkl
 |---|---|
 | Setup · Account | Kurulum · Hesap |
 | Second PlayStation Account | İkinci PlayStation Hesabı |
-| CouchSubs connects to the PS5 by itself with a second account. You keep playing with your main account. | CouchSubs PS5'e ikinci hesapla kendisi bağlanır. Siz ana hesabınızla oynamaya devam edersiniz. |
+| Çevirgen connects to the PS5 by itself with a second account. You keep playing with your main account. | Çevirgen PS5'e ikinci hesapla kendisi bağlanır. Siz ana hesabınızla oynamaya devam edersiniz. |
 | Done once | Bir kez yapılır |
 | Create a free account on playstation.com with a different email address. | playstation.com'da farklı bir e-posta adresiyle ücretsiz bir hesap açın. |
 | On the PS5, choose Add User and sign in once with the new account. | PS5'te Kullanıcı Ekle'yi seçin ve yeni hesapla bir kez oturum açın. |
@@ -194,7 +194,7 @@ Bulunan cihazlar kart kart belirir; 10 sn'de bulunamazsa ipucu kartı açılır,
 | %@ selected. | %@ seçildi. |
 | Pairing and First Picture | Eşleşme ve İlk Görüntü |
 | Setting up an encrypted connection with the PS5. | PS5 ile şifreli bağlantı kuruluyor. |
-| Always start the game on the PS5 with your main account. CouchSubs only watches the picture and never touches the game. | Oyunu her zaman PS5'te ana hesabınızla başlatın. CouchSubs yalnız görüntüyü izler, oyuna dokunmaz. |
+| Always start the game on the PS5 with your main account. Çevirgen only watches the picture and never touches the game. | Oyunu her zaman PS5'te ana hesabınızla başlatın. Çevirgen yalnız görüntüyü izler, oyuna dokunmaz. |
 | If the PS5 isn't found, tips open after 10 seconds. | PS5 bulunamazsa 10 saniye sonra ipuçları açılır. |
 | PS5 Login Passcode | PS5 Giriş Şifresi |
 
@@ -242,8 +242,8 @@ Kod iki ekranda: TV'de görünen 4 haneli kod burada da gösterilir; kullanıcı
 | EN | TR |
 |---|---|
 | Show Subtitles on the TV | Altyazı TV'de Görünsün |
-| We found a TV on the network. Choose it and CouchSubs installs its app on the TV by itself. | Ağda bir TV bulduk. Seçin, CouchSubs uygulamasını TV'ye kendisi kursun. |
-| We're looking for TVs on the network. Choose yours and CouchSubs installs its app on the TV by itself. | Ağdaki TV'leri arıyoruz. Seçin, CouchSubs uygulamasını TV'ye kendisi kursun. |
+| We found a TV on the network. Choose it and Çevirgen installs its app on the TV by itself. | Ağda bir TV bulduk. Seçin, Çevirgen uygulamasını TV'ye kendisi kursun. |
+| We're looking for TVs on the network. Choose yours and Çevirgen installs its app on the TV by itself. | Ağdaki TV'leri arıyoruz. Seçin, Çevirgen uygulamasını TV'ye kendisi kursun. |
 | TVS ON THE NETWORK | AĞDAKİ TV'LER |
 | Not in the List? | Listede Yok mu? |
 | Choose the Brand and Add It Manually | Markayı Seçip Elle Ekleyin |
@@ -259,7 +259,7 @@ Kod iki ekranda: TV'de görünen 4 haneli kod burada da gösterilir; kullanıcı
 | Paired | Eşleşti |
 | If the installation continues in the background, it shows on the home screen when it's done. | Kurulum arka planda sürerse bitince ana ekranda görünür. |
 | Approve the code on the TV to continue. If you don't have a TV, skip with "I Don't Have a TV". | Devam etmek için TV'deki kodu onaylayın. TV'niz yoksa "TV'm Yok" seçeneğiyle geçebilirsiniz. |
-| Open CouchSubs on the TV. When it shows a code, it appears here too. | TV'de CouchSubs'ı açın. Kod gösterince burada da görünür. |
+| Open Çevirgen on the TV. When it shows a code, it appears here too. | TV'de Çevirgen'i açın. Kod gösterince burada da görünür. |
 | Show Subtitles on This Computer | Altyazıyı Bu Bilgisayarda Göster |
 
 ## 06 · Kurulum: TV Girişi (HDMI)
@@ -270,7 +270,7 @@ Seçim TV uygulamasına gider (`hdmiInput` alanı, aşağıda). "Bilmiyorum, Sı
 |---|---|
 | TV input | TV girişi |
 | Which TV Input Is the PS5 Plugged Into? | PS5 TV'nin Hangi Girişine Takılı? |
-| CouchSubs opens this input on the TV to show subtitles over the game. If the wrong input is chosen, the screen stays black. | CouchSubs, altyazıyı oyunun üstünde göstermek için TV'de bu girişi açar. Yanlış giriş seçilirse ekran siyah kalır. |
+| Çevirgen opens this input on the TV to show subtitles over the game. If the wrong input is chosen, the screen stays black. | Çevirgen, altyazıyı oyunun üstünde göstermek için TV'de bu girişi açar. Yanlış giriş seçilirse ekran siyah kalır. |
 | I Don't Know, Try Them in Turn | Bilmiyorum, Sırayla Dene |
 | We open the inputs one by one; you confirm when you see the picture. | Girişleri tek tek açarız, görüntüyü görünce onaylarsınız. |
 | How Do I Tell? | Nereden Anlarım? |
@@ -377,20 +377,20 @@ kartı: "%lld SN SESSİZ", neden başlığı, açıklama, çözüm düğmeleri v
 | Draw the Area Manually | Alanı Elle Çiz |
 | Picture Stopped | Görüntü Durdu |
 | The PS5 picture hasn't arrived for %lld seconds. | PS5 görüntüsü %lld saniyedir gelmiyor. |
-| The connection may have weakened. CouchSubs is trying to reconnect; if it doesn't, check that you're on the same Wi-Fi network as the PS5 and using 5 GHz. | Bağlantı zayıflamış olabilir. CouchSubs yeniden bağlanmayı deniyor; olmazsa PS5 ile aynı Wi-Fi ağında olduğunuzu ve 5 GHz kullandığınızı kontrol edin. |
+| The connection may have weakened. Çevirgen is trying to reconnect; if it doesn't, check that you're on the same Wi-Fi network as the PS5 and using 5 GHz. | Bağlantı zayıflamış olabilir. Çevirgen yeniden bağlanmayı deniyor; olmazsa PS5 ile aynı Wi-Fi ağında olduğunuzu ve 5 GHz kullandığınızı kontrol edin. |
 | Reconnect Now | Şimdi Yeniden Bağlan |
 | Open the Connection Test | Bağlantı Testini Aç |
 | Off | Kapalı |
 | Completed | Yapıldı |
 | Game Subtitles Off? | Oyunun Altyazısı Kapalı mı? |
-| CouchSubs reads the English subtitles on screen, not the audio. Turn on the game's own subtitles. | CouchSubs sesi değil, ekrandaki İngilizce altyazıyı okur. Oyunun kendi altyazısını açın. |
+| Çevirgen reads the English subtitles on screen, not the audio. Turn on the game's own subtitles. | Çevirgen sesi değil, ekrandaki İngilizce altyazıyı okur. Oyunun kendi altyazısını açın. |
 | Open the TV App | TV Uygulamasını Aç |
 | Update the TV App | TV Uygulamasını Güncelle |
 | Reinstall the TV App | TV Uygulamasını Yeniden Kur |
 | Connect TV | TV Bağla |
 | Change the TV | TV'yi Değiştir |
 | Connect Again | Yeniden Bağlan |
-| Restart CouchSubs Now | CouchSubs'ı Yeniden Başlat |
+| Restart Çevirgen Now | Çevirgen'i Yeniden Başlat |
 | Open Language and Region | Dil ve Bölge'yi Aç |
 | Try Demo Mode | Deneme Modunu Aç |
 
@@ -422,7 +422,7 @@ kartı: "%lld SN SESSİZ", neden başlığı, açıklama, çözüm düğmeleri v
 
 | EN | TR |
 |---|---|
-| CouchSubs Stream | CouchSubs Yayın |
+| Çevirgen Stream | Çevirgen Yayın |
 | Cover | Örtsün |
 | Hide the Bar | Çubuğu Gizle |
 | Show the Bar | Çubuğu Göster |
@@ -466,7 +466,7 @@ kartı: "%lld SN SESSİZ", neden başlığı, açıklama, çözüm düğmeleri v
 | Playing with the Xbox App or play.xbox.com on This Computer? | Bu Bilgisayarda Xbox Uygulaması ya da play.xbox.com ile mi Oynuyorsunuz? |
 | Then you don't need to sign in with Microsoft; just choose the game window. | O zaman Microsoft girişine gerek yok; oyun penceresini seçmeniz yeter. |
 | Choose the Game Window | Oyun Penceresini Seç |
-| CouchSubs is not affiliated with Microsoft. Xbox is a trademark of Microsoft Corporation. | CouchSubs, Microsoft ile bağlantılı değildir. Xbox, Microsoft Corporation'ın ticari markasıdır. |
+| Çevirgen is not affiliated with Microsoft. Xbox is a trademark of Microsoft Corporation. | Çevirgen, Microsoft ile bağlantılı değildir. Xbox, Microsoft Corporation'ın ticari markasıdır. |
 
 ## 16 · Geçmiş
 
@@ -497,20 +497,20 @@ kartı: "%lld SN SESSİZ", neden başlığı, açıklama, çözüm düğmeleri v
 | Clicks Pass to the Window Below | Tıklamalar Alttaki Pencereye Geçsin |
 | Subtitles don't block clicks. | Altyazı tıklamaları engellemez. |
 | Position the Subtitles | Altyazıları Konumlandır |
-| Show CouchSubs | CouchSubs'ı Aç |
+| Show Çevirgen | Çevirgen'i Aç |
 | About | Hakkında |
 | Free and open source under the GNU AGPL-3.0 license. | GNU AGPL-3.0 lisansıyla ücretsiz ve açık kaynak. |
 | Remote Play connection by chiaki-ng (AGPL-3.0). Thanks to its developers. | Uzaktan Oynatma bağlantısı chiaki-ng (AGPL-3.0) ile. Geliştiricilerine teşekkürler. |
 | The Xbox home console picture uses the open source approach of Greenlight (MIT). | Xbox ev konsolu görüntüsü Greenlight'ın açık kaynak yaklaşımını kullanır (MIT). |
-| CouchSubs is not affiliated with Microsoft. | CouchSubs, Microsoft ile bağlantılı değildir. |
-| CouchSubs is not affiliated with Sony Interactive Entertainment. | CouchSubs, Sony Interactive Entertainment ile bağlantılı değildir. |
+| Çevirgen is not affiliated with Microsoft. | Çevirgen, Microsoft ile bağlantılı değildir. |
+| Çevirgen is not affiliated with Sony Interactive Entertainment. | Çevirgen, Sony Interactive Entertainment ile bağlantılı değildir. |
 | Source | Kaynak |
 | Check for Updates… | Güncellemeleri Denetle… |
 | Copyright © 2026 Enmera | Telif Hakkı © 2026 Enmera |
 | Release notes | Neler değişti? |
 | This Version | Bu Sürüm |
 | Previous | Önceki |
-| About CouchSubs | CouchSubs Hakkında |
+| About Çevirgen | Çevirgen Hakkında |
 | Release Notes | Sürüm Notları |
 
 ## 18 · Açılır Reklam
@@ -763,7 +763,7 @@ Her işin iki tuşu: sayı tuş takımı rakamı ve ⌃⇧rakam. Tuşa tıklayı
 | Turn Clicks Pass Through On or Off | Tıklamalar Geçsin Aç ya da Kapat |
 | Refresh the Picture in Settings | Ayarlar'da Görüntüyü Yenile |
 | Press Keys… | Tuşlara Basın… |
-| Each action has two keys: the number pad digit and ⌃⇧digit. Shortcuts work only while translating, also when CouchSubs is in the background. | Her işin iki tuşu var: sayı tuş takımındaki rakam ve ⌃⇧rakam. Kısayollar yalnız çeviri sürerken çalışır; CouchSubs arka plandayken de. |
+| Each action has two keys: the number pad digit and ⌃⇧digit. Shortcuts work only while translating, also when Çevirgen is in the background. | Her işin iki tuşu var: sayı tuş takımındaki rakam ve ⌃⇧rakam. Kısayollar yalnız çeviri sürerken çalışır; Çevirgen arka plandayken de. |
 
 ## 25 · Ayarlar: Konsol ve Kaynak
 
@@ -793,10 +793,10 @@ Her işin iki tuşu: sayı tuş takımı rakamı ve ⌃⇧rakam. Tuşa tıklayı
 
 ## TV kurulumu: başka uygulama (#976)
 
-TV'de CouchSubs'ın kimliğini kullanan başka uygulama bulununca açılır kart (TV adımı ve Çıkış Ekranları › TV kartı):
+TV'de Çevirgen'in kimliğini kullanan başka uygulama bulununca açılır kart (TV adımı ve Çıkış Ekranları › TV kartı):
 mono "TV", başlık, açıklama; sağda amber ana eylem "Kaldırıp Kur", ikincil "Vazgeç" (kırmızı tehlikeli eylem değil).
-Mevcut anahtarlar: "Another App Is Installed", "Another app on this TV is using the CouchSubs identity. Remove it and
-install CouchSubs?", "Remove And Install", "Cancel".
+Mevcut anahtarlar: "Another App Is Installed", "Another app on this TV is using the Çevirgen identity. Remove it and
+install Çevirgen?", "Remove And Install", "Cancel".
 
 ## Ek metinler (kodda geçen)
 
@@ -850,7 +850,7 @@ Kart başlıkları cümle düzeninde, sistem yazısıyla (mono büyük harf yok)
 | Bottom left of the screen. | Ekranın sol altı. |
 | Bottom right of the screen. | Ekranın sağ altı. |
 | Drag the frame on the picture to place it. | Çerçeveyi resmin üzerinde sürükleyerek yerleştirin. |
-| Press its shortcut while playing to translate this area once, even with CouchSubs in the background. | Oynarken kısayoluna basınca bu alan bir kez çevrilir; CouchSubs arka plandayken de çalışır. |
+| Press its shortcut while playing to translate this area once, even with Çevirgen in the background. | Oynarken kısayoluna basınca bu alan bir kez çevrilir; Çevirgen arka plandayken de çalışır. |
 | Area Name | Alan Adı |
 | Remove | Kaldır |
 | No Shortcut | Kısayol Yok |
@@ -865,7 +865,7 @@ Kart başlıkları cümle düzeninde, sistem yazısıyla (mono büyük harf yok)
 
 ## Ayar alanları ve TV protokolü (geriye uyumlu)
 
-Yeni ayarlar `UserSettings`'e (core `Pipeline/AppSettings.swift`, Windows `CouchSubs.Shell/Contracts.cs`) **aynı adla**
+Yeni ayarlar `UserSettings`'e (core `Pipeline/AppSettings.swift`, Windows `Cevirgen.Shell/Contracts.cs`) **aynı adla**
 eklendi; eski kayıtta yoksa varsayılan kullanılır.
 
 | Alan | Tür / varsayılan | Anlamı |

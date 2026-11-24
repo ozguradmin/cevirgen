@@ -6,7 +6,7 @@ const { Msal, TokenStore } = require('xal-node');
 const XboxWebApi = require('xbox-webapi').default;
 const { Address6 } = require('ip-address');
 
-// xal-node normally writes a plaintext token file. CouchSubs stores it with DPAPI instead.
+// xal-node normally writes a plaintext token file. Çevirgen stores it with DPAPI instead.
 class MemoryStore extends TokenStore {
   save() {}
   removeAll() {

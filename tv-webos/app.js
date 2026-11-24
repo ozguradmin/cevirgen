@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// CouchSubs TV uygulaması (webOS ve Tizen ortak).
-// HDMI girişini tam ekran gösterir, üstüne CouchSubs uygulamasından gelen altyazıyı basar.
+// Çevirgen TV uygulaması (webOS ve Tizen ortak).
+// HDMI girişini tam ekran gösterir, üstüne Çevirgen uygulamasından gelen altyazıyı basar.
 // TV'ye özgü işler platform.js'tedir. Eski TV tarayıcıları için ES5 ile yazıldı.
 (function () {
   'use strict';
@@ -26,7 +26,7 @@
 
   var bottomPercent = 7;
   // Çevirinin yeri: oyundaki İngilizce altyazının üstünü örterek (cover), üstünde (above), altında (below)
-  // ya da sabit yükseklikte (fixed). Yeri bildirmeyen eski CouchSubs sürümlerinde sabit kalır.
+  // ya da sabit yükseklikte (fixed). Yeri bildirmeyen eski Çevirgen sürümlerinde sabit kalır.
   var PLACEMENTS = { cover: 1, above: 1, below: 1, fixed: 1 };
   var placement = 'fixed';
   // Gösterilen satırın oyundaki İngilizce altyazının yeri (ekrana oranla), bilinmiyorsa null.
@@ -223,7 +223,7 @@
       var address = params.server.replace(/\/+$/, '');
       var oldKey = serverKey(address);
       if (params.key) saveServerKey(address, params.key);
-      // Adresi bilgisayar ya da telefon kendisi verdi: bağlanınca kimliği "kendi CouchSubs'ı" olarak kaydedilir.
+      // Adresi bilgisayar ya da telefon kendisi verdi: bağlanınca kimliği "kendi Çevirgen'i" olarak kaydedilir.
       adoptAddress = address;
       if (address !== server || oldKey !== serverKey(address)) {
         save('server', address);
@@ -1778,7 +1778,7 @@
     avoidRegions();
   }
 
-  // Konum hem CouchSubs uygulamasından hem kumandanın oklarıyla ayarlanır. Kumandayla
+  // Konum hem Çevirgen uygulamasından hem kumandanın oklarıyla ayarlanır. Kumandayla
   // seçilen konum, uygulamadaki ayar değişene kadar korunur (son değiştiren geçerlidir).
   // Alttan en az %3: ekran kenarı taşan (overscan) TV'lerde altyazının alt satırı kesilmesin.
   var BOTTOM_MIN_PERCENT = 3;
@@ -1845,7 +1845,7 @@
   // farklı iki kutu görünüyordu. Örtü çevirinin zeminini tamamen kapladığından ikisi tek bir siyah kutu gibi görünür.
   var COVER_PAD = 0.012;
 
-  // Katman modu (Android TV, #473): HDMI'yı CouchSubs değil TV'nin kendi giriş ekranı çizer ve resmi çoğu TV'de kenar
+  // Katman modu (Android TV, #473): HDMI'yı Çevirgen değil TV'nin kendi giriş ekranı çizer ve resmi çoğu TV'de kenar
   // taşmasıyla (overscan) %5'e kadar büyütür. İngilizce satırın yeri bilgisayarın gördüğü karedeki yeridir; ekranda daha
   // geniş ve kenara doğru kaymış durur. Örtü kareye göre çizilince İngilizce satırdan dar kalıyor, yazı yanlardan
   // görünüyordu (arka plan "Tam" olsa da saydam sanılıyordu). Uygulama içinde (TvView) resim büyütülmez; orada değişmez.
@@ -2153,7 +2153,7 @@
     pairRequest('GET', address, '/hello', function (hello, status) {
       if (generation !== connectionGeneration) return;
       if (!hello || hello.app !== 'couchsubs') {
-        // Eşleştirme sürerken CouchSubs yanıt vermez olduysa (telefonda uygulama kapandı/arka plana düştü, adres
+        // Eşleştirme sürerken Çevirgen yanıt vermez olduysa (telefonda uygulama kapandı/arka plana düştü, adres
         // değişti) "kod isteniyor" yazısı takılı kalmaz; ağ taranırken ne yapılacağı görünür.
         var asking = $('pairing').textContent;
         if (asking && asking !== t('pairRetry') && asking !== t('pairClosed')) notePairMiss('hello ' + status);
@@ -2258,7 +2258,7 @@
     streamPort = shownPort;
     // Sürüm (v) akışla bildirilir: bilgisayar ve telefon TV'deki uygulamanın eski kaldığını LG geliştirici moduna
     // bağlanamasa da bununla anlar ve "TV uygulamasını güncelle" der (GitHub #884, #891). 0.9.69'den eski TV
-    // uygulamaları v göndermez; CouchSubs v'siz TV'yi eski sayar.
+    // uygulamaları v göndermez; Çevirgen v'siz TV'yi eski sayar.
     // Gizleme durumu her akışta yeniden gelir (gizliyse stilin ardından `visibility`); bağlantı yokken gösterilmiş olabilir.
     setSubtitlesHidden(false);
     eventSource = new EventSource(authenticatedUrl(address, '/events?v=' + APP_VERSION + (shownPort ? '&hdmi=' + shownPort : '')));
@@ -2368,7 +2368,7 @@
   // --- Alındı ---
   // Ping yalnız bilgisayardan/telefondan TV'ye gidiyordu: TV uygulaması arka plana düşüp askıya alınınca (LG, Android TV)
   // TV'nin ağ katmanı bağlantıyı açık tutuyor, telefon/bilgisayar saatlerce "Bağlı" gösteriyor ama altyazı ekrana
-  // gelmiyordu (LG + iPhone, 20-25 dk sonra; CouchSubs'tan çıkıp girince düzeliyordu). Akış `link` olayıyla kimliğini
+  // gelmiyordu (LG + iPhone, 20-25 dk sonra; Çevirgen'den çıkıp girince düzeliyordu). Akış `link` olayıyla kimliğini
   // bildirirse TV her ping'de `/ack?c=<kimlik>` gönderir; alındı kesilince bilgisayar/telefon bağlantıyı kapatıp
   // "Yeniden bağlanılıyor" der, TV uygulamasını yeniden öne getirir. 404: bilgisayar bu akışı artık tanımıyor (yeniden
   // açıldı, bağlantıyı kopmuş saydı): TV beklemeden yeniden bağlanır. `link` göndermeyen eski sürümlere alındı gitmez.
@@ -2609,8 +2609,8 @@
   var FAILS_BEFORE_SCAN = 3;
   // TV kendi adresini söyleyemiyor ve kayıtlı adres de yoksa taranacak yaygın ev ağları (modemlerin varsayılanları,
   // sırayla). Eskiden bu durumda tarama listesi boş kalıyor, hiçbir adres denenmiyordu: telefondan ya da başlatma
-  // parametresi vermeyen yoldan kurulan TV (eski webOS, adresini vermeyen Samsung) "Ağda CouchSubs aranıyor…" ekranında
-  // kalıyor, telefon "TV uygulaması bekleniyor" diyordu (#469, #484). Bir ağda CouchSubs bulununca sonrakiler taranmaz.
+  // parametresi vermeyen yoldan kurulan TV (eski webOS, adresini vermeyen Samsung) "Ağda Çevirgen aranıyor…" ekranında
+  // kalıyor, telefon "TV uygulaması bekleniyor" diyordu (#469, #484). Bir ağda Çevirgen bulununca sonrakiler taranmaz.
   var GUESS_SUBNETS = ['192.168.1', '192.168.0', '10.0.0', '192.168.2', '192.168.100', '192.168.31', '192.168.50',
     '192.168.178', '10.0.1', '192.168.10', '192.168.3', '192.168.8', '192.168.88'];
   var scanTimer = null;
@@ -2690,16 +2690,16 @@
     }
   }
 
-  // --- Kendi CouchSubs'ını tanıma (GitHub #425) ---
-  // Aynı ağda iki bilgisayar/telefon CouchSubs çalıştırınca TV eskiden taramada ilk yanıt verene bağlanıyordu; iki evin
-  // (ya da iki odanın) altyazıları karışıyordu. CouchSubs /hello yanıtında kurulum kimliğini ("id") ve bağlı TV sayısını
-  // ("tvs") verir. TV bağlandığı CouchSubs'ın kimliğini kaydeder; taramada önce onu, yoksa TV'si bağlı olmayanı seçer.
+  // --- Kendi Çevirgen'ini tanıma (GitHub #425) ---
+  // Aynı ağda iki bilgisayar/telefon Çevirgen çalıştırınca TV eskiden taramada ilk yanıt verene bağlanıyordu; iki evin
+  // (ya da iki odanın) altyazıları karışıyordu. Çevirgen /hello yanıtında kurulum kimliğini ("id") ve bağlı TV sayısını
+  // ("tvs") verir. TV bağlandığı Çevirgen'in kimliğini kaydeder; taramada önce onu, yoksa TV'si bağlı olmayanı seçer.
   var serverId = load('serverId');
   // Bu adrese bağlanınca kimlik, kayıtlı kimlik olmasa da kaydedilir (adresi bilgisayar başlatma parametresiyle verdi).
   var adoptAddress = null;
-  // Bağlı olunan CouchSubs kayıtlı kimlik değil (kendisi kapalıyken bulunan): kendi CouchSubs'ı dönünce ona geçilir.
+  // Bağlı olunan Çevirgen kayıtlı kimlik değil (kendisi kapalıyken bulunan): kendi Çevirgen'i dönünce ona geçilir.
   var fallback = false;
-  // Bağlı olunan CouchSubs /hello'da "live":0 dedi (çeviri yok ya da altyazı TV'ye gitmiyor).
+  // Bağlı olunan Çevirgen /hello'da "live":0 dedi (çeviri yok ya da altyazı TV'ye gitmiyor).
   var idleServer = false;
   var FALLBACK_SCAN_MS = 60000;
 
@@ -2712,13 +2712,13 @@
     }
   }
 
-  // Taramada bulunanlar ({ address, id, tvs }) arasından bağlanılacak CouchSubs; emin olunamıyorsa null.
-  // 1) Kayıtlı kimlik. 2) TV'si bağlı olmayan tek CouchSubs (başka TV'ye hizmet eden, başka evin/odanın kurulumudur).
+  // Taramada bulunanlar ({ address, id, tvs }) arasından bağlanılacak Çevirgen; emin olunamıyorsa null.
+  // 1) Kayıtlı kimlik. 2) TV'si bağlı olmayan tek Çevirgen (başka TV'ye hizmet eden, başka evin/odanın kurulumudur).
   // 3) Kayıtlı kimlik varsa başkası seçilmez. 4) İlk kez açılan TV: TV'si bağlı olmayan ilk, o da yoksa ilk bulunan.
-  // Önce çeviren (/hello "live":1) CouchSubs: kayıtlı kimlik çeviriyorsa o; değilse çeviren ve başka TV'ye hizmet etmeyen
-  // (current: şu an bağlı olunan adres, kendi bağlantımız sayılmaz) tek CouchSubs. Kayıtlı CouchSubs boştayken (ör.
+  // Önce çeviren (/hello "live":1) Çevirgen: kayıtlı kimlik çeviriyorsa o; değilse çeviren ve başka TV'ye hizmet etmeyen
+  // (current: şu an bağlı olunan adres, kendi bağlantımız sayılmaz) tek Çevirgen. Kayıtlı Çevirgen boştayken (ör.
   // bilgisayar açık bırakılmış, çeviri telefondan) TV ona bağlı kalıyor, "bağlı" görünüp altyazı hiç gelmiyordu. live
-  // bildirmeyen eski CouchSubs'ta kural eskisi gibidir.
+  // bildirmeyen eski Çevirgen'de kural eskisi gibidir.
   function pickServer(found, savedId, current) {
     var i, idle = [], live = [];
     for (i = 0; i < found.length; i++) if (savedId && found[i].id === savedId && found[i].live === 1) return found[i];
@@ -2734,8 +2734,8 @@
   }
   window.__pickServer = pickServer;
 
-  // Bağlantı açılınca CouchSubs'ın kimliği sorulur. Kayıtlı kimlik yoksa ya da adres parametreyle geldiyse kaydedilir;
-  // başka bir kimlikse (kendi CouchSubs'ı kapalı, ya da modem adresleri değiştirmiş) kendi CouchSubs'ı aranmaya devam edilir.
+  // Bağlantı açılınca Çevirgen'in kimliği sorulur. Kayıtlı kimlik yoksa ya da adres parametreyle geldiyse kaydedilir;
+  // başka bir kimlikse (kendi Çevirgen'i kapalı, ya da modem adresleri değiştirmiş) kendi Çevirgen'i aranmaya devam edilir.
   function learnServer(address) {
     var adopt = adoptAddress === address;
     if (adopt) adoptAddress = null;
@@ -2753,7 +2753,7 @@
       }
       var wasFallback = fallback;
       fallback = id !== serverId;
-      // Bağlanılan CouchSubs çevirmiyor: ağda çeviren başka bir CouchSubs var mı diye arada bir bakılır (pickServer).
+      // Bağlanılan Çevirgen çevirmiyor: ağda çeviren başka bir Çevirgen var mı diye arada bir bakılır (pickServer).
       var wasIdle = idleServer;
       idleServer = info.live === 0;
       if (fallback) scheduleScan(wasFallback ? FALLBACK_SCAN_MS : SCAN_SOON_MS);
@@ -2794,10 +2794,10 @@
         for (var host = 1; host <= 254; host++) addresses.push('http://' + subnets[s] + '.' + host + ':' + SERVER_PORT);
       }
       var next = 0, active = 0, done = false, found = [];
-      // Tahmin edilen ağlar birer birer taranır: CouchSubs bulunan ağda durulur (bilinen ağlar hep birlikte).
+      // Tahmin edilen ağlar birer birer taranır: Çevirgen bulunan ağda durulur (bilinen ağlar hep birlikte).
       var stop = guessed ? Math.min(254, addresses.length) : addresses.length;
       function pump() {
-        // Tahminli tarama uzun sürer; bu arada CouchSubs adresini kendisi verip bağlantı açıldıysa tarama bırakılır.
+        // Tahminli tarama uzun sürer; bu arada Çevirgen adresini kendisi verip bağlantı açıldıysa tarama bırakılır.
         if (guessed && !done && !fallback && !idleServer && eventSource && eventSource.readyState === 1) {
           done = true;
           scanning = false;
@@ -2812,7 +2812,7 @@
         stop = Math.min(stop + 254, addresses.length);
         pump();
       }
-      // Kayıtlı kimlik bulununca tarama hemen biter (boştaysa bitmez: çeviren başka CouchSubs aranır); yoksa bütün ağ
+      // Kayıtlı kimlik bulununca tarama hemen biter (boştaysa bitmez: çeviren başka Çevirgen aranır); yoksa bütün ağ
       // taranıp aralarından seçilir (eskiden ilk bulunan).
       function tryAddress(address) {
         probe(address, function (ok, info) {
@@ -2905,7 +2905,7 @@
   }
 
   // --- TV kendiliğinden HDMI'ya geçiyor (Samsung) ---
-  // Samsung'da Anynet+ (HDMI-CEC) ya da Otomatik Kaynak Değiştirme açıkken TV, PS5'ten sinyal gelince CouchSubs'ı
+  // Samsung'da Anynet+ (HDMI-CEC) ya da Otomatik Kaynak Değiştirme açıkken TV, PS5'ten sinyal gelince Çevirgen'i
   // arka plana atıp kendi HDMI girişine geçebiliyor: çeviri bir an görünüp kayboluyor. Uygulama açıldıktan ya da öne
   // geldikten kısa süre sonra arka plana düşerse, ya da kısa sürede birkaç kez düşerse bu not edilir; uygulama yeniden
   // göründüğünde ipucu gösterilir. Not localStorage'da durur: TV uygulamayı kapatıp sonra yeniden açsa da ipucu çıkar.
@@ -3197,7 +3197,7 @@
     }
   });
 
-  // Uygulama zaten açıkken yeniden başlatılırsa (ör. CouchSubs onu öne getirdiğinde) parametreler burada gelir.
+  // Uygulama zaten açıkken yeniden başlatılırsa (ör. Çevirgen onu öne getirdiğinde) parametreler burada gelir.
   // Aynı adresle yeniden açılış (bekçi PS tuşundan sonra uygulamayı öne getirdi): bağlantı açık değilse hemen kurulur.
   platform.onRelaunch(function (raw) {
     var before = connectionGeneration;

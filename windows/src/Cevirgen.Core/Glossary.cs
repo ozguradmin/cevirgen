@@ -1,0 +1,375 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
+namespace Cevirgen.Core;
+
+/// <summary>
+/// Ücretsiz çevirinin terim sözlüğü (Mac: Glossary.swift, aynı biçim ve kurallar). Dosya biçimi:
+/// <c>{ "game": "God of War", "terms": { "Leviathan Axe": "Leviathan Baltası" }, "keep": ["Kratos", "Atreus"] }</c>.
+/// <c>terms</c> İngilizce terimi verilen Türkçeyle değiştirir, <c>keep</c> adları olduğu gibi bırakır. Eşleşme büyük/küçük
+/// harfe bakmaz, yalnız tam sözcüklerde olur, uzun terim önce gelir ("Leviathan Axe", "Axe"dan önce).
+/// <c>keepExact</c> da adları bırakır ama yalnız yazıldığı gibi (büyük/küçük harf aynı) geçince: aynı zamanda sıradan
+/// bir sözcük olan adlar için ("Soul" kahramanın adıyken "soul" ruh demek; Phantom Blade Zero).
+/// Uygulamayla gelen genel sözlüğün üstüne kullanıcının klasöründeki <c>*.json</c> dosyaları eklenir (ad sırasıyla;
+/// aynı terimde sonraki dosya kazanır).
+/// <c>phrases</c> çeviriden önce oyun argosunu düz İngilizceye çevirir (anahtar düzenli ifade: "toss a smoke" → "throw a
+/// smoke grenade"); <c>lines</c> kısa ünlem satırlarının hazır Türkçesidir ("Reloading!" → "Şarjör değiştiriyorum!"),
+/// satır modele gitmez.
+/// </summary>
+public sealed class Glossary
+{
+    /// <summary>Düzenli ifade → düz İngilizce; anahtar sırasıyla (bayt) uygulanır.</summary>
+    private readonly Dictionary<string, string> _phrases;
+    private readonly List<(Regex Pattern, string Plain)> _phrasePatterns;
+    /// <summary><see cref="LineKey"/> → Türkçe.</summary>
+    private readonly Dictionary<string, string> _lines;
+    private static readonly char[] Endings = ['.', '!', '?', '…'];
+    /// <summary>Küçük harfli İngilizce → (sözlükte yazıldığı gibi İngilizce, Türkçe, yalnız aynı büyük/küçük harfle mi).</summary>
+    private readonly Dictionary<string, (string English, string Turkish, bool Exact)> _terms;
+    /// <summary>Uzundan kısaya terimler; arama bu sırayla yapılır.</summary>
+    private readonly List<(string English, string Turkish, bool Exact)> _ordered;
+
+    public static Glossary Empty { get; } = new([], [], []);
+
+    private static readonly Lazy<Glossary> BuiltInValue = new(LoadBuiltIn);
+
+    /// <summary>Uygulamayla gelen genel oyun terimleri (shared/resources/glossary-en-tr.json).</summary>
+    public static Glossary BuiltIn => BuiltInValue.Value;
+
+    private Glossary(Dictionary<string, (string English, string Turkish, bool Exact)> terms,
+        Dictionary<string, string> phrases, Dictionary<string, string> lines)
+    {
+        _terms = terms;
+        _phrases = phrases;
+        _lines = lines;
+        _phrasePatterns = [];
+        foreach (var key in phrases.Keys.Order(StringComparer.Ordinal))
+            if (TryRegex($@"\b(?:{key})\b", out var pattern)) _phrasePatterns.Add((pattern, phrases[key]));
+        _ordered = [.. terms.Values.OrderByDescending(t => t.English.Length).ThenBy(t => t.English, StringComparer.Ordinal)];
+        var words = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (english, _, exact) in _ordered)
+        {
+            // Sözlükte büyük harfle yazılmış terimler ad sayılır: tümü büyük harfli cümlede de büyük harfle kalır.
+            // keepExact adları sıradan sözcük de olduğundan büyük harfe çevrilmez ("I SOLD MY SOUL" → "soul").
+            if (exact || !english.Any(char.IsUpper)) continue;
+            foreach (var word in english.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                if (word.Length >= 2) words.Add(word.ToLowerInvariant());
+        }
+        CapitalWords = words;
+        Fingerprint = MakeFingerprint(_ordered, phrases, lines);
+    }
+
+    private static bool TryRegex(string pattern, out Regex regex)
+    {
+        try
+        {
+            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+            return true;
+        }
+        catch (ArgumentException) { regex = null!; return false; }
+    }
+
+    public int Count => _terms.Count;
+    public bool IsEmpty => _terms.Count == 0;
+
+    /// <summary>Büyük harfle kalması gereken sözcükler (küçük harfle); <c>NormalizeCase</c>'e ad olarak verilir.</summary>
+    public IReadOnlySet<string> CapitalWords { get; }
+
+    /// <summary>Sözlüğün içeriğinden kısa bir iz; terim içeren satırların önbellek anahtarına girer, sözlük değişince yeniden çevrilir.</summary>
+    public string Fingerprint { get; }
+
+    /// <summary>Terimin Türkçesi; yoksa null.</summary>
+    public string? Turkish(string english) =>
+        _terms.TryGetValue(Normalize(english), out var term) ? term.Turkish : null;
+
+    /// <summary>JSON sözlük dosyasını okur; biçim bozuksa <see cref="JsonException"/> ya da <see cref="FormatException"/> atar.</summary>
+    public static Glossary Parse(string json)
+    {
+        using var document = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) throw new FormatException("Glossary must be a JSON object.");
+        var terms = new Dictionary<string, (string, string, bool)>(StringComparer.Ordinal);
+        if (root.TryGetProperty("terms", out var map) && map.ValueKind == JsonValueKind.Object)
+            foreach (var entry in map.EnumerateObject())
+                if (entry.Value.ValueKind == JsonValueKind.String) Add(terms, entry.Name, entry.Value.GetString()!);
+        if (root.TryGetProperty("keep", out var keep) && keep.ValueKind == JsonValueKind.Array)
+            foreach (var name in keep.EnumerateArray())
+                if (name.ValueKind == JsonValueKind.String) Add(terms, name.GetString()!, name.GetString()!);
+        if (root.TryGetProperty("keepExact", out var keepExact) && keepExact.ValueKind == JsonValueKind.Array)
+            foreach (var name in keepExact.EnumerateArray())
+                if (name.ValueKind == JsonValueKind.String) Add(terms, name.GetString()!, name.GetString()!, exact: true);
+        var phrases = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (root.TryGetProperty("phrases", out var phraseMap) && phraseMap.ValueKind == JsonValueKind.Object)
+            foreach (var entry in phraseMap.EnumerateObject())
+                // Bozuk düzenli ifade alınmaz.
+                if (entry.Value.ValueKind == JsonValueKind.String && entry.Name.Length > 0 && entry.Value.GetString()!.Length > 0
+                    && TryRegex(entry.Name, out _))
+                    phrases[entry.Name] = entry.Value.GetString()!;
+        var lines = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (root.TryGetProperty("lines", out var lineMap) && lineMap.ValueKind == JsonValueKind.Object)
+            foreach (var entry in lineMap.EnumerateObject())
+            {
+                if (entry.Value.ValueKind != JsonValueKind.String) continue;
+                var key = LineKey(entry.Name);
+                var turkish = CollapseSpaces(entry.Value.GetString()!);
+                if (key.Length > 0 && turkish.Length > 0) lines[key] = turkish;
+            }
+        return new Glossary(terms, phrases, lines);
+    }
+
+    private static void Add(Dictionary<string, (string, string, bool)> terms, string english, string turkish, bool exact = false)
+    {
+        english = CollapseSpaces(english);
+        turkish = CollapseSpaces(turkish);
+        // Harfsiz terim her yerde eşleşirdi; yer tutucu sayısı sınırlı olduğundan çok uzun terim de alınmaz.
+        if (!english.Any(char.IsLetter) || turkish.Length == 0 || english.Length > 80) return;
+        terms[english.ToLowerInvariant()] = (english, turkish, exact);
+    }
+
+    /// <summary>
+    /// Konuşan etiketlerinden öğrenilen adlar <c>keepExact</c> olarak eklenmiş sözlük (#287). Yalnız <paramref name="text"/>
+    /// içinde (büyük/küçük harfe bakmadan) geçen adlar eklenir: önbellek anahtarındaki iz, oturumda öğrenilen bütün adlara
+    /// değil, satırdakilere bağlı kalır. Sözlükte zaten olan terim değişmez. Eklenecek ad yoksa sözlüğün kendisi döner.
+    /// </summary>
+    public Glossary KeepingNames(IEnumerable<string> names, string text)
+    {
+        var present = SpeakerNameGuard.Occurring(names, text, exact: false)
+            .Where(name => !_terms.ContainsKey(name.ToLowerInvariant())).ToList();
+        if (present.Count == 0) return this;
+        var merged = new Dictionary<string, (string, string, bool)>(_terms, StringComparer.Ordinal);
+        foreach (var name in present) Add(merged, name, name, exact: true);
+        return new Glossary(merged, _phrases, _lines);
+    }
+
+    /// <summary>Çevirgen: terim listesinden sözlük (İngilizce → Türkçe; ikisi aynıysa terim olduğu gibi kalır).</summary>
+    public static Glossary Of(IEnumerable<(string English, string Turkish)> entries)
+    {
+        var terms = new Dictionary<string, (string, string, bool)>(StringComparer.Ordinal);
+        foreach (var (english, turkish) in entries) Add(terms, english, turkish);
+        return new Glossary(terms, [], []);
+    }
+
+    /// <summary>Sözlükleri birleştirir; aynı terimde sonraki kazanır.</summary>
+    public static Glossary Merge(IEnumerable<Glossary> glossaries)
+    {
+        var terms = new Dictionary<string, (string, string, bool)>(StringComparer.Ordinal);
+        var phrases = new Dictionary<string, string>(StringComparer.Ordinal);
+        var lines = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var glossary in glossaries)
+        {
+            foreach (var (key, value) in glossary._terms) terms[key] = value;
+            foreach (var (key, value) in glossary._phrases) phrases[key] = value;
+            foreach (var (key, value) in glossary._lines) lines[key] = value;
+        }
+        return new Glossary(terms, phrases, lines);
+    }
+
+    /// <summary>Genel sözlük ve klasördeki <c>*.json</c> dosyaları; okunamayan ya da bozuk dosya atlanır.</summary>
+    public static Glossary Load(string? directory)
+    {
+        var all = new List<Glossary> { BuiltIn };
+        foreach (var file in UserFiles(directory))
+        {
+            try { all.Add(Parse(File.ReadAllText(file, Encoding.UTF8))); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or FormatException) { }
+        }
+        return Merge(all);
+    }
+
+    internal static IEnumerable<string> UserFiles(string? directory)
+    {
+        if (directory is null) return [];
+        try
+        {
+            return Directory.Exists(directory)
+                ? Directory.GetFiles(directory, "*.json").Order(StringComparer.Ordinal).ToArray()
+                : [];
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>
+    /// Metindeki terimler: büyük/küçük harfe bakmadan (keepExact adları bakarak), tam sözcük, uzun terim önce; çakışan kısa terim alınmaz.
+    /// Sonuç metindeki sıraya göredir.
+    /// </summary>
+    public IReadOnlyList<TermMatch> Find(string text)
+    {
+        var found = new List<TermMatch>();
+        if (_ordered.Count == 0 || text.Length == 0) return found;
+        foreach (var (english, turkish, exact) in _ordered)
+        {
+            var start = 0;
+            while (start <= text.Length - english.Length)
+            {
+                var index = text.IndexOf(english, start, exact ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+                if (index < 0) break;
+                var end = index + english.Length;
+                if (IsBoundary(text, index - 1) && IsBoundary(text, end) && !found.Any(m => index < m.Start + m.Length && m.Start < end))
+                    found.Add(new TermMatch(index, english.Length, english, turkish));
+                start = index + 1;
+            }
+        }
+        found.Sort((a, b) => a.Start.CompareTo(b.Start));
+        return found;
+    }
+
+    public bool Matches(string text) => Find(text).Count > 0;
+
+    /// <summary>Satırın hazır Türkçesi (<c>lines</c>); Türkçede son noktalama yoksa kaynağınki eklenir. Yoksa null.</summary>
+    public string? Line(string sentence)
+    {
+        if (_lines.Count == 0 || !_lines.TryGetValue(LineKey(sentence), out var turkish)) return null;
+        if (Endings.Contains(turkish[^1])) return turkish;
+        var trimmed = sentence.Trim();
+        var start = trimmed.Length;
+        while (start > 0 && Endings.Contains(trimmed[start - 1])) start--;
+        return turkish + trimmed[start..];
+    }
+
+    /// <summary>Oyun argosu düz İngilizceye çevrilir (<c>phrases</c>); eşleşmenin baş harfi büyükse karşılığınınki de büyük olur.</summary>
+    public string Plain(string text)
+    {
+        foreach (var (pattern, plain) in _phrasePatterns)
+            text = pattern.Replace(text, match => char.IsUpper(match.Value[0]) ? char.ToUpperInvariant(plain[0]) + plain[1..] : plain);
+        return text;
+    }
+
+    /// <summary>Metin bir <c>lines</c> ya da <c>phrases</c> kuralına giriyor mu (önbellek anahtarına sözlüğün izi girsin diye).</summary>
+    public bool Rewrites(string text) =>
+        (_lines.Count > 0 && _lines.ContainsKey(LineKey(text))) || _phrasePatterns.Any(p => p.Pattern.IsMatch(text));
+
+    /// <summary><c>lines</c> anahtarı: küçük harf, düz kesme, tek boşluk; baştaki ve sondaki harf/rakam dışı karakterler atılır.</summary>
+    internal static string LineKey(string text)
+    {
+        var key = CollapseSpaces(text.ToLowerInvariant().Replace('’', '\'').Replace('‘', '\''));
+        int start = 0, end = key.Length;
+        while (start < end && !char.IsLetterOrDigit(key[start])) start++;
+        while (end > start && !char.IsLetterOrDigit(key[end - 1])) end--;
+        return key[start..end];
+    }
+
+    /// <summary>Metinde bulunan terim: konumu, sözlükteki İngilizcesi ve Türkçesi.</summary>
+    public readonly record struct TermMatch(int Start, int Length, string English, string Turkish);
+
+    private static bool IsBoundary(string text, int index) =>
+        index < 0 || index >= text.Length || !char.IsLetterOrDigit(text[index]);
+
+    private static string Normalize(string english) => CollapseSpaces(english).ToLowerInvariant();
+
+    private static string CollapseSpaces(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>FNV-1a (32 bit), terimler İngilizcesine göre sıralı; Mac'te de aynı hesap.</summary>
+    private static string MakeFingerprint(IEnumerable<(string English, string Turkish, bool Exact)> terms,
+        Dictionary<string, string> phrases, Dictionary<string, string> lines)
+    {
+        var hash = 2166136261u;
+        void Mix(string text)
+        {
+            foreach (var b in Encoding.UTF8.GetBytes(text)) hash = (hash ^ b) * 16777619u;
+        }
+        // exact işareti yalnız varsa eklenir; eski sözlüklerin izi değişmez.
+        foreach (var (english, turkish, exact) in terms.OrderBy(t => t.English.ToLowerInvariant(), StringComparer.Ordinal))
+            Mix(english.ToLowerInvariant() + "\u0001" + turkish + (exact ? "\u0003" : "") + "\u0002");
+        // phrases ve lines de yalnız varsa girer.
+        foreach (var key in phrases.Keys.Order(StringComparer.Ordinal)) Mix(key + "\u0004" + phrases[key] + "\u0005");
+        foreach (var key in lines.Keys.Order(StringComparer.Ordinal)) Mix(key + "\u0006" + lines[key] + "\u0007");
+        return "g" + hash.ToString("x8");
+    }
+
+    private static Glossary LoadBuiltIn()
+    {
+        using var stream = typeof(Glossary).Assembly.GetManifestResourceStream("glossary-en-tr.json");
+        if (stream is null) return Empty;
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return Parse(reader.ReadToEnd());
+    }
+}
+
+/// <summary>
+/// Kullanıcı sözlük klasörünü izler: dosyalar değişince (ad, boyut, değişiklik zamanı) sözlük yeniden okunur.
+/// Klasöre en çok birkaç saniyede bir bakılır; her altyazıda diske gidilmez.
+/// </summary>
+public sealed class GlossaryStore
+{
+    private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
+
+    private readonly string? _directory;
+    private readonly Func<DateTimeOffset> _clock;
+    private readonly object _gate = new();
+    private Glossary? _current;
+    /// <summary>Klasörden okunan sözlük (kullanıcı terimleri eklenmeden).</summary>
+    private Glossary? _loaded;
+    private Glossary? _extra;
+    private string _stamp = "";
+    private DateTimeOffset _checkedAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Çevirgen: uygulamanın kullanıcı sözlüğü (<see cref="UserGlossary.AsGlossary"/>); her sözlüğün üstüne eklenir, aynı
+    /// terimde kazanır. Dönen örnek değişince sözlük hemen yenilenir. Uygulama bir kez verir; yoksa (testler) null.
+    /// </summary>
+    public static Func<Glossary?>? UserTerms { get; set; }
+
+    /// <param name="directory">Kullanıcı sözlüklerinin klasörü; null ise yalnız genel sözlük.</param>
+    /// <param name="userTerms">Çevirgen: kullanıcı sözlüğü; verilmezse <see cref="UserTerms"/> (uygulamanınki).</param>
+    public GlossaryStore(string? directory, Func<DateTimeOffset>? clock = null, Func<Glossary?>? userTerms = null)
+    {
+        _directory = directory;
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _userTerms = userTerms;
+    }
+
+    private readonly Func<Glossary?>? _userTerms;
+
+    /// <summary>%LOCALAPPDATA%\CouchSubs\glossary</summary>
+    // Eski ad (CouchSubs) bilerek korunur: mevcut kurulumların verisi bu klasörde; değişirse kaybolur.
+    public static string UserDirectory { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "glossary");
+
+    /// <summary>Yalnız uygulamayla gelen sözlük (testler).</summary>
+    public static GlossaryStore BuiltInOnly() => new(null);
+
+    public Glossary Current
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var extra = (_userTerms ?? UserTerms)?.Invoke();
+                var now = _clock();
+                if (_current is not null && now - _checkedAt < CheckEvery && ReferenceEquals(extra, _extra)) return _current;
+                if (_loaded is null || now - _checkedAt >= CheckEvery)
+                {
+                    _checkedAt = now;
+                    var stamp = Stamp();
+                    if (_loaded is null || stamp != _stamp)
+                    {
+                        _loaded = Glossary.Load(_directory);
+                        _stamp = stamp;
+                    }
+                }
+                _extra = extra;
+                _current = extra is null ? _loaded : Glossary.Merge([_loaded, extra]);
+                return _current;
+            }
+        }
+    }
+
+    private string Stamp()
+    {
+        var builder = new StringBuilder();
+        foreach (var file in Glossary.UserFiles(_directory))
+        {
+            try
+            {
+                var info = new FileInfo(file);
+                builder.Append(file).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        }
+        return builder.ToString();
+    }
+}

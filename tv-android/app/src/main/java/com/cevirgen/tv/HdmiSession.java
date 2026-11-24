@@ -4,7 +4,7 @@ package com.cevirgen.tv;
 /**
  * Uygulama içindeki TvView'in HDMI girişini ne zaman tuttuğu (#453, #413).
  *
- * Eskiden CouchSubs arka plana düşünce (kumandadan Giriş › HDMI 2, Ana ekran, başka uygulama) TvView girişi bırakmıyordu;
+ * Eskiden Çevirgen arka plana düşünce (kumandadan Giriş › HDMI 2, Ana ekran, başka uygulama) TvView girişi bırakmıyordu;
  * bırakması yalnız uygulama kapanınca oluyordu. Aynı HDMI'yı tek oturuma veren TV'lerde (Thomson, Philips gibi MediaTek
  * tabanlı Android TV'ler) TV'nin kendi giriş ekranı o arada yeşil ya da siyah kalıyordu. Artık ekran önden çekilince
  * giriş bırakılır, son giriş hatırlanır ve ekran öne gelince yeniden açılır. Arka plandayken gelen giriş isteği (bilgisayar

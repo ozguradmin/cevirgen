@@ -3,7 +3,7 @@
 // Havuza yazılacak satırın süzgeci: havuz yalnız pakette olmayan İngilizce oyun konuşmalarını toplamalı. Havuzda
 // (Kasım 2026) en çok görülen "satırlar" PS5'in Türkçe arayüzü ve onun yazı tanıma bozmaları ("Oturum Açtı",
 // "Oturum Aqtl", "Sifirlama Seqenekleri"), yarım okumalar ("GO to the") ve oyun arayüzü ("PHOTO MODE SELECT") idi.
-// Uygulamadaki core/Sources/CouchSubsCore/PoolFilter.swift ve windows/src/CouchSubs.Core/PoolFilter.cs ile aynı kurallar;
+// Uygulamadaki core/Sources/CouchSubsCore/PoolFilter.swift ve windows/src/Cevirgen.Core/PoolFilter.cs ile aynı kurallar;
 // eski sürümler süzmeden gönderdiği için sunucu da süzer (D1 yazma kotası boşa gitmesin). Uygulamanın yazı tanıma
 // çöpü denetimi (OcrNoise) burada yok; yerine harf oranı bakılır.
 

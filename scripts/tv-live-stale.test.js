@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // "TV'de bağlı, panelde sub 0; silip yükleyince düzeldi" (X @conmeyz, Philips 55PUS7303, Android 8). Android TV sayfası
-// (scripts/tv-live-page.js, Android 8 WebView'ine göre kısıtlı) gerçek ağla iki CouchSubs sunucusuna karşı çalıştırılır:
+// (scripts/tv-live-page.js, Android 8 WebView'ine göre kısıtlı) gerçek ağla iki Çevirgen sunucusuna karşı çalıştırılır:
 // eski kurulumdan kalan kayıtlı adres (aynı bilgisayarın eski portu: aynı kimlik ve anahtar) hâlâ yanıt veriyor, çeviri ise
 // yeni porttaki sunucuda. Sayfa eski adrese "bağlı" kalır, altyazı hiç gelmez. Bilgisayar/telefon çalışan uygulamaya
 // adresini bildirince (AddressReceiver yayını, app.js applyParams) sayfa yeni adrese geçer ve altyazı gelir.
@@ -15,7 +15,7 @@ const { startPage } = require('./tv-live-page');
 const ID = '0f8e7d6c-1111-2222-3333-444455556666';
 const KEY = 'abcdefghijklmnopqrstuv';
 
-// CouchSubs sunucusunun TV'nin kullandığı uçları: /hello, /pair?validate=1, /events?k=... (anahtar denetimli).
+// Çevirgen sunucusunun TV'nin kullandığı uçları: /hello, /pair?validate=1, /events?k=... (anahtar denetimli).
 function couchsubs() {
   const streams = [];
   const server = http.createServer((req, res) => {
@@ -99,7 +99,7 @@ test('switching TV servers clears the previous server subtitle before the new se
     first.subtitle('Önceki sunucunun altyazısı');
     await until(() => page.shown() === 'Önceki sunucunun altyazısı', 'initial subtitle');
 
-    // Same CouchSubs identity, but a new server address/stream: the old subtitle is no longer current.
+    // Same Çevirgen identity, but a new server address/stream: the old subtitle is no longer current.
     page.relaunch({ server: next.address });
     await until(() => next.tvs() === 1 && page.status() === 'bağlı', 'next stream');
     assert.equal(page.shown(), '', 'a new server must not replay an old server subtitle');

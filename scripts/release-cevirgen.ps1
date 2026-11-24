@@ -34,7 +34,7 @@ Set-StrictMode -Version Latest
 
 $repo = Split-Path -Parent $PSScriptRoot
 if (-not $OutputDir) { $OutputDir = Join-Path $repo 'dist\releases' }
-$appProject = Join-Path $repo 'windows\src\CouchSubs.App'
+$appProject = Join-Path $repo 'windows\src\Cevirgen.App'
 $icon = Join-Path $appProject 'Assets\Cevirgen.ico'
 $work = Join-Path $repo "build\cevirgen-release\$Version"
 $publishDir = Join-Path $work 'publish'
@@ -122,8 +122,8 @@ if ($apk) {
 Get-ChildItem -Recurse -File -Filter '*.pdb' $packDir | Remove-Item -Force
 
 # --- 3. vpk ---
-$csproj = Get-Content -Raw -Encoding UTF8 (Join-Path $appProject 'CouchSubs.App.csproj')
-if ($csproj -notmatch '<PackageReference Include="Velopack" Version="([^"]+)"') { throw 'CouchSubs.App.csproj içinde Velopack sürümü bulunamadı' }
+$csproj = Get-Content -Raw -Encoding UTF8 (Join-Path $appProject 'Cevirgen.App.csproj')
+if ($csproj -notmatch '<PackageReference Include="Velopack" Version="([^"]+)"') { throw 'Cevirgen.App.csproj içinde Velopack sürümü bulunamadı' }
 $velopackVersion = $Matches[1]
 $vpk = Join-Path $ToolPath 'vpk.exe'
 $installed = $null

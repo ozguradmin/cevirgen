@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- SPDX-License-Identifier: AGPL-3.0-only -->
+  <!-- TV kurulumunun komut satırı yardımcısı (Cevirgen.TvInstall üstünde; upstream'de Mac uygulamasına gömülüyordu).
+       Native AOT: tek dosya, JIT gerekmez. Windows uygulaması bunu kullanmaz; TvInstall'ı doğrudan çağırır. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>cevirgen-tv-helper</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishAot>true</PublishAot>
+    <!-- XML imzası (System.Security.Cryptography.Xml) yansımayla tür oluşturur; o derlemeler kırpılmasın. -->
+    <TrimMode>partial</TrimMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="System.Security.Cryptography.Xml" />
+    <TrimmerRootAssembly Include="TizenSdb.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cevirgen.TvInstall\Cevirgen.TvInstall.csproj" />
+  </ItemGroup>
+
+</Project>
