@@ -26,14 +26,16 @@
     <!-- Giriş eğrisi cubic-bezier(0.05, 0.7, 0.1, 1) (Motion.Enter) XAML anahtar karelerinde. -->
     <KeySpline x:Key="EnterSpline" ControlPoint1="0.05,0.7" ControlPoint2="0.1,1" />
 
-    <!-- ───────────── Perde odak halkası (effect.focusRing) ─────────────
-         Yalnız klavye/kumanda odağında (WPF odak görseli fareyle tıklamada çizilmez): 2 px aralıklı 2 px sarı halka; ışıma
-         yok (Çevirgen: gölge ve ışıma kullanılmaz). Köşe denetimin 6'sı + 2. -->
+    <!-- ───────────── Odak halkası ─────────────
+         Yalnız klavyeyle gezinirken (Tab, oklar; Theme/FocusCue): 2 px sarı halka, denetimin 2 px dışında; fareyle tıklayınca
+         çizilmez. Işıma yok. Sekme ve bölümlü seçimde halka denetimin İÇİNDE (InsetFocusRing): üst çubuğun ve grubun dışına
+         taşmaz, kırpılmaz. -->
     <Style x:Key="FocusRing">
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-4" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="8" />
+                    <Border Margin="-2" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="8"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -42,7 +44,8 @@
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-4" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" CornerRadius="8" SnapsToDevicePixels="True" />
+                    <Border Margin="-2" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="8"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -51,7 +54,29 @@
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-4" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" CornerRadius="8" SnapsToDevicePixels="True" />
+                    <Border Margin="-2" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="8"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="InsetFocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-6,10" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="6"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- Bölümlü seçimin halkası: bölümün içinde. -->
+    <Style x:Key="SegmentFocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="2" BorderThickness="2" BorderBrush="{DynamicResource amberBrush}" SnapsToDevicePixels="True" CornerRadius="4"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -62,7 +87,8 @@
             <Setter.Value>
                 <ControlTemplate>
                     <Border Width="52" Height="34" Margin="-4,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" BorderThickness="2"
-                            BorderBrush="{DynamicResource amberBrush}" CornerRadius="17" SnapsToDevicePixels="True" />
+                            BorderBrush="{DynamicResource amberBrush}" CornerRadius="17" SnapsToDevicePixels="True"
+                            Visibility="{Binding Path=(theme:FocusCue.Visible), RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource VisibleIf}}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -208,11 +234,12 @@
         <Setter Property="FontSize" Value="18" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
-    <!-- Çevirgen mono etiket (taslak .lbl): 11 orta kalın, gri, büyük harf (metni çağıran büyütür; WPF harf aralığı vermez). -->
+    <!-- Küçük etiket (eski adı MonoLabel): IBM Plex Sans 12 yarı kalın, gri, cümle düzeni. Mono yalnız zaman kodu, sayı ve
+         tuşlarda kullanılır (Timecode, MonoText, Kbd). -->
     <Style x:Key="MonoLabel" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontFamily" Value="{StaticResource TextFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource mutedBrush}" />
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -225,10 +252,10 @@
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
     </Style>
-    <!-- Ekran başlığı (taslak h1): Archivo Condensed 30 kalın. -->
+    <!-- Ekran başlığı: Archivo Condensed 28 kalın (yazı ölçeği 28 / 20 / 16 / 14 / 12). -->
     <Style x:Key="ScreenTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource DisplayFont}" />
-        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontSize" Value="28" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource textBrush}" />
         <Setter Property="TextWrapping" Value="NoWrap" />
@@ -738,7 +765,7 @@
         <Setter Property="MinWidth" Value="88" />
         <Setter Property="Padding" Value="12,0" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource SegmentFocusRing}" />
         <Setter Property="Template" Value="{StaticResource SegmentTemplate}" />
     </Style>
     <!-- Üst menü sekmesi (tab): 40 yüksek, en az 112 geniş. -->
@@ -1270,8 +1297,9 @@
                         <DockPanel>
                             <DockPanel x:Name="Heading" DockPanel.Dock="Top" Margin="{m:Sp '0,0,0,m'}" LastChildFill="True">
                                 <ContentPresenter DockPanel.Dock="Right" Content="{TemplateBinding Trailing}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource UpperCase}}"
-                                           Style="{StaticResource MonoLabel}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource TextFont}"
+                                           FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource textBrush}" TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             </DockPanel>
                             <ContentPresenter />
                         </DockPanel>
@@ -1488,7 +1516,7 @@
                                     </Button>
                                 </StackPanel>
                             </Grid>
-                            <TextBlock Text="REKLAM" FontFamily="{StaticResource MonoFont}" FontSize="10" FontWeight="Medium"
+                            <TextBlock Text="Reklam" FontFamily="{StaticResource TextFont}" FontSize="11" FontWeight="SemiBold"
                                        Foreground="{DynamicResource mutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="{m:Sp '0,xxs,xs,0'}" />
                         </Grid>
                     </Border>
@@ -2004,7 +2032,7 @@
         <Setter Property="Foreground" Value="{DynamicResource mutedBrush}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="GroupName" Value="ShellTabs" />
-        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource InsetFocusRing}" />
         <Setter Property="Margin" Value="{m:Sp '0,0,l,0'}" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="Template">

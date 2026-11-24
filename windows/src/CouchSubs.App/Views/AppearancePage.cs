@@ -134,7 +134,7 @@ public sealed class AppearancePage : UserControl
             stage.SizeChanged += (_, _) => DrawScene(stage);
             var frame = new Border { BorderThickness = new Thickness(1), Child = new AspectBox { Child = stage } };
             frame.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
-            var verdict = ScreenKit.Mono("", 13);
+            var verdict = ScreenKit.Small("", 13);
             var caption = new DockPanel { Margin = Sp.T("0", "xs", "0", "0") };
             DockPanel.SetDock(verdict, Dock.Right);
             caption.Children.Add(verdict);

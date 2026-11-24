@@ -29,18 +29,18 @@ public sealed class HistoryPage : UserControl
 
     private readonly AppController controller;
     private readonly TextBlock title = ScreenKit.Title("Geçmiş");
-    private readonly TextBlock meta = ScreenKit.Mono("", 13);
+    private readonly TextBlock meta = ScreenKit.Small("", 13);
     private readonly ComboBox sessionChoice = new() { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly System.Windows.Controls.TextBox search = new() { Width = 200, MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly StackPanel cues = new();
-    private readonly TextBlock status = ScreenKit.Mono("", 12);
+    private readonly TextBlock status = ScreenKit.Small("", 12);
     private readonly Button turkishSrt;
     private readonly Button bilingualSrt;
     private readonly StackPanel terms = new();
     private readonly System.Windows.Controls.TextBox termEnglish = new() { MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly System.Windows.Controls.TextBox termTurkish = new() { MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly Button termSave;
-    private readonly TextBlock termError = ScreenKit.Mono("", 12, "liveTextBrush");
+    private readonly TextBlock termError = ScreenKit.Small("", 12, "liveTextBrush");
     private IReadOnlyList<HistorySession> sessions = [];
     private int sessionIndex;
     /// <summary>Satır içi düzeltmesi açık olan kayıt.</summary>
@@ -242,7 +242,7 @@ public sealed class HistoryPage : UserControl
         body.Children.Add(turkish);
         if (correction is null && HistoryModel.SpeedWarning(cue) is { } warning)
         {
-            var fast = ScreenKit.Mono(warning, 12, "warnBrush");
+            var fast = ScreenKit.Small(warning, 12, "warnBrush");
             fast.Margin = Sp.T("0", "xxs", "0", "0");
             body.Children.Add(fast);
         }
@@ -489,7 +489,7 @@ public sealed class HistoryPage : UserControl
             turkish.Margin = Sp.T("xs", "0", "0", "0");
             Grid.SetColumn(turkish, 1);
             grid.Children.Add(turkish);
-            var rule = ScreenKit.Mono(term.RuleLabel, 12);
+            var rule = ScreenKit.Small(term.RuleLabel, 12);
             rule.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(rule, 2);
             grid.Children.Add(rule);

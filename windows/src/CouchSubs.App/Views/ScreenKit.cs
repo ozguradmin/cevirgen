@@ -18,20 +18,20 @@ namespace CouchSubs.App.Views;
 /// </summary>
 internal static class ScreenKit
 {
-    /// <summary>Ekran başlığı (Archivo Condensed 30; taslak h1).</summary>
-    public static TextBlock Title(string text, double size = 30)
+    /// <summary>Ekran başlığı (Archivo Condensed 28; ikincil başlık 20).</summary>
+    public static TextBlock Title(string text, double size = 28)
     {
         var title = new TextBlock { Text = text };
         title.SetResourceReference(FrameworkElement.StyleProperty, "ScreenTitle");
         title.FontSize = size;
-        AutomationProperties.SetHeadingLevel(title, size >= 30 ? AutomationHeadingLevel.Level1 : AutomationHeadingLevel.Level2);
+        AutomationProperties.SetHeadingLevel(title, size >= 28 ? AutomationHeadingLevel.Level1 : AutomationHeadingLevel.Level2);
         return title;
     }
 
-    /// <summary>Mono büyük harf etiket (taslak .lbl).</summary>
+    /// <summary>Küçük etiket (Sans 12 yarı kalın, gri, cümle düzeni; büyük harf mono değil).</summary>
     public static TextBlock Label(string text, string brush = "mutedBrush")
     {
-        var label = new TextBlock { Text = text.ToUpper(new System.Globalization.CultureInfo("tr-TR")) };
+        var label = new TextBlock { Text = text };
         label.SetResourceReference(FrameworkElement.StyleProperty, "MonoLabel");
         label.SetResourceReference(TextBlock.ForegroundProperty, brush);
         return label;
@@ -55,7 +55,16 @@ internal static class ScreenKit
         return block;
     }
 
-    /// <summary>Mono sayı / zaman kodu (taslak .tc).</summary>
+    /// <summary>Küçük yazı (Sans; durum sözcükleri, dipnotlar, ücret bilgisi). Mono değil.</summary>
+    public static TextBlock Small(string text, double size = 13, string brush = "mutedBrush")
+    {
+        var block = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, LineHeight = Math.Round(size * 1.45),
+            LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+        block.SetResourceReference(TextBlock.ForegroundProperty, brush);
+        return block;
+    }
+
+    /// <summary>Mono sayı / zaman kodu (taslak .tc): yalnız zaman kodu ve veri sütunlarındaki sayılar.</summary>
     public static TextBlock Mono(string text, double size = 12, string brush = "mutedBrush")
     {
         var block = new TextBlock { Text = text, FontSize = size };

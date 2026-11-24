@@ -56,7 +56,7 @@ public partial class WelcomeStep : UserControl
             var needs = new TextBlock { Text = unavailable ?? option.Needs, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = Sp.T("0", "xxs", "0", "0") };
             needs.SetResourceReference(TextBlock.ForegroundProperty, "mutedBrush");
             foot.Children.Add(needs);
-            var steps = Label(option.StepsText.ToUpper(new System.Globalization.CultureInfo("tr-TR")), "amberTextBrush");
+            var steps = Label(option.StepsText, "amberTextBrush");
             steps.Margin = Sp.T("0", "xs", "0", "0");
             foot.Children.Add(steps);
             body.Children.Add(foot);

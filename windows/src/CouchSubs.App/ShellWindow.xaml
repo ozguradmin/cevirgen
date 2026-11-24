@@ -46,7 +46,7 @@
                 </Button>
                 <Button x:Name="AnnouncementOpen" DockPanel.Dock="Right" Style="{StaticResource TextLink}" Content="Aç →" Click="OnOpenAnnouncement"
                         Margin="{t:Sp 'm,0'}" />
-                <TextBlock Text="DUYURU" Style="{StaticResource MonoLabel}" Foreground="{DynamicResource amberTextBrush}" VerticalAlignment="Center"
+                <TextBlock Text="Duyuru" Style="{StaticResource MonoLabel}" Foreground="{DynamicResource amberTextBrush}" VerticalAlignment="Center"
                            Margin="{t:Sp '0,0,s,0'}" />
                 <TextBlock x:Name="AnnouncementText" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" Margin="{t:Sp '0,xs'}" />
             </DockPanel>

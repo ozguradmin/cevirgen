@@ -28,6 +28,8 @@ public partial class App : Application
             return;
         }
         if (renderFolder is null) StartupGuard.Watch(this);
+        // Odak halkası yalnız klavyeyle gezinirken (fareyle tıklayınca çizilmez).
+        Theme.FocusCue.Install();
         try
         {
             if (idle is { } measure) MeasureIdle(measure.Item1, measure.Item2);
