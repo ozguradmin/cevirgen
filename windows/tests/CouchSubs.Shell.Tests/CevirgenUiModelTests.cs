@@ -29,17 +29,22 @@ public sealed class CevirgenUiModelTests
     {
         Assert.Equal(["PS5", "Xbox", "Bilgisayar", "Diğer"], SetupPlatforms.All.Select(option => option.Name));
         Assert.Equal("4 adım · 3 dk", SetupPlatforms.Option(SetupPlatform.Ps5).StepsText);
+        Assert.Equal("4 adım · 2 dk", SetupPlatforms.Option(SetupPlatform.Xbox).StepsText);
         Assert.Equal("2 adım · 1 dk", SetupPlatforms.Option(SetupPlatform.Pc).StepsText);
+        Assert.Equal("3 adım · 2 dk", SetupPlatforms.Option(SetupPlatform.Capture).StepsText);
         Assert.All(SetupPlatforms.All, option => Assert.False(string.IsNullOrWhiteSpace(option.Needs)));
     }
 
     [Fact]
     public void EachPlatformHasOnlyItsOwnSteps()
     {
-        Assert.Equal([OnboardingStep.SecondAccount, OnboardingStep.PsnLogin, OnboardingStep.Console, OnboardingStep.Tv, OnboardingStep.Translation,
-            OnboardingStep.BetterTranslation, OnboardingStep.Test], SetupPlatforms.Steps(SetupPlatform.Ps5, hdmi: false));
-        Assert.Equal([OnboardingStep.PsnLogin, OnboardingStep.Console, OnboardingStep.Tv, OnboardingStep.Hdmi, OnboardingStep.Translation,
-            OnboardingStep.BetterTranslation, OnboardingStep.Test], SetupPlatforms.Steps(SetupPlatform.Xbox, hdmi: true));
+        // 1.3: ikinci hesap girişin içinde; model arka planda iner; Gemini anahtarı kurulumda sorulmaz.
+        Assert.Equal([OnboardingStep.PsnLogin, OnboardingStep.Console, OnboardingStep.Tv, OnboardingStep.Test], SetupPlatforms.Steps(SetupPlatform.Ps5, hdmi: false));
+        Assert.Equal([OnboardingStep.PsnLogin, OnboardingStep.Console, OnboardingStep.Tv, OnboardingStep.Hdmi, OnboardingStep.Test],
+            SetupPlatforms.Steps(SetupPlatform.Xbox, hdmi: true));
+        // Bilgisayar: hesap da TV de gerekmez.
+        Assert.Equal([OnboardingStep.Window, OnboardingStep.Test], SetupPlatforms.Steps(SetupPlatform.Pc, hdmi: true));
+        Assert.Equal([OnboardingStep.Window, OnboardingStep.Tv, OnboardingStep.Test], SetupPlatforms.Steps(SetupPlatform.Capture, hdmi: false));
         foreach (var platform in new[] { SetupPlatform.Pc, SetupPlatform.Capture })
         {
             var steps = SetupPlatforms.Steps(platform, hdmi: false);
@@ -53,13 +58,31 @@ public sealed class CevirgenUiModelTests
     [Fact]
     public void NextSkipsStepsThatAreNotNeededAndEndsAtDone()
     {
-        Assert.Equal(OnboardingStep.SecondAccount, SetupPlatforms.Next(SetupPlatform.Ps5, OnboardingStep.Welcome, false));
+        Assert.Equal(OnboardingStep.PsnLogin, SetupPlatforms.Next(SetupPlatform.Ps5, OnboardingStep.Welcome, false));
+        // Eski adımdan (Ayarlar'dan açılmış) sıradakine.
+        Assert.Equal(OnboardingStep.PsnLogin, SetupPlatforms.Next(SetupPlatform.Ps5, OnboardingStep.SecondAccount, false));
+        Assert.Equal(OnboardingStep.Test, SetupPlatforms.Next(SetupPlatform.Ps5, OnboardingStep.BetterTranslation, false));
         Assert.Equal(OnboardingStep.Window, SetupPlatforms.Next(SetupPlatform.Pc, OnboardingStep.Welcome, false));
         Assert.Equal(OnboardingStep.Tv, SetupPlatforms.Next(SetupPlatform.Ps5, OnboardingStep.Welcome, false, step => step == OnboardingStep.Tv));
         Assert.Equal(OnboardingStep.Done, SetupPlatforms.Next(SetupPlatform.Xbox, OnboardingStep.Welcome, false, _ => false));
         Assert.Equal(OnboardingStep.Done, SetupPlatforms.Next(SetupPlatform.Pc, OnboardingStep.Test, false));
         Assert.Equal(OnboardingStep.Welcome, SetupPlatforms.Previous(SetupPlatform.Pc, OnboardingStep.Window, false));
         Assert.Equal(OnboardingStep.Window, SetupPlatforms.Previous(SetupPlatform.Capture, OnboardingStep.Tv, false));
+        Assert.Equal(OnboardingStep.Window, SetupPlatforms.Previous(SetupPlatform.Pc, OnboardingStep.Test, false));
+    }
+
+    [Fact]
+    public void ProgressCountsTvInputWithTheTvStep()
+    {
+        Assert.Equal((0, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.Welcome));
+        Assert.Equal((1, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.PsnLogin));
+        Assert.Equal((2, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.Console));
+        Assert.Equal((3, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.Tv));
+        Assert.Equal((3, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.Hdmi));
+        Assert.Equal((4, 4), SetupPlatforms.Progress(SetupPlatform.Ps5, OnboardingStep.Test));
+        Assert.Equal((1, 2), SetupPlatforms.Progress(SetupPlatform.Pc, OnboardingStep.Window));
+        Assert.Equal((2, 2), SetupPlatforms.Progress(SetupPlatform.Pc, OnboardingStep.Test));
+        Assert.Equal((2, 3), SetupPlatforms.Progress(SetupPlatform.Capture, OnboardingStep.Tv));
     }
 
     [Fact]
@@ -97,7 +120,10 @@ public sealed class CevirgenUiModelTests
         controller.Settings = controller.Settings with { CaptureWindow = new WindowCaptureTarget("GTA5", "Grand Theft Auto V") };
         Assert.True(controller.CanAdvance);
         controller.Advance();
-        Assert.Equal(OnboardingStep.Tv, controller.Step);
+        // Bilgisayar: TV adımı yok, altyazı bu ekranda; hesap da gerekmez.
+        Assert.Equal(OnboardingStep.Test, controller.Step);
+        Assert.Equal(SubtitleOutput.Computer, controller.Settings.Output);
+        Assert.True(controller.CanStart);
         controller.Back();
         Assert.Equal(OnboardingStep.Window, controller.Step);
         controller.Back();

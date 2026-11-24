@@ -28,7 +28,8 @@ public partial class TestStep : UserControl
 
     private void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppController.TvClients) or nameof(AppController.TranslatorStatus) or nameof(AppController.Console))
+        if (e.PropertyName is nameof(AppController.TvClients) or nameof(AppController.TranslatorStatus) or nameof(AppController.Console)
+            or nameof(AppController.ModelDownloading) or nameof(AppController.ModelProgress) or nameof(AppController.ModelError))
             Dispatcher.BeginInvoke(ShowTimeline);
     }
 
@@ -45,6 +46,7 @@ public partial class TestStep : UserControl
         var shown = sent && (onComputer || Controller.TvClients > 0);
         var console = Controller.Console is { } registered ? (string.IsNullOrEmpty(registered.Name) ? "PS5" : registered.Name) : Controller.ConsoleTitle;
         var engine = Controller.Settings.Engine == TranslationEngine.Free ? text["Free Translation"] : Controller.Settings.Engine.DisplayName();
+        ShowModel();
         var screen = Controller.Tv?.Name ?? text["This PC"];
         Timeline.Steps =
         [
@@ -55,6 +57,27 @@ public partial class TestStep : UserControl
     }
 
     private AppController Controller => (AppController)DataContext;
+
+    /// <summary>
+    /// Ücretsiz model hâlâ iniyorsa ilerleme; inemediyse ne yapılacağı ve "Yeniden dene" (çıkmaz yok). Model inince panel
+    /// kalkar.
+    /// </summary>
+    private void ShowModel()
+    {
+        var installed = Controller.ModelInstalled || Controller.Settings.Engine != TranslationEngine.Free;
+        ModelPanel.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+        if (installed) return;
+        var failed = Controller.ModelError is not null && !Controller.ModelDownloading;
+        var percent = (int)System.Math.Round(Controller.ModelProgress * 100);
+        ModelText.Text = failed ? "Ücretsiz çeviri modeli inemedi. İnternet bağlantını kontrol edip yeniden dene."
+            : Controller.ModelDownloading ? $"Ücretsiz çeviri modeli iniyor: %{percent}. Bitince deneme altyazısı çevrilir."
+            : "Ücretsiz çeviri modeli henüz inmedi.";
+        ModelBar.Value = Controller.ModelProgress;
+        ModelBar.Visibility = Controller.ModelDownloading ? Visibility.Visible : Visibility.Collapsed;
+        ModelRetry.Visibility = Controller.ModelDownloading ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnRetryModel(object sender, RoutedEventArgs e) => Controller.StartModelDownload();
 
     /// <summary>TV seçilmediyse ("TV'm yok") örnek altyazı bu bilgisayarın ekranında görünür.</summary>
     private void ShowTarget()
@@ -86,5 +109,15 @@ public partial class TestStep : UserControl
         Controller.Advance();
     }
 
-    private void OnNo(object sender, RoutedEventArgs e) => Controller.Step = OnboardingStep.Tv;
+    /// <summary>"Hayır": TV'deyse TV adımına dönülür (uygulama açılır, yeniden bağlanılır); bu ekrandaysa ipucu görünür, yeniden gönderilebilir.</summary>
+    private void OnNo(object sender, RoutedEventArgs e)
+    {
+        if (Controller.Settings.Output == SubtitleOutput.Computer)
+        {
+            Send.Style = (Style)FindResource("PrimaryButton");
+            Hint.Visibility = Visibility.Visible;
+            return;
+        }
+        Controller.Step = OnboardingStep.Tv;
+    }
 }

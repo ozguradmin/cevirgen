@@ -272,7 +272,17 @@ public partial class TvStep : UserControl
         found.AddRange(result);
         searching = false;
         ShowState();
+        // Çevirgen 1.3: ağda tek TV varsa ve henüz eşleşmiş TV yoksa eşleştirme kendiliğinden başlar (TV'de yalnız onay kalır).
+        // Birden çok TV'de kullanıcı seçer; bir kez denendikten sonra (hata, geri dönüş) yeniden kendiliğinden denenmez.
+        if (!autoPaired && found.Count == 1 && Controller.Tv is null && pairingHost is null && pairError is null && IsLoaded)
+        {
+            autoPaired = true;
+            await PairAsync(found[0]);
+        }
     }
+
+    /// <summary>Bu adımda tek TV kendiliğinden eşleştirilmeye çalışıldı mı.</summary>
+    private static bool autoPaired;
 
     /// <summary>Elle yazılan adres: TV'nin türü (LG, Samsung, Android TV) TV'ye sorulur ve listeye eklenir. Hiçbir yoklamaya
     /// yanıt gelmezse seçilen marka kullanılır; LG seçiliyse bu eskisi gibi söylenir.</summary>

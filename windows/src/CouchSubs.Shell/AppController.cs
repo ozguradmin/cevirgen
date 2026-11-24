@@ -1193,7 +1193,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     public bool NeedsPs5Link => !IsXbox && settings.FrameSource == FrameSource.Ps5 && (accountId is null || console is null);
 
     /// <summary>Ayarlar › Görüntü kaynağı › "Hesabı bağla": sihirbaz ikinci hesap adımından açılır (PSN girişi, PS5 eşleştirmesi).</summary>
-    public void LinkPs5Account() => Step = OnboardingStep.SecondAccount;
+    public void LinkPs5Account() => Step = OnboardingStep.PsnLogin;
 
     /// <summary>Seçilen Remote Play uygulaması bu bilgisayarda kurulu mu (Ayarlar'daki "Kurulu" / "İndir" satırları).</summary>
     public bool RemotePlayInstalled(RemotePlayApp app) => services.RemotePlayInstalled(app);

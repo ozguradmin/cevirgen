@@ -55,8 +55,8 @@ public class ComputerScreenTests
         controller.Step = OnboardingStep.Tv;
         Assert.False(controller.CanAdvance);
         controller.UseComputerScreen();
-        // Windows'ta TV'den sonra çeviri modeli adımı gelir.
-        Assert.Equal(OnboardingStep.Translation, controller.Step);
+        // TV'den sonra deneme adımı gelir (model arka planda iner).
+        Assert.Equal(OnboardingStep.Test, controller.Step);
         Assert.Equal(SubtitleOutput.Computer, controller.Settings.Output);
         Assert.Equal(0, services.PairCount);
         Assert.Null(controller.Tv);

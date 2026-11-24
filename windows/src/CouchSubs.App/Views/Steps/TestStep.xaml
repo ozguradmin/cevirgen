@@ -25,8 +25,13 @@
                     <!-- TV kurulumu bitti: her çeviride TV uygulaması kendiliğinden açılmaya çalışılır; açılmazsa TV'den açılır. -->
                     <TextBlock x:Name="AutoOpenNote" Style="{StaticResource HintText}" Margin="{t:Sp '0,m,0,0'}" TextWrapping="Wrap"
                                Text="{t:T 'Every time you start translating, CouchSubs tries to open the TV app by itself. If it doesn\'t open, open CouchSubs on the TV.'}" />
-                    <TextBlock Style="{StaticResource HintText}" Margin="{t:Sp '0,m,0,0'}" TextWrapping="Wrap"
-                               Text="{t:T 'CouchSubs sends the English subtitles it reads to a shared pool, anonymously, to make better Turkish translations for everyone. You can turn this off in Settings.'}" />
+                    <!-- Ücretsiz model karşılamadan sonra arka planda iner; inerken ilerleme burada. -->
+                    <StackPanel x:Name="ModelPanel" Margin="{t:Sp '0,m,0,0'}" Visibility="Collapsed">
+                        <TextBlock x:Name="ModelText" Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                        <ProgressBar x:Name="ModelBar" Minimum="0" Maximum="1" Height="4" Margin="{t:Sp '0,xs,0,0'}" />
+                        <Button x:Name="ModelRetry" Content="Yeniden dene" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,s,0,0'}"
+                                Click="OnRetryModel" Visibility="Collapsed" />
+                    </StackPanel>
                 </StackPanel>
             </c:Card>
             <c:SpacedStack Grid.Column="2" Gap="l" VerticalAlignment="Top">

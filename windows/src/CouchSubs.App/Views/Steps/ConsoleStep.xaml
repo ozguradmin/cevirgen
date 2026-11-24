@@ -53,7 +53,9 @@
             <c:Card Title="{t:T 'Connection'}">
                 <StackPanel>
                     <c:StepTimeline x:Name="Timeline" />
-                    <TextBlock Text="{t:T '8-digit code'}" Style="{StaticResource HintText}" Margin="{t:Sp '0,l,0,titleBody'}" />
+                    <TextBlock Text="Eşleştirme kodu" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource textBrush}" Margin="{t:Sp '0,l,0,0'}" />
+                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="{t:Sp '0,xxs,0,s'}"
+                               Text="PS5'te ikinci hesapla: Ayarlar › Sistem › Uzaktan Oynatma › Cihazı Eşle. Ekranda çıkan 8 haneli kodu buraya yaz ve Bağlan'a bas." />
                     <!-- Enter bağlanır (eskiden kapalı "Devam"a gidip hiçbir şey yapmıyordu); boşluk ve tire için uzunluk payı var. -->
                     <TextBox x:Name="Pin" Width="240" HorizontalAlignment="Left" FontFamily="{StaticResource MonoFont}" FontSize="{DynamicResource codeFontSize}" FontWeight="SemiBold"
                              MinHeight="52" MaxLength="16" PreviewKeyDown="OnFieldKeyDown" TextChanged="OnPinChanged" />

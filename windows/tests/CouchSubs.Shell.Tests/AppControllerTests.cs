@@ -1042,7 +1042,6 @@ public class AppControllerTests
     {
         var controller = Make();
         Assert.Equal(OnboardingStep.Welcome, controller.Step); controller.Advance();
-        Assert.Equal(OnboardingStep.SecondAccount, controller.Step); controller.Advance();
         Assert.Equal(OnboardingStep.PsnLogin, controller.Step);
         await controller.CompletePsnLoginAsync(new Uri("https://remoteplay.dl.playstation.net/remoteplay/redirect?code=x"));
         controller.Advance();
@@ -1058,10 +1057,7 @@ public class AppControllerTests
         controller.TryHdmiInput(2, confirmed: true);
         Assert.Equal(2, controller.Settings.Style.HdmiInput);
         controller.Advance();
-        Assert.Equal(OnboardingStep.Translation, controller.Step); controller.Advance();
-        Assert.Equal(OnboardingStep.BetterTranslation, controller.Step);
-        Assert.True(controller.CanAdvance);
-        controller.Advance();
+        // Model arka planda iner; Gemini anahtarı kurulumda sorulmaz (Çeviri sekmesi).
         Assert.Equal(OnboardingStep.Test, controller.Step); controller.Advance();
         Assert.Equal(OnboardingStep.Done, controller.Step);
         controller.Dispose();
@@ -1078,10 +1074,9 @@ public class AppControllerTests
         controller.Advance();
         Assert.Equal(OnboardingStep.Test, controller.Step);
         Assert.Equal(TranslationEngine.Free, controller.Settings.Engine);
+        // Geri, akıştaki önceki adıma (TV) döner.
         controller.Back();
-        Assert.Equal(OnboardingStep.BetterTranslation, controller.Step);
-        controller.Back();
-        Assert.Equal(OnboardingStep.Translation, controller.Step);
+        Assert.Equal(OnboardingStep.Tv, controller.Step);
     }
 
     [Fact]
@@ -1291,7 +1286,7 @@ public class AppControllerRunTests
         var settings = new MemorySettings();
         var controller = AppControllerTests.Make(store: store, settings: settings);
         controller.Advance();
-        Assert.Equal(OnboardingStep.SecondAccount, controller.Step);
+        Assert.Equal(OnboardingStep.PsnLogin, controller.Step);
         controller.UseRemotePlayWindow();
         Assert.Equal(OnboardingStep.Done, controller.Step);
         Assert.Equal(FrameSource.RemotePlayWindow, controller.Settings.FrameSource);
@@ -1327,7 +1322,7 @@ public class AppControllerRunTests
         Assert.True(controller.NeedsPs5Link);
         Assert.False(controller.CanStart);
         controller.LinkPs5Account();
-        Assert.Equal(OnboardingStep.SecondAccount, controller.Step);
+        Assert.Equal(OnboardingStep.PsnLogin, controller.Step);
     }
 
     /// Remote Play uygulaması kurulu değilse ana ekran bunu ve nereden indirileceğini söyler.
@@ -1352,7 +1347,7 @@ public class AppControllerRunTests
         var settings = new MemorySettings();
         var controller = AppControllerTests.Make(store: store, settings: settings);
         controller.Advance();
-        Assert.Equal(OnboardingStep.SecondAccount, controller.Step);
+        Assert.Equal(OnboardingStep.PsnLogin, controller.Step);
 
         controller.UseCaptureWindow();
         Assert.Equal(OnboardingStep.Done, controller.Step);

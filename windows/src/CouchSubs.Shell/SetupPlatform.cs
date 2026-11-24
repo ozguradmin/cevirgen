@@ -21,10 +21,12 @@ public enum SetupPlatform
 /// <summary>Platform seçeneğinin ekrandaki bilgileri (taslak: design/cevirgen/arayuz-taslagi/Setup.dc.html).</summary>
 /// <param name="How">Nasıl çalıştığı (bir iki cümle).</param>
 /// <param name="Needs">"Gerekenler" satırı.</param>
-/// <param name="Steps">Kurulumun kullanıcıya görünen adım sayısı.</param>
 /// <param name="Minutes">Yaklaşık süre (dakika).</param>
-public sealed record PlatformOption(SetupPlatform Id, string Name, string How, string Needs, int Steps, int Minutes)
+public sealed record PlatformOption(SetupPlatform Id, string Name, string How, string Needs, int Minutes)
 {
+    /// <summary>Kurulumun kullanıcıya görünen adım sayısı (akıştan; TV girişi TV adımının parçasıdır).</summary>
+    public int Steps => SetupPlatforms.Steps(Id, hdmi: false).Count;
+
     /// <summary>"4 adım · 3 dk".</summary>
     public string StepsText => $"{Steps} adım · {Minutes} dk";
 }
@@ -39,16 +41,16 @@ public static class SetupPlatforms
     [
         new(SetupPlatform.Ps5, "PS5",
             "Çevirgen, Uzaktan Oynatma ile PS5'in görüntüsünü izler. Sen kendi hesabınla oynamaya devam edersin.",
-            "Ücretsiz ikinci bir PSN hesabı, aynı ev ağı", 4, 3),
+            "Ücretsiz ikinci bir PSN hesabı, aynı ev ağı", 3),
         new(SetupPlatform.Xbox, "Xbox",
             "Çevirgen Xbox'a bağlanıp görüntüyü izler; ya da bilgisayardaki Xbox uygulamasının penceresini okur.",
-            "Microsoft hesabı, aynı ev ağı", 3, 2),
+            "Microsoft hesabı, aynı ev ağı", 2),
         new(SetupPlatform.Pc, "Bilgisayar",
             "Oyun bu bilgisayarda. Çevirgen oyun penceresini okur; Türkçe oyunun üstünde ya da TV'de çıkar.",
-            "Hiçbir şey; oyunu pencereli ya da kenarlıksız aç", 2, 1),
+            "Hesap gerekmez; oyunu pencereli ya da kenarlıksız aç", 1),
         new(SetupPlatform.Capture, "Diğer",
             "Switch, eski konsollar ya da başka bir cihaz: görüntü yakalama kartıyla bilgisayara gelir, Çevirgen o pencereyi okur.",
-            "Yakalama kartı ve OBS (ya da kartın kendi uygulaması)", 3, 3),
+            "Yakalama kartı ve OBS (ya da kartın kendi uygulaması)", 2),
     ];
 
     public static PlatformOption Option(SetupPlatform platform) => All.First(option => option.Id == platform);
@@ -74,15 +76,18 @@ public static class SetupPlatforms
         };
     }
 
-    /// <summary>Karşılamadan sonraki sihirbaz adımları, sırayla (TV Girişi yalnız <paramref name="hdmi"/> ise).</summary>
+    /// <summary>
+    /// Karşılamadan sonraki sihirbaz adımları, sırayla (TV Girişi yalnız <paramref name="hdmi"/> ise). Çevirgen 1.3'te kısaldı:
+    /// ikinci hesabın nasıl açılacağı giriş adımının içinde (ayrı adım değil); ücretsiz model karşılamadan sonra arka planda
+    /// iner (deneme adımı ilerlemesini gösterir); daha iyi çeviri (Gemini anahtarı) kurulumda sorulmaz, Çeviri sekmesindedir.
+    /// Bilgisayar platformunda TV adımı yoktur (altyazı oyunun üstünde; TV sonra Ayarlar › Cihazlar'dan eşlenir).
+    /// </summary>
     public static IReadOnlyList<OnboardingStep> Steps(SetupPlatform platform, bool hdmi)
     {
         var steps = new List<OnboardingStep>();
         switch (platform)
         {
             case SetupPlatform.Ps5:
-                steps.AddRange([OnboardingStep.SecondAccount, OnboardingStep.PsnLogin, OnboardingStep.Console]);
-                break;
             case SetupPlatform.Xbox:
                 steps.AddRange([OnboardingStep.PsnLogin, OnboardingStep.Console]);
                 break;
@@ -90,10 +95,27 @@ public static class SetupPlatforms
                 steps.Add(OnboardingStep.Window);
                 break;
         }
-        steps.Add(OnboardingStep.Tv);
-        if (hdmi) steps.Add(OnboardingStep.Hdmi);
-        steps.AddRange([OnboardingStep.Translation, OnboardingStep.BetterTranslation, OnboardingStep.Test]);
+        if (platform != SetupPlatform.Pc)
+        {
+            steps.Add(OnboardingStep.Tv);
+            if (hdmi) steps.Add(OnboardingStep.Hdmi);
+        }
+        steps.Add(OnboardingStep.Test);
         return steps;
+    }
+
+    /// <summary>
+    /// Kullanıcıya gösterilen ilerleme ("Adım 2 / 4"): TV girişi TV adımıyla bir sayılır; karşılamada 0. Listede olmayan adım
+    /// (Ayarlar'dan açılan eski adımlar) kendinden önceki adımın numarasını alır.
+    /// </summary>
+    public static (int Number, int Count) Progress(SetupPlatform platform, OnboardingStep step)
+    {
+        var steps = Steps(platform, hdmi: false);
+        if (step == OnboardingStep.Welcome) return (0, steps.Count);
+        if (step == OnboardingStep.Hdmi) step = OnboardingStep.Tv;
+        var index = steps.ToList().IndexOf(step);
+        if (index < 0) index = Math.Max(0, IndexOrBefore(steps, step));
+        return (index + 1, steps.Count);
     }
 
     /// <summary>

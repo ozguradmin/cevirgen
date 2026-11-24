@@ -178,4 +178,11 @@ public partial class PsnLoginStep : UserControl
             ManualError.Text = Localizer.Current["This is not a valid account ID. It is 12 characters in base64, e.g. AbCdEfGhIjk=."];
         }
     }
+
+    /// <summary>Sony'nin ücretsiz PlayStation hesabı açma sayfası.</summary>
+    private void OnOpenSignUp(object sender, RoutedEventArgs e) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.playstation.com/acct/create-account") { UseShellExecute = true })?.Dispose();
+
+    /// <summary>İkinci hesap açmak istemeyen: görüntü bu bilgisayardaki Remote Play penceresinden okunur, kurulum biter.</summary>
+    private void OnUseRemotePlayWindow(object sender, RoutedEventArgs e) => ((CouchSubs.Shell.AppController)DataContext).UseRemotePlayWindow();
 }

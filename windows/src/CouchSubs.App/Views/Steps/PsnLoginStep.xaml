@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
-<!-- İkinci PlayStation hesabıyla giriş (Mac PSNLoginStep): tek hesap kartı. Girişliyse yeşil nokta + "Giriş yapıldı" ve sağda küçük
+<!-- İkinci PlayStation hesabıyla giriş (Mac PSNLoginStep) ve altında ikinci hesabın nasıl açılacağı: tek hesap kartı. Girişliyse yeşil nokta + "Giriş yapıldı" ve sağda küçük
      "Yeniden Giriş Yap"; değilse tek ana "Giriş Yap". Tarayıcıda giriş ve hesap kimliğini elle girme "Diğer Giriş Yolları"nda. -->
 <UserControl x:Class="CouchSubs.App.Views.Steps.PsnLoginStep"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -54,6 +54,25 @@
             </c:AccountCard>
             <TextBlock x:Name="Error" Style="{StaticResource ErrorText}" TextWrapping="Wrap"
                        Visibility="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource VisibleIf}}" />
+
+            <!-- Çevirgen 1.3: eski "İkinci PlayStation hesabı" adımı buraya katıldı (ayrı adım yok). Tam PS5 menü yollarıyla. -->
+            <StackPanel x:Name="SecondAccountHelp" Margin="{t:Sp '0,l,0,0'}"
+                        Visibility="{Binding HasAccount, Converter={StaticResource VisibleIf}, ConverterParameter=invert}">
+                <TextBlock Text="Henüz ikinci hesabın yok mu? Bir kez yapılır:" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource textBrush}" />
+                <TextBlock Style="{StaticResource HintText}" Margin="{t:Sp '0,xs,0,0'}" TextWrapping="Wrap"
+                           Text="1. playstation.com'da farklı bir e-posta adresiyle ücretsiz bir hesap aç." />
+                <TextBlock Style="{StaticResource HintText}" Margin="{t:Sp '0,xxs,0,0'}" TextWrapping="Wrap"
+                           Text="2. PS5'te: PS düğmesi › sağ üstteki profil simgesi › Kullanıcı Değiştir › Kullanıcı Ekle. Yeni hesapla bir kez oturum aç." />
+                <TextBlock Style="{StaticResource HintText}" Margin="{t:Sp '0,xxs,0,0'}" TextWrapping="Wrap"
+                           Text="3. Yeni kullanıcıdayken: Ayarlar › Sistem › Uzaktan Oynatma › Uzaktan Oynatmayı Etkinleştir'i aç." />
+                <TextBlock Style="{StaticResource HintText}" Margin="{t:Sp '0,xxs,0,0'}" TextWrapping="Wrap"
+                           Text="4. Kendi kullanıcına dön ve yukarıdan yeni hesapla giriş yap. Oyunu her zaman kendi (ana) hesabınla oyna." />
+                <WrapPanel Margin="{t:Sp '0,s,0,0'}">
+                    <Button Content="Hesap açma sayfasını aç ↗" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnOpenSignUp" />
+                    <Button Content="İkinci hesap açmadan: bilgisayardaki Remote Play penceresini oku" Style="{StaticResource TextLink}" Margin="{t:Sp '0,0,0,xs'}"
+                            Click="OnUseRemotePlayWindow" />
+                </WrapPanel>
+            </StackPanel>
         </c:SpacedStack>
     </c:StepLayout>
 </UserControl>

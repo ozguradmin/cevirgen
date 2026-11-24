@@ -62,6 +62,7 @@ public partial class OnboardingView : UserControl
         else if (e.PropertyName == nameof(AppController.UsesFreeGemini)) ShowContinue();
         else if (e.PropertyName is nameof(AppController.PendingPlatform) or nameof(AppController.PartialSetup)) ShowSteps();
         else if (e.PropertyName is nameof(AppController.Tv) or nameof(AppController.HasTv)) ShowSteps();
+        else if (e.PropertyName is nameof(AppController.ModelDownloading)) ShowSteps();
     }
 
     /// <summary>
@@ -102,50 +103,48 @@ public partial class OnboardingView : UserControl
     }
 
     /// <summary>
-    /// Adım etiketi ("ADIM 2 / 8") ve üstteki ilerleme noktaları: şimdiki adım 24 genişlikte amber hap, geçilenler amber,
-    /// sıradakiler çerçeve renginde nokta.
+    /// Adım etiketi ("Adım 2 / 4 · Hesap") ve üstteki ilerleme noktaları: seçilen platformun gerçek adım sayısı
+    /// (<see cref="SetupPlatforms.Progress"/>; TV girişi TV adımıyla bir sayılır). Şimdiki adım 24 genişlikte sarı hap,
+    /// geçilenler soluk sarı, sıradakiler çerçeve renginde nokta.
     /// </summary>
     private void ShowSteps()
     {
         var text = Localizer.Current;
-        // Dört nokta (Mac ile aynı): 1 Konsol, 2 Hesap + PS5, 3 TV + Giriş, 4 Çeviri + Deneme.
-        var group = controller.Step switch
+        var platform = controller.Step == OnboardingStep.Welcome ? controller.PendingPlatform : controller.Platform;
+        var (number, count) = SetupPlatforms.Progress(platform, controller.Step);
+        var name = controller.Step switch
         {
-            OnboardingStep.Welcome => 1,
-            OnboardingStep.SecondAccount or OnboardingStep.PsnLogin or OnboardingStep.Console or OnboardingStep.Window => 2,
-            OnboardingStep.Tv or OnboardingStep.Hdmi => 3,
-            _ => 4,
+            OnboardingStep.SecondAccount or OnboardingStep.PsnLogin => "Hesap",
+            OnboardingStep.Console => controller.IsXbox ? "Xbox" : "PS5",
+            OnboardingStep.Window => "Pencere",
+            OnboardingStep.Tv => "TV",
+            OnboardingStep.Hdmi => "TV girişi",
+            OnboardingStep.Translation or OnboardingStep.BetterTranslation => "Çeviri",
+            OnboardingStep.Test => "Deneme",
+            _ => "",
         };
-        // Adım etiketi Mac'teki gibi (WizardText.eyebrow): hesap ve çeviri adımlarında bölüm adı.
-        var stepText = text.Format("Step %lld / %lld", group, 4);
-        Counter.Text = controller.Step switch
-        {
-            OnboardingStep.SecondAccount or OnboardingStep.PsnLogin => controller.IsXbox ? stepText : text["Setup · Account"],
-            OnboardingStep.Hdmi => stepText + " · " + text["TV input"],
-            OnboardingStep.Window => stepText + " · Pencere",
-            OnboardingStep.BetterTranslation => text["Setup · Translation"],
-            _ => stepText,
-        };
+        Counter.Text = $"Adım {number} / {count}" + (name.Length > 0 ? $" · {name}" : "");
         // Platform sorusunda sayaç yok (taslak); notta seçilen platform ve kurulumun uzunluğu.
         Counter.Visibility = controller.Step == OnboardingStep.Welcome ? Visibility.Collapsed : Visibility.Visible;
         var picked = SetupPlatforms.Option(controller.PendingPlatform);
         Footnote.Text = controller.Step == OnboardingStep.Welcome ? $"Seçilen: {picked.Name} · {picked.StepsText}"
             : FootnoteKey() is { } key ? text[key] : "";
         // Ayarlar'dan açılan kurulumda "Sonra Ayarlarım" yerine "Vazgeç" (ana ekrana döner).
-        LaterButton.Content = controller.PartialSetup ? "Vazgeç" : text["I'll Set Up Later"];
+        LaterButton.Content = controller.PartialSetup ? "Vazgeç" : "Sonra kurarım";
         Footnote.Visibility = Footnote.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         Dots.Children.Clear();
-        for (var number = 1; number <= 4; number++)
+        // Karşılama dahil: 1 platform, sonra platformun adımları.
+        for (var dot = 0; dot <= count; dot++)
         {
-            var dot = new Border
+            var current = dot == number;
+            var element = new Border
             {
-                Width = number == group ? 24 : 8, Height = 8, CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(number == 1 ? 0 : Sp.V("xs"), 0, 0, 0),
+                Width = current ? 24 : 8, Height = 8, CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(dot == 0 ? 0 : Sp.V("xs"), 0, 0, 0),
             };
-            // Şimdiki adım amber, geçilenler %60 amber çizgi rengi, sıradakiler çerçeve rengi (Mac ProgressDots).
-            dot.SetResourceReference(Border.BackgroundProperty, number == group ? "amberBrush" : number < group ? "amberLineBrush" : "borderBrush");
-            if (number < group) dot.Opacity = 0.6;
-            Dots.Children.Add(dot);
+            element.SetResourceReference(Border.BackgroundProperty, current ? "amberBrush" : dot < number ? "amberLineBrush" : "borderBrush");
+            if (dot < number) element.Opacity = 0.6;
+            Dots.Children.Add(element);
         }
         System.Windows.Automation.AutomationProperties.SetName(Dots, Counter.Text);
     }
@@ -154,6 +153,7 @@ public partial class OnboardingView : UserControl
     private string? FootnoteKey() => controller.Step switch
     {
         OnboardingStep.Window => "Yalnız seçilen pencere okunur; sonra Ayarlar › Cihazlar'dan değiştirebilirsin.",
+        OnboardingStep.Test when controller.ModelDownloading => "Ücretsiz çeviri modeli arka planda iniyor; bitince deneme çalışır.",
         OnboardingStep.PsnLogin when !controller.IsXbox => "If sign-in opens in the browser, finish it there; the app continues by itself.",
         OnboardingStep.Console when !controller.IsXbox => "If the PS5 isn't found, tips open after 10 seconds.",
         OnboardingStep.Tv => controller.HasTv
