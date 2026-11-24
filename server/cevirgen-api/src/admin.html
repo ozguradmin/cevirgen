@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,600..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Yönetim: üstte anlık sayılar, ortada 30 günlük grafik, altta uzaktan ayarlar (reklam, duyuru) ve görsel yükleme. */
+/* Yönetim: üstte anlık sayılar, ortada 30 günlük grafik, altta uzaktan ayarlar (reklam, duyuru, oyun kapakları, destek alanı) ve görsel yükleme. */
 :root{--ink:#0F1014;--panel:#16181E;--line:#272B34;--text:#ECEDEF;--muted:#9097A3;--sub:#FFD23F;--ok:#5BD08A;--err:#FF6B5E;
 --display:'Archivo','Arial Narrow',sans-serif;--body:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;color-scheme:dark}
 *{box-sizing:border-box}
@@ -78,7 +78,11 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
       <button type="button" id="add-popup">+ Açılır reklam</button>
       <button type="button" id="add-ad">+ Bant reklamı</button>
       <button type="button" id="add-ann">+ Duyuru</button>
+      <button type="button" id="add-game">+ Oyun kapağı</button>
+      <button type="button" id="add-support">+ Destek alanı</button>
     </div>
+    <p class="muted" style="margin:0;max-width:72ch;font-size:13px">Oyun kapağı: <span class="mono">id</span> uygulamadaki oyun ya da paket kimliği (küçük harf, rakam, tire; ör. <span class="mono">gta-6</span>), <span class="mono">cover</span> 2:3 dikey görselin https adresi (en çok 2 MB), <span class="mono">aliases</span> aramada da bulunacak adlar. Kullanıcının kendi kapağı her zaman önce gelir.</p>
+    <p class="muted" style="margin:0;max-width:72ch;font-size:13px">Destek alanı: Canlı ekranda 20 satır çevrildikten sonra görünen tek satır (<span class="mono">text</span>), çerçeveli düğme (<span class="mono">button</span>), https <span class="mono">link</span> ve isteğe bağlı küçük <span class="mono">icon</span>. Silersen ya da <span class="mono">null</span> yaparsan uygulama "GitHub'da yıldız ver" metnini gösterir. Yıldız karşılığında bir şey vaat etme.</p>
     <label for="config" class="lbl">Ayar dosyası (JSON)</label>
     <textarea id="config" spellcheck="false"></textarea>
     <div class="row"><button type="button" class="primary" id="save">Kaydet ve yayınla</button><span id="save-msg" class="msg" role="status"></span></div>
@@ -86,7 +90,7 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
 
   <section>
     <h2>Görsel yükle</h2>
-    <p class="muted" style="margin:0">PNG, JPG, WEBP ya da GIF, en çok 2 MB. Yüklenince adresini ayar dosyasında <span class="mono">image</span> ya da <span class="mono">icon</span> olarak kullan.</p>
+    <p class="muted" style="margin:0">PNG, JPG, WEBP ya da GIF, en çok 2 MB. Yüklenince adresini ayar dosyasında <span class="mono">image</span>, <span class="mono">icon</span> ya da <span class="mono">cover</span> olarak kullan (destek simgesi de <span class="mono">icon</span>).</p>
     <form id="upload" class="row">
       <label for="file" class="lbl">Dosya</label><input id="file" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" required>
       <label for="name" class="lbl">Ad</label><input id="name" name="name" type="text" placeholder="kampanya-kasim.jpg">
@@ -135,6 +139,8 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
   var stamp = function () { return new Date().toISOString().slice(0, 10); };
   $('add-popup').onclick = function () { edit(function (c) { c.popups = c.popups || []; c.popups.push({ id: 'popup-' + stamp(), image: 'https://…/v1/assets/gorsel.jpg', link: 'https://' }); }); };
   $('add-ad').onclick = function () { edit(function (c) { c.ads = c.ads || []; c.ads.push({ id: 'ad-' + stamp(), title: 'Başlık', text: 'Kısa metin', icon: 'https://…/v1/assets/simge.png', link: 'https://' }); }); };
+  $('add-game').onclick = function () { edit(function (c) { c.games = c.games || []; c.games.push({ id: 'oyun-kimligi', title: 'Oyunun adı', cover: 'https://…/v1/assets/oyun-kapak.jpg', aliases: [] }); }); };
+  $('add-support').onclick = function () { edit(function (c) { c.support = { id: 'destek-' + stamp(), text: "Çevirgen işine yaradıysa GitHub'da yıldız vererek destek olabilirsin.", button: 'Yıldız ver', link: 'https://github.com/ozguradmin/cevirgen' }; }); };
   $('add-ann').onclick = function () { edit(function (c) { c.announcement = { id: 'duyuru-' + stamp(), text: 'Duyuru metni', link: 'https://' }; }); };
   function msg(id, text, ok) { $(id).textContent = text; $(id).className = 'msg ' + (ok ? 'ok' : 'err'); }
   $('save').onclick = function () {

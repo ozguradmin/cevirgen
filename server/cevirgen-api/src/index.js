@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Çevirgen API (Cloudflare Worker):
-//   GET  /v1/config          uygulamanın uzaktan ayarları: reklamlar, açılır reklam, duyuru (KV "config"); güncelleme gerektirmez
+//   GET  /v1/config          uygulamanın uzaktan ayarları: reklamlar, açılır reklam, duyuru, oyun kapakları, destek alanı
+//                            (KV "config"); güncelleme gerektirmez
 //   GET  /v1/assets/<ad>     reklam görselleri (KV "asset:<ad>")
 //   POST /v1/ping            anonim sinyal {id, v, p, playing}; IP ve içerik saklanmaz
 //   GET  /admin              yönetim paneli (Basic auth, şifre ADMIN_TOKEN secret'ı)
@@ -9,6 +10,10 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PLATFORMS = new Set(['ps5', 'xbox', 'pc', 'capture', 'unknown']);
 const DEFAULT_CONFIG = { version: 1, ads: [], popups: [], announcement: null };
+// Oyun kimliği uygulamanın oyun/paket kimliğiyle aynı (gta-6, rdr-2).
+const GAME_ID = /^[a-z0-9-]{1,64}$/;
+const HTTPS = /^https:\/\/[^\s/]+\S*$/;
+const MAX_GAMES = 500;
 const ONLINE_SECONDS = 6 * 60; // uygulama 5 dakikada bir sinyal yollar
 const REPO = 'ozguradmin/cevirgen';
 
@@ -99,6 +104,44 @@ function validateConfig(c) {
     if (ad.link && !/^https:\/\//.test(ad.link)) return `Bağlantı https ile başlamalı: ${ad.link}`;
   }
   if (c.announcement && typeof c.announcement !== 'object') return 'announcement bir nesne ya da null olmalı.';
+  return validateGames(c.games) || validateSupport(c.support);
+}
+
+// Canlı ekrandaki destek alanı: {id?, text, button, link, icon?}. null ya da yoksa uygulama kendi metnini gösterir
+// ("GitHub'da yıldız ver"). Yıldız karşılığında bir şey vaat edilmemeli (GitHub teşvikli yıldızı yasaklar).
+function validateSupport(support) {
+  if (support === undefined || support === null) return null;
+  if (typeof support !== 'object' || Array.isArray(support)) return 'support bir nesne ya da null olmalı.';
+  if (typeof support.text !== 'string' || !support.text.trim() || support.text.length > 200) return 'support.text gerekli (en çok 200 karakter).';
+  if (typeof support.button !== 'string' || !support.button.trim() || support.button.length > 40) return 'support.button gerekli (en çok 40 karakter).';
+  if (typeof support.link !== 'string' || !HTTPS.test(support.link)) return 'support.link https ile başlamalı.';
+  if (support.icon !== undefined && support.icon !== null && (typeof support.icon !== 'string' || !HTTPS.test(support.icon)))
+    return 'support.icon https ile başlamalı.';
+  if (support.id !== undefined && (typeof support.id !== 'string' || support.id.length > 64)) return 'support.id en çok 64 karakterlik bir yazı olmalı.';
+  return null;
+}
+
+// "Hangi oyunu oynuyorsun?" seçicisinin kapakları: {id, title, cover?, aliases?}. Kapak yalnız https (uygulama en çok 2 MB
+// indirir, görsel imzasını denetler, diske önbelleğe alır); kullanıcının kendi kapağı her zaman önce gelir.
+function validateGames(games) {
+  if (games === undefined || games === null) return null;
+  if (!Array.isArray(games)) return 'games bir liste olmalı.';
+  if (games.length > MAX_GAMES) return `games en çok ${MAX_GAMES} oyun olabilir.`;
+  const ids = new Set();
+  for (const game of games) {
+    if (!game || typeof game !== 'object' || Array.isArray(game)) return 'games içindeki her oyun bir nesne olmalı.';
+    const id = game.id;
+    if (typeof id !== 'string' || !GAME_ID.test(id)) return `Oyun kimliği yalnız küçük harf, rakam ve tire olmalı (1–64): ${id}`;
+    if (ids.has(id)) return `Aynı oyun kimliği iki kez: ${id}`;
+    ids.add(id);
+    if (typeof game.title !== 'string' || !game.title.trim() || game.title.length > 120) return `Oyunun adı gerekli (en çok 120 karakter): ${id}`;
+    if (game.cover !== undefined && game.cover !== null && (typeof game.cover !== 'string' || !HTTPS.test(game.cover)))
+      return `Kapak adresi https ile başlamalı: ${id}`;
+    if (game.aliases !== undefined && game.aliases !== null) {
+      if (!Array.isArray(game.aliases) || game.aliases.length > 20) return `aliases en çok 20 addan oluşan bir liste olmalı: ${id}`;
+      if (game.aliases.some((alias) => typeof alias !== 'string' || !alias.trim() || alias.length > 120)) return `aliases içinde boş ya da çok uzun ad var: ${id}`;
+    }
+  }
   return null;
 }
 
