@@ -628,6 +628,8 @@
                                        Text="CouchSubs tabanlı (Sinan Yorulmaz, github.com/yorulmazsinan/couchsubs). Çevirgen, CouchSubs'ın değiştirilmiş bir sürümüdür; GNU AGPL-3.0 ile lisanslıdır, kaynak kodu açıktır. CouchSubs, Sony ya da Microsoft ile bağlantılı değildir." />
                             <TextBlock x:Name="InstalledVersion" Style="{StaticResource HintText}" />
                             <WrapPanel Margin="{t:Sp '0,s,0,0'}">
+                                <Button Content="Kaynak kodu ve sürümler · GitHub" Style="{StaticResource OutlineButton}" Click="OnRepository" Margin="{t:Sp '0,0,xs,xs'}" />
+                                <Button Content="Sorun bildir" Style="{StaticResource OutlineButton}" Click="OnReportIssue" Margin="{t:Sp '0,0,xs,xs'}" />
                                 <Button Content="Çevirgen hakkında ve lisanslar" Style="{StaticResource OutlineButton}" Click="OnAbout" Margin="{t:Sp '0,0,xs,xs'}" />
                                 <Button x:Name="CheckUpdate" Content="Güncellemeleri denetle" Style="{StaticResource OutlineButton}" Click="OnCheckUpdate" Margin="{t:Sp '0,0,xs,xs'}" />
                                 <Button Content="Kurulumu baştan başlat…" Style="{StaticResource DangerButton}" MinHeight="36" FontSize="13" Click="OnReset" Margin="{t:Sp '0,0,0,xs'}" />

@@ -1260,6 +1260,12 @@ public partial class SettingsView : UserControl
 
     private void OnAbout(object sender, RoutedEventArgs e) => AboutWindow.Open(Host);
 
+    /// <summary>Çevirgen'in GitHub sayfası: kaynak kodu ve sürümler.</summary>
+    private void OnRepository(object sender, RoutedEventArgs e) => controller.OpenInBrowser(UpdateChannel.RepositoryPage);
+
+    /// <summary>Sorun bildir: Çevirgen'in GitHub sorun sayfası (günlükler yukarıdaki "Günlükleri kaydet" ile eklenir).</summary>
+    private void OnReportIssue(object sender, RoutedEventArgs e) => controller.OpenInBrowser(UpdateChannel.IssuesPage);
+
     private void OnReset(object sender, RoutedEventArgs e) => ConfirmReset(Host, controller);
 
 
