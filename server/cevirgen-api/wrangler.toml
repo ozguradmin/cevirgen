@@ -5,6 +5,8 @@ name = "cevirgen-api"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
+# Kendi alan adımız (Türkiye ağlarında workers.dev sorun çıkarırsa diye):
+routes = [{ pattern = "cevirgen.ozgurguler.tech", custom_domain = true }]
 
 [[rules]]
 type = "Text"
@@ -19,3 +21,4 @@ database_id = "b949a634-fa0b-4488-89de-8f927fbaa932"
 [[kv_namespaces]]
 binding = "CONFIG"
 id = "c60bcbb3188344faba7e579f386275d2"
+
