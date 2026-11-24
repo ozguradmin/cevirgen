@@ -143,7 +143,8 @@ public sealed partial class AppController
         var game = AreaEditGame;
         if (AreaProfileGame is { } active) next = next.WithSavedAreaProfile(active);
         else if (game is not null && AreaProfiles.Key(game, next.AreaSource) is { } key && next.FindAreaProfile(key) is null)
-            next = next.WithSavedAreaProfile(game);
+            // Genel alanlar düzenlemeden önceki altyazı alanıdır; bu oyun için çizilen kutular yalnız onun profilinde.
+            next = (next with { GeneralAreas = settings.GeneralAreas ?? settings.Areas with { ExtraAreas = [] } }).WithSavedAreaProfile(game);
         Settings = next;
         SubtitleLog.Write($"alanlar düzenlendi: {areas.ExtraAreas.Count} ek alan{(next.ActiveAreaProfile is { } profile ? " · " + profile : "")}");
     }

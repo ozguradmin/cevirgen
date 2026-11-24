@@ -667,8 +667,9 @@ public sealed record UserSettings
     };
 
     /// <summary>
-    /// Okunan alanlar <paramref name="game"/> için kaydedilir ve o profil etkin olur. Genel alanlar bu andaki alanlar
-    /// olarak kenara alınır (profil yokken yapılan değişiklik zaten genel ayardı).
+    /// Okunan alanlar <paramref name="game"/> için kaydedilir ve o profil etkin olur. Genel alanlar bu andaki altyazı alanı
+    /// olarak kenara alınır; ek alanlar o oyunundur, genel alanlara geçmez. Çevirgen kullanıcı bildirimi: GTA 6'da eklenen
+    /// "seçenekler" kutusu başka oyunda (Doki Doki Literature Club) da okunuyordu.
     /// </summary>
     public UserSettings WithSavedAreaProfile(string game)
     {
@@ -678,8 +679,20 @@ public sealed record UserSettings
         {
             AreaProfiles = Core.AreaProfiles.Saved(AreaProfiles, profile, item => item.Key),
             ActiveAreaProfile = key,
-            GeneralAreas = GeneralAreas ?? Areas,
+            GeneralAreas = GeneralAreas ?? Areas with { ExtraAreas = [] },
         };
+    }
+
+    /// <summary>
+    /// Çevirgen: profil yokken genel alanlarda kalmış, bir oyunun profiline kaydedilmiş ek alanlar çıkar (eski sürümler
+    /// profil kaydederken onları genel alanlarda da bırakıyordu; başka oyunda da okunuyorlardı). Açılışta bir kez uygulanır.
+    /// </summary>
+    public UserSettings WithoutProfileOnlyAreas()
+    {
+        if (ActiveAreaProfile is not null || GeneralAreas is not null || ExtraAreas.Count == 0) return this;
+        var owned = AreaProfiles.SelectMany(profile => profile.Areas.ExtraAreas).Select(area => area.Id).ToHashSet();
+        var kept = ExtraAreas.Where(area => !owned.Contains(area.Id)).ToList();
+        return kept.Count == ExtraAreas.Count ? this : this with { ExtraAreas = kept };
     }
 
     /// <summary>

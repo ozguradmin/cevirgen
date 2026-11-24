@@ -39,13 +39,28 @@ public sealed class WindowStep : UserControl
     private void Build()
     {
         var capture = Controller.Platform == SetupPlatform.Capture;
-        var refresh = new Button { Content = "Pencereleri yenile", HorizontalAlignment = HorizontalAlignment.Left, Margin = Sp.T("0", "m", "0", "0") };
+        var stack = new StackPanel();
+        // Çevirgen: ön koşul belirgin bir uyarı kutusunda (gri açıklama satırında gözden kaçıyordu).
+        if (!capture)
+            stack.Children.Add(new Callout
+            {
+                Title = "Önce oyunu pencereli ya da kenarlıksız tam ekran aç",
+                Text = "Oyunun görüntü ayarlarından seçilir. Özel (exclusive) tam ekranda Windows oyunun görüntüsünü vermez, Çevirgen okuyamaz.",
+                Margin = Sp.T("0", "0", "0", "m"),
+            });
+        // Listenin başlığı ve sağında Yenile (eskiden listenin altındaydı; uzun listede görünmüyordu).
+        var refresh = new Button { Content = "Yenile", HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         refresh.SetResourceReference(StyleProperty, "OutlineButton");
         refresh.Click += (_, _) => Fill();
-        var stack = new StackPanel();
+        var heading = new TextBlock { Text = "Açık pencereler", VerticalAlignment = VerticalAlignment.Center };
+        heading.SetResourceReference(StyleProperty, "SectionLabel");
+        var header = new DockPanel { LastChildFill = true, Margin = Sp.T("0", "0", "0", "s") };
+        DockPanel.SetDock(refresh, Dock.Right);
+        header.Children.Add(refresh);
+        header.Children.Add(heading);
+        stack.Children.Add(header);
         stack.Children.Add(list);
         stack.Children.Add(empty);
-        stack.Children.Add(refresh);
         projectorHint.Margin = Sp.T("0", "m", "0", "0");
         stack.Children.Add(projectorHint);
         Content = new StepLayout
@@ -53,7 +68,7 @@ public sealed class WindowStep : UserControl
             Title = "Hangi pencereyi okuyalım?",
             Message = capture
                 ? "Yakalama kartının görüntüsünü bilgisayarda aç: OBS'te Kaynak Projektörü ya da kartın kendi uygulaması. Sonra o pencereyi seç."
-                : "Oyunu pencereli ya da kenarlıksız tam ekran aç, sonra listeden seç. Türkçe oyunun üstünde ya da TV'de çıkar.",
+                : "Oyunun penceresini listeden seç. Türkçe oyunun üstünde ya da TV'de çıkar.",
             Content = stack,
         };
         Fill();

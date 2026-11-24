@@ -134,6 +134,51 @@ public class AreaProfileTests
         Assert.Equal(FarCryArea, controller.Settings.Region);
     }
 
+    /// <summary>Çevirgen: bir oyuna çizilen ek alan başka oyunda okunmaz (GTA 6'nın "seçenekler" kutusu Doki Doki'de de çıkıyordu).</summary>
+    [Fact]
+    public async Task AGamesExtraAreasDoNotFollowToAnotherGame()
+    {
+        var (controller, _) = await WithFarCryProfile();
+        await controller.StartAsync();
+        controller.ChooseGame("Hades");
+        Assert.Null(controller.AreaProfileGame);
+        Assert.Empty(controller.Settings.ExtraAreas);
+        controller.ChooseGame("Far Cry 3");
+        Assert.Single(controller.Settings.ExtraAreas);
+    }
+
+    /// <summary>PS5'te son oynanan oyun hatırlanır; pencere okunurken hatırlanmaz (Doki Doki açıkken GTA 6 sanılıyordu).</summary>
+    [Theory]
+    [InlineData(FrameSource.Ps5, "Grand Theft Auto VI")]
+    [InlineData(FrameSource.CaptureWindow, null)]
+    public async Task TheLastPs5GameIsRecalledOnlyForThePs5(FrameSource source, string? expected)
+    {
+        var store = new MemoryStore();
+        store.Save(StoreKeys.AccountId, Enumerable.Repeat((byte)1, 8).ToArray());
+        store.Save(StoreKeys.Console, new RegisteredConsole("192.168.1.253", "PS5", Enumerable.Repeat((byte)0x31, 16).ToArray(), Enumerable.Repeat((byte)2, 16).ToArray()));
+        store.Save(StoreKeys.Tv, new LgTv("LG TV", "127.0.0.1"));
+        store.Save(StoreKeys.TvKey, "tv-key");
+        store.Save(StoreKeys.LastGames, new Dictionary<string, string> { ["PS5"] = "Grand Theft Auto VI" });
+        var settings = new MemorySettings();
+        settings.Save(new UserSettings { FrameSource = source, CaptureWindow = new WindowCaptureTarget("DDLC", "Doki Doki Literature Club!") });
+        var controller = AppControllerTests.Make(store: store, settings: settings);
+        await controller.StartAsync();
+        Assert.Equal(expected, controller.PlayedGame);
+        controller.Stop();
+    }
+
+    /// <summary>Eski sürümün genel alanlarda bıraktığı, bir oyunun profiline ait ek alan açılışta çıkar; profil kendi kutusunu tutar.</summary>
+    [Fact]
+    public void ExtraAreasLeftInTheGeneralAreasByOldVersionsAreRemovedOnStart()
+    {
+        var area = new ExtraArea("secenekler", "seçenekler", Quest);
+        var mine = new ExtraArea("ipucu", "İpucu", FarCryArea);
+        var profile = new AreaProfile("gta 6|stream", "Grand Theft Auto VI", new AreaSet(General, AreaPreset.Custom, [area]));
+        var (controller, _) = Ready(new UserSettings { ExtraAreas = [area, mine], AreaProfiles = [profile] });
+        Assert.Equal("ipucu", Assert.Single(controller.Settings.ExtraAreas).Id);
+        Assert.Single(Assert.Single(controller.Settings.AreaProfiles).Areas.ExtraAreas);
+    }
+
     [Fact]
     public async Task AnotherGameWithoutAProfileGoesBackToTheGeneralAreas()
     {

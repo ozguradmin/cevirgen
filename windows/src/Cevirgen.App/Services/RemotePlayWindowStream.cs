@@ -267,6 +267,16 @@ public sealed class RemotePlayWindowStream : IStreamSession
         return best;
     }
 
+    /// <summary>
+    /// Çevirgen: oyun olamayacak Windows ve sürücü pencereleri listede gösterilmez (kullanıcı bildirimi: "Program Manager",
+    /// "NVIDIA GeForce Overlay", "Windows Giriş Deneyimi", "Ayarlar" listeyi dolduruyordu).
+    /// </summary>
+    private static readonly HashSet<string> SystemProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "explorer", "TextInputHost", "NVIDIA Overlay", "NVIDIA Share", "SystemSettings", "ShellExperienceHost", "SearchHost",
+        "StartMenuExperienceHost", "LockApp", "SearchApp", "Widgets", "WidgetBoard", "PhoneExperienceHost", "GameBar",
+    };
+
     /// <summary>Yalnız kullanıcıya görünür ve uygulamanın kendisine ait olmayan pencereler seçilebilir.</summary>
     public static IReadOnlyList<WindowCaptureTarget> ListCaptureWindows()
     {
@@ -280,9 +290,12 @@ public sealed class RemotePlayWindowStream : IStreamSession
             if (pid == Environment.ProcessId) return true; // Çevirgen altyazı penceresini seçip geri besleme oluşturma.
             var title = WindowTitle(hwnd);
             if (title.Length == 0) return true;
+            // Gizlenmiş (cloaked) pencere görünmez: arka planda duran Ayarlar uygulaması gibi.
+            if (Native.DwmGetWindowAttribute(hwnd, Native.DwmCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
             try
             {
                 using var process = Process.GetProcessById((int)pid);
+                if (SystemProcesses.Contains(process.ProcessName)) return true;
                 windows.Add(new WindowCaptureTarget(process.ProcessName, title));
             }
             catch (Exception) { /* Süreç arama sırasında kapanmış olabilir. */ }
@@ -839,6 +852,8 @@ public sealed class RemotePlayWindowStream : IStreamSession
 
         [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
         [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
+        public const int DwmCloaked = 14;
+        [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
         [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
         [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr window);
         [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr window, uint command);

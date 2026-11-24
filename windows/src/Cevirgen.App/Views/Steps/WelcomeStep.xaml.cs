@@ -22,13 +22,23 @@ public partial class WelcomeStep : UserControl
         Loaded += (_, _) =>
         {
             Build();
-            Controller.PropertyChanged += OnChanged;
+            // Kalkarken DataContext boşalmış olabilir (Bilgisayar seçilip Devam'a basınca NullReferenceException); abone
+            // olunan denetleyici saklanır, aboneliği o bırakır.
+            if (subscribed is not null) subscribed.PropertyChanged -= OnChanged;
+            subscribed = Controller;
+            subscribed.PropertyChanged += OnChanged;
             // Açıklama ilk açılışta bir kez (kurulum Ayarlar'dan yeniden açıldıysa Ayarlar › Uygulama'da); anahtar burada yok.
             CountNote.Text = AppController.AnonymousCountOnboardingText;
             CountNote.Visibility = Controller.PartialSetup ? Visibility.Collapsed : Visibility.Visible;
         };
-        Unloaded += (_, _) => Controller.PropertyChanged -= OnChanged;
+        Unloaded += (_, _) =>
+        {
+            if (subscribed is not null) subscribed.PropertyChanged -= OnChanged;
+            subscribed = null;
+        };
     }
+
+    private AppController? subscribed;
 
     private AppController Controller => (AppController)DataContext;
 

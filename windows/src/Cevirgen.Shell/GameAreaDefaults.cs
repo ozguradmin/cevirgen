@@ -17,12 +17,14 @@ public static class GameAreaDefaults
     private static readonly Dictionary<string, AreaSet> Table = new()
     {
         ["gta 6"] = new AreaSet(
-            new CropRegion(Top: 0.69, Bottom: 0.995, Left: 0.14, Right: 0.86),
+            // Altyazı ile sağ alttaki kutu iç içe girmez (kullanıcı bildirimi, 2026-11-25). Kayıtlardaki en geniş GTA 6 altyazı
+            // satırı ekranın %30,5–69,5'i; %25–75 payıyla sığar.
+            new CropRegion(Top: 0.69, Bottom: 0.995, Left: 0.25, Right: 0.75),
             AreaPreset.Custom,
             [
                 // Sol üst ipucu kutusu çıkarıldı (2026-11-24): GTA 6'da tabelaları, araç adlarını da okuyor, logoları örtüyordu.
                 // Sol kenar geniş: 0,88'de "DEFAULT" "ULT", "SELECT" "ECT" okunuyor, telefon bildirimi yarım kalıyordu.
-                new ExtraArea(Gta6OptionsId, "Seçenekler", new CropRegion(Top: 0.66, Bottom: 0.993, Left: 0.75, Right: 1.0)),
+                new ExtraArea(Gta6OptionsId, "Seçenekler", new CropRegion(Top: 0.66, Bottom: 0.993, Left: 0.76, Right: 1.0)),
             ]),
     };
 

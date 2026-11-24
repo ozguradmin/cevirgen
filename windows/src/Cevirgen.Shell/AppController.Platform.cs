@@ -123,6 +123,9 @@ public sealed partial class AppController
         {
             SetupPlatform.Ps5 => settings with { FrameSource = FrameSource.Ps5 },
             SetupPlatform.Xbox => settings with { XboxFrameSource = XboxFrameSource.Xbox },
+            // Çevirgen: Bilgisayar'da oyun bu ekranda; Türkçe de oyunun üstünde çıkar (TV eşleşmiş olsa da). Önceden TV'de kalıyor,
+            // ana ekran oyun bilgisayarda oynanırken "TV uygulamasını aç" diyordu. TV isteyen Ayarlar'dan seçer.
+            SetupPlatform.Pc => settings with { FrameSource = FrameSource.CaptureWindow, Output = SubtitleOutput.Computer },
             _ => settings with { FrameSource = FrameSource.CaptureWindow, Output = HasTv ? settings.Output : SubtitleOutput.Computer },
         };
         if (next != settings) Settings = next;

@@ -184,6 +184,21 @@ public sealed class CevirgenUiModelTests
         controller.Dispose();
     }
 
+    /// <summary>TV eşleşmiş olsa da Bilgisayar'a geçince altyazı bu ekranda (ana ekran "TV uygulamasını aç" demesin).</summary>
+    [Fact]
+    public void SwitchingToPcShowsSubtitlesOnThisComputerEvenWithATv()
+    {
+        var controller = Ready();
+        Assert.True(controller.ShowsOnTv);
+        controller.BeginPlatformChange();
+        controller.ChoosePlatform(SetupPlatform.Pc);
+        controller.Advance();
+        Assert.Equal(SubtitleOutput.Computer, controller.Settings.Output);
+        Assert.False(controller.ShowsOnTv);
+        Assert.False(controller.ShowTvOpenHint);
+        controller.Dispose();
+    }
+
     [Fact]
     public void CancellingAPlatformChangeReturnsHomeWithoutChangingAnything()
     {

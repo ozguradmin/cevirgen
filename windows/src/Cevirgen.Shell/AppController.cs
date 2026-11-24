@@ -163,6 +163,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         settings = ScreenTextExtrasMigration.Apply(settings);
         // Uygulama oturum sürerken kapandıysa oyunun profili açık kalmış olabilir: açılışta genel alanlar geri gelir.
         if (settings.ActiveAreaProfile is not null || settings.GeneralAreas is not null) settings = settings.WithGeneralAreas();
+        // Bir oyunun profiline kaydedilmiş ek alanlar genel alanlarda kalmışsa çıkar (başka oyunda okunmasın).
+        settings = settings.WithoutProfileOnlyAreas();
         services.Translation.SelectCpuThreads(settings.CpuTranslationThreads);
         services.Translation.SelectDevice(settings.TranslationDevice);
         // Listede olmayan model varsayılana döndüyse ayar hemen kaydedilir.
@@ -3091,7 +3093,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     {
         gameSense.StartSession();
         // Çevirgen: uygulama yeniden açıldıysa bu PS5'te son seçilen oyun hatırlanır (yalnız PS5/Xbox akışında; demo değil).
-        if (!demoMode && gameSense.Current is null && LastPlayedGame is { } last) gameSense.Recall(last);
+        // Pencere okunurken hatırlanmaz: oyun bilgisayarda başka oyun olabilir (Doki Doki açıkken PS5'teki son oyun GTA 6
+        // sanılıp GTA 6'nın alanları uygulanıyordu).
+        if (!demoMode && !ReadsCaptureWindow && gameSense.Current is null && LastPlayedGame is { } last) gameSense.Recall(last);
         publishedGame = null;
         AskingGame = false;
         PublishGame();
