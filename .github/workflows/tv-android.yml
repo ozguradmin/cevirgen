@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Android TV uygulaması. İki çıktı:
 #   - CouchSubs-androidtv.apk (sideload): masaüstü uygulamalarına gömülür, ADB ile kurulur; katman modu vardır.
-#   - CouchSubs-androidtv-play.aab (play): Google Play'e elle yüklenir; katman modu yoktur (docs/play-store-tv.md).
+#   - CouchSubs-androidtv-play.aab (play): Google Play'e elle yüklenir; katman modu yoktur.
 # İmza şu depo sırlarından yapılır (adlar TV'ye özel; telefon uygulamasının anahtarı ayrıdır):
 #   TV_KEYSTORE_BASE64, TV_KEYSTORE_PASSWORD, TV_KEY_ALIAS: TV sürüm anahtarı (APK ve AAB; Play'in uygulama imza anahtarı)
 #   TV_UPLOAD_KEYSTORE_BASE64, TV_UPLOAD_KEYSTORE_PASSWORD, TV_UPLOAD_KEY_ALIAS: ayrı Play yükleme anahtarı (isteğe bağlı)
-# Sürüm derlemesinde (release.yml, require-signing) sürüm anahtarı yoksa iş hata verir; geliştirme anahtarına düşmez.
+# require-signing ile çağrılınca sürüm anahtarı yoksa iş hata verir; geliştirme anahtarına düşmez.
 name: tv-android
 
 on:
@@ -13,7 +13,7 @@ on:
     branches: [main, "feat/windows-*"]
     paths: ["tv-android/**", "tv-webos/**", "scripts/tv-discovery.test.js", ".github/workflows/tv-android.yml"]
   workflow_dispatch:
-  # Sürüm iş akışı (release.yml) paketi buradan alır.
+  # Başka bir iş akışı paketi buradan alabilir.
   workflow_call:
     inputs:
       require-signing:
@@ -66,7 +66,7 @@ jobs:
           mkdir -p ../dist ../dist-play
           cp app/build/outputs/apk/sideload/release/*.apk ../dist/CouchSubs-androidtv.apk
           cp app/build/outputs/bundle/playRelease/*.aab ../dist-play/CouchSubs-androidtv-play.aab
-      # Masaüstü paketleri bu yapıttaki tek APK'yı alır (release.yml, windows.yml); AAB ayrı yapıttadır.
+      # Masaüstü paketleri bu yapıttaki tek APK'yı alır (windows.yml); AAB ayrı yapıttadır.
       - uses: actions/upload-artifact@v4
         with:
           name: couchsubs-android

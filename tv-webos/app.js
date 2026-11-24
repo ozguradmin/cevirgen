@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  // TV uygulamasının sürümü: appinfo.json, tv-tizen/config.xml ve tv-android/app/build.gradle ile aynı tutulur.
+  // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
   var APP_VERSION = '1.0.2';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
@@ -3051,7 +3051,7 @@
     try { return typeof platform.pictureModes === 'function' ? platform.pictureModes() : null; } catch (e) { return null; }
   }
 
-  // Samsung'un görüntü yöntemleri (tv-tizen/platform.js): yöntemin sırası ve sayısı [1, 3]; geniş ekranın
+  // Samsung'un görüntü yöntemleri (Samsung paketinin platform.js'i): yöntemin sırası ve sayısı [1, 3]; geniş ekranın
   // sığdır/doldur seçiminde null.
   function pictureStep(mode) {
     try {

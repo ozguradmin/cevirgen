@@ -7,14 +7,14 @@ on:
   push:
     branches: [main, "feat/windows-*"]
   workflow_dispatch:
-  # Sürüm iş akışı (release.yml) Windows paketini buradan alır.
+  # Başka bir iş akışı Windows paketini buradan alabilir.
   workflow_call:
     inputs:
       with-android:
         description: Android TV APK'sı (tv-android iş akışının çıktısı) uygulamaya gömülsün
         type: boolean
         default: false
-    # Kullanım verisinin kimlikleri (release.yml geçirir); yoksa Windows paketinde ölçüm kapalı.
+    # Kullanım verisinin kimlikleri (çağıran iş akışı geçirir); yoksa Windows paketinde ölçüm kapalı.
     secrets:
       GA_MEASUREMENT_ID:
         required: false
@@ -54,7 +54,7 @@ jobs:
         run: |
           git submodule update --init --depth 1 third-party/chiaki-ng
           git -C third-party/chiaki-ng submodule update --init --depth 1 third-party/nanopb third-party/jerasure third-party/gf-complete third-party/curl
-          # Mac (scripts/build-chiaki-macos.sh) ve Android (scripts/patch-chiaki.sh) gibi bütün yamalar uygulanır.
+          # scripts/patch-chiaki.sh gibi bütün yamalar uygulanır.
           Get-ChildItem third-party/patches/chiaki-*.patch | Sort-Object Name | ForEach-Object {
             git -C third-party/chiaki-ng apply "../patches/$($_.Name)"
             if ($LASTEXITCODE -ne 0) { throw "chiaki yaması uygulanamadı: $($_.Name)" }
@@ -242,7 +242,6 @@ jobs:
         run: |
           npm install -g @webos-tools/cli
           ./scripts/package-tv.sh
-          ./scripts/package-tizen.sh
           if [ -d android-apk ]; then ./scripts/bundle-android-apk.sh "$(ls android-apk/*.apk | head -1)"; fi
 
       # Sürüm etiketten gelir (v0.1.0-beta.10 → 0.1.0-beta.10); uygulama içi güncelleme bununla karşılaştırır.

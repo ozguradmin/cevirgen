@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://couchsubs.enmeraapps.com/sitemap.xml

@@ -2,12 +2,11 @@
 plugins { id 'com.android.application' }
 
 // İmza anahtarları ortam değişkenlerinden gelir (CI'da depo sırları, bkz. .github/workflows/tv-android.yml); hiçbiri depoda
-// durmaz. Adlar TV'ye özeldir: telefon uygulamasının (couchsubs-android) anahtarı ayrıdır ve bunlara karışmaz.
+// durmaz. Adlar TV'ye özeldir.
 //   TV_KEYSTORE_FILE / TV_KEYSTORE_PASSWORD / TV_KEY_ALIAS: TV sürüm anahtarı (takma ad cevirgen-tv). Hem masaüstü
 //     uygulamalarının ADB ile kurduğu APK hem Play paketi (AAB) bununla imzalanır; Play'in uygulama imza anahtarı da budur.
 //   TV_UPLOAD_KEYSTORE_FILE / TV_UPLOAD_KEYSTORE_PASSWORD / TV_UPLOAD_KEY_ALIAS: ayrı Play yükleme anahtarı (isteğe bağlı).
-//   Bkz. docs/play-store-tv.md.
-// Anahtar yoksa geliştirme anahtarıyla imzalanır; sürüm derlemesi (release.yml) bu durumda iş akışında hata verir.
+// Anahtar yoksa geliştirme anahtarıyla imzalanır; require-signing ile çağrılan iş akışı (tv-android.yml) bu durumda hata verir.
 def releaseKeystore = System.getenv('TV_KEYSTORE_FILE')
 def uploadKeystore = System.getenv('TV_UPLOAD_KEYSTORE_FILE')
 
@@ -42,7 +41,7 @@ android {
         }
     }
     // İki dağıtım: masaüstünün ADB ile kurduğu APK (katman modu var) ve Google Play paketi (katman modu yok: Play'in TV
-    // kalite kuralı TV-TR uygulamanın başka uygulamaların üstünü örtmesine izin vermiyor). Bkz. docs/play-store-tv.md.
+    // kalite kuralı TV-TR uygulamanın başka uygulamaların üstünü örtmesine izin vermiyor).
     flavorDimensions = ['distribution']
     productFlavors {
         sideload {

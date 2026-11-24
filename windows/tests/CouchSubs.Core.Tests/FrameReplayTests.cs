@@ -8,7 +8,7 @@ using Xunit;
 namespace CouchSubs.Core.Tests;
 
 /// <summary>
-/// Gerçek kare gerileme seti (testdata/frames, scripts/regression-frames.sh): karelerin Mac'te Apple Vision ile
+/// Gerçek kare gerileme seti (testdata/frames): karelerin (upstream'de, Mac'te) Apple Vision ile
 /// kaydedilmiş okumaları (testdata/frames/ocr) Windows'un altyazı seçiminden geçer: oturum oturum, sırayla; düğme
 /// ipuçları ve okuma çöpü atılır, satırlar birleşir, altyazı bloğu seçilir, altyazının yeri öğrenilir (SubtitleBand).
 /// Seçilen blok Mac'in seçtiğiyle (ocr/selection.json) aynı olmalı (Mac FrameReplayTests.swift, Android

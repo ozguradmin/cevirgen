@@ -19,8 +19,8 @@ try {
 }
 
 const root = path.join(__dirname, '..');
-// Samsung paketine giren betikler (scripts/package-tizen.sh) ve LG/Android TV'nin platform betikleri.
-const FILES = ['tv-webos/app.js', 'tv-webos/i18n.js', 'tv-webos/config.js', 'tv-tizen/platform.js',
+// TV sayfasının betikleri ve LG/Android TV'nin platform betikleri.
+const FILES = ['tv-webos/app.js', 'tv-webos/i18n.js', 'tv-webos/config.js',
   'tv-webos/platform.js', 'tv-android/platform.js'];
 
 test('TV betikleri ES5 ile ayrıştırılıyor (Tizen 2.3-2.4 tarayıcısı)', { skip: !acorn && 'acorn bulunamadı' }, () => {
@@ -41,8 +41,7 @@ test('ES5 denetimi gerçekten ES2015 sözdizimini yakalıyor', { skip: !acorn &&
 test('Tizen paketinin sayfası ES2015+ API\'sini korumasız çağırmıyor', () => {
   // Tizen 2.3'ün tarayıcısında olmayabilecek API'ler yalnız varlık denetimiyle kullanılır.
   const app = fs.readFileSync(path.join(root, 'tv-webos/app.js'), 'utf8');
-  const platform = fs.readFileSync(path.join(root, 'tv-tizen/platform.js'), 'utf8');
-  for (const [name, code] of [['app.js', app], ['tv-tizen/platform.js', platform]]) {
+  for (const [name, code] of [['app.js', app]]) {
     for (const api of ['fetch(', 'Object.assign(', '.includes(', '.startsWith(', '.endsWith(', 'new Map(', 'new Set(',
       'Symbol(', 'new URL(', 'URLSearchParams', 'requestAnimationFrame(', '.classList']) {
       assert.ok(code.indexOf(api) < 0, name + ': ' + api);

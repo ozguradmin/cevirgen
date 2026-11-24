@@ -301,8 +301,6 @@ test('altyazı akışı TV uygulamasının sürümünü (appinfo.json ile aynı)
   assert.strictEqual(tv.lastOpened(), 'http://192.168.1.42:8787/events');
   const appinfo = JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8'));
   assert.strictEqual(tv.lastVersion(), appinfo.version);
-  const tizen = fs.readFileSync(path.join(root, '..', 'tv-tizen', 'config.xml'), 'utf8');
-  assert.ok(tizen.includes('version="' + appinfo.version + '"'), 'tv-tizen/config.xml sürümü');
   const gradle = fs.readFileSync(path.join(root, '..', 'tv-android', 'app', 'build.gradle'), 'utf8');
   assert.ok(gradle.includes("versionName '" + appinfo.version + "'"), 'tv-android versionName');
 });
@@ -721,36 +719,6 @@ test('closeWhenHidden istemeyen platformda (LG, Android TV) arka plan bağlantı
   assert.strictEqual(tv.openStreams().length, 1);
   tv.setHidden(false);
   assert.strictEqual(tv.openStreams().length, 1);
-});
-
-// tv-tizen/platform.js: TVWindow API'si sahte tizen nesnesiyle çalıştırılır.
-function tizenPlatform(tvwindow) {
-  const context = { window: {}, tizen: { tvwindow }, JSON };
-  vm.createContext(context);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'tv-tizen', 'platform.js'), 'utf8'), context);
-  return context.window.COUCHSUBS_PLATFORM;
-}
-
-test('Tizen: getVideoResolution değeri iletilir, değişiklik dinleyicisi bir kez kurulur', () => {
-  let listeners = 0, change = null;
-  const platform = tizenPlatform({
-    getVideoResolution(ok) { ok({ width: 1920, height: 1080, frequency: 60 }); },
-    addVideoResolutionChangeListener(fn) { listeners++; change = fn; return listeners; }
-  });
-  const seen = [];
-  platform.videoResolution((info) => seen.push(info && info.width));
-  platform.videoResolution((info) => seen.push(info && info.width));
-  change({ width: 3840, height: 2160, frequency: 60 });
-  assert.deepStrictEqual(seen, [1920, 1920, 3840]);
-  assert.strictEqual(listeners, 1);
-});
-
-test('Tizen: TVWindow API yoksa ya da hata verirse çözünürlük null gelir, hata fırlatılmaz', () => {
-  for (const tvwindow of [{}, { getVideoResolution(ok, fail) { fail(new Error('x')); } }]) {
-    const seen = [];
-    tizenPlatform(tvwindow).videoResolution((info) => seen.push(info));
-    assert.deepStrictEqual(seen, [null]);
-  }
 });
 
 test('panel kendiliğinden kapanınca ilk açılışta "Tamam: panel" ipucu çıkar; Tamam paneli açar', () => {

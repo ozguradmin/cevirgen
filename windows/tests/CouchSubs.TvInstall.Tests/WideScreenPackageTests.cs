@@ -63,7 +63,7 @@ public class WideScreenPackageTests
     [Fact]
     public void RealPackageGetsWideSurfaceSettingAndViewport()
     {
-        var config = File.ReadAllText(Path.Combine(Repo(), "tv-tizen", "config.xml"));
+        var config = File.ReadAllText(Path.Combine(Repo(), "testdata", "tizen", "config.xml"));
         var page = File.ReadAllText(Path.Combine(Repo(), "tv-webos", "index.html"));
         Assert.DoesNotContain("app_ui_type/base_screen_resolution\"", config);
         var wgt = Wgt(config, page);

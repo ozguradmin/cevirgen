@@ -342,7 +342,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
     /// <summary>Son <c>vd_applist</c>'te CouchSubs kimliğindeki uygulamanın adı (app_title); yoksa null.</summary>
     private string? lastTitle;
 
-    /// <summary>CouchSubs'ın TV'deki adı (tv-tizen/config.xml &lt;name&gt;).</summary>
+    /// <summary>CouchSubs'ın TV'deki adı (testdata/tizen/config.xml &lt;name&gt;).</summary>
     internal const string OurTitle = "CouchSubs";
 
     /// <summary>Ad biliniyor ve CouchSubs değil: başka bir uygulama bizim kimliğimizi kullanıyor. Ad yoksa yabancı sayılmaz.</summary>
@@ -422,7 +422,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
     /// <param name="keepExisting">
     /// TV'deki kopyaya dokunulmaz (<c>vd_appuninstall</c> yok): Tizen 2.x'te TV'de CouchSubs varsa ya da liste
     /// okunamadıysa. 2016 TV'de Tizen Studio ile elle kurulmuş, çalışan kopya kurtarma adımında silinmesin
-    /// (docs/tv-samsung.md, #638). Sebepsiz <c>[118]</c>'de <paramref name="alternative"/> yine bir kez denenir.
+    /// (#638). Sebepsiz <c>[118]</c>'de <paramref name="alternative"/> yine bir kez denenir.
     /// </param>
     internal static async Task InstallWithRecoveryAsync(ISamsungTvShell tv, Action<string>? progress, InstallLog log,
         CancellationToken cancellationToken, Func<string?>? alternative = null, bool keepExisting = false)

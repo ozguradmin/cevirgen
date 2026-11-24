@@ -15,9 +15,9 @@ namespace CouchSubs.TvInstall.Tests;
 /// </summary>
 public class LegacyTizenPackageTests
 {
-    /// <summary>Depodaki gerçek config.xml.</summary>
+    /// <summary>Samsung TV paketinin başvuru config.xml'i (testdata/tizen/config.xml; Samsung paketi bu depoda derlenmez).</summary>
     private static string Config([CallerFilePath] string source = "") =>
-        File.ReadAllText(Path.Combine(Path.GetDirectoryName(source)!, "..", "..", "..", "tv-tizen", "config.xml"));
+        File.ReadAllText(Path.Combine(Path.GetDirectoryName(source)!, "..", "..", "..", "testdata", "tizen", "config.xml"));
 
     private static string Wgt(string config)
     {

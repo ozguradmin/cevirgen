@@ -19,7 +19,7 @@ public static class SamsungMessages
     }
 
     /// <summary>
-    /// TV uygulaması parametreleri <c>PAYLOAD</c> içinde alır (bkz. tv-tizen/platform.js). <paramref name="actionType"/>
+    /// TV uygulaması parametreleri <c>PAYLOAD</c> içinde alır (Samsung paketinin platform.js'i; bu depoda derlenmez). <paramref name="actionType"/>
     /// TV'nin uygulama listesinde bildirdiği türe göre seçilir (<see cref="ActionType"/>); bilinmiyorsa DEEP_LINK.
     /// </summary>
     public static string Launch(string appId, IReadOnlyDictionary<string, string> parameters, string actionType = "DEEP_LINK") => new JsonObject

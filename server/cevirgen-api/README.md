@@ -64,7 +64,8 @@ satırları silinir. Toplam sayılar (`pool_lines`) ve çeviriler kalır.
 
 Şimdilik yalnız toplanıyor; çeviri ya da paket üretimi yapılmıyor (`src/index.js` ve `src/lines.js` içinde
 `TODO(paketler)`). Plan, CouchSubs'ın havuz ve paket sunucularına (`server/pool/src/autopack.js`,
-`server/packs/src/index.ts`) benzer:
+`server/packs/src/index.ts`) benzer. Upstream'in `server/pool` ve `server/packs` başvuru uygulaması bu deponun git
+geçmişinde (2026-11-24 temizliğinden önceki sürümler) ve upstream depoda (github.com/yorulmazsinan/couchsubs) durur.
 
 1. **Seçim:** oyun başına `installs >= 2` olan (en az iki ayrı kurulumun gördüğü) ve henüz pakette olmayan satırlar. Tek
    kurulumun gördüğü satır pakete girmez (yanlış okuma, kişisel bilgi riski).

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// webOS'a özgü işler. Tizen karşılığı: tv-tizen/platform.js
+// webOS'a özgü işler. Samsung (Tizen) paketi bu depoda derlenmez.
 (function () {
   'use strict';
 

@@ -38,7 +38,7 @@ import java.util.List;
  * - Katman: HDMI'yı TV kendi giriş ekranında gösterir, altyazıyı OverlayService üstte çizer. Bu ekran yalnız servisi
  *   başlatıp kapanır; servis çalışırken CouchSubs yeniden açılırsa katman kapanır.
  *
- * Google Play paketinde katman modu yoktur (BuildConfig.OVERLAY_MODE; bkz. docs/play-store-tv.md): orada yalnız uygulama
+ * Google Play paketinde katman modu yoktur (BuildConfig.OVERLAY_MODE): orada yalnız uygulama
  * içinde çalışır, katman gerektiğinde ne yapılacağı anlatılır.
  */
 public class MainActivity extends Activity implements TvPage.Host {
