@@ -418,6 +418,12 @@ public sealed record UserSettings
     /// altyazı alanı dışında hiçbir şey çevrilmez.
     /// </summary>
     public bool GameAreaPresets { get; init; }
+
+    /// <summary>
+    /// Çevirgen: bilinen oyun ilk kez oynanınca hazır alan profili (<see cref="Shell.GameAreaDefaults"/>; GTA 6: altyazı, ipucu,
+    /// seçenekler) eklenir. Varsayılan açık.
+    /// </summary>
+    public bool DefaultGameAreas { get; init; } = true;
     /// <summary>Altyazı okuyucusu. Gelişmiş seçili ama modeli inmemişse Windows'unki kullanılır.</summary>
     public OcrEngine OcrEngine { get; init; } = OcrEngine.Advanced;
     public DubbingSettings Dubbing { get; init; } = new();

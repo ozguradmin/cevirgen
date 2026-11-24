@@ -1363,6 +1363,24 @@
     return taken;
   }
 
+  // Çevirgen: kullanıcının çizdiği ek alandaki kısa etiketin hizası komşularından çıkar (GTA 6'nın sağ alttaki tuş listesi
+  // sağa yaslı, tuş simgesi yazının sağında). Türkçe uzun gelirse kutu simgenin üstüne değil yazının öbür yanına büyür.
+  function neighbourAlign(items, index, box) {
+    var tolerance = 0.012, left = 0, right = 0;
+    for (var j = 0; j < items.length; j++) {
+      if (j === index) continue;
+      var other = validBox(items[j] && items[j].box);
+      if (!other) continue;
+      if (Math.abs(other.left - box.left) < tolerance) left++;
+      if (Math.abs(other.right - box.right) < tolerance) right++;
+    }
+    if (right !== left) return right > left ? 'right' : 'left';
+    return (box.left + box.right) / 2 > 0.5 ? 'right' : 'left';
+  }
+
+  // Çevirgen: "Ek alan çevirisi yazının üstünde" (style.regionsAbove): ek alanın Türkçesi İngilizceyi örtmez, hemen üstünde durur.
+  var regionsAbove = false;
+
   function placeItems(host, items, regionId) {
     var phone = regionId === 'game-phone';
     var width = (window.innerWidth || 1920) / (window.COUCHSUBS_ZOOM || 1);
@@ -1438,8 +1456,19 @@
       // küçük boyda da sığmıyorsa satır kırılır.
       var singleOriginal = boxHeight <= line * 1.6 + 2 * pad * height;
       var bubble = styled && item.bubble === true;
-      var label = styled && !bubble && item.text.indexOf('\n') < 0 && (item.text.split(/\s+/).length <= 2 || singleOriginal);
+      // Çevirgen: elle çizilen ek alanın kısa satırı da etiket gibi tek satırda kalır ("ARAYÜ / ZÜ GİZLE" diye kırılıyordu).
+      var manual = !phone && !styled && !!regionId && regionId.indexOf('auto-') !== 0;
+      var manualAlign = manual ? neighbourAlign(items, i, box) : null;
+      var label = (styled ? !bubble : manual) && item.text.indexOf('\n') < 0
+        && (item.text.split(/\s+/).length <= 2 || singleOriginal);
       if (styled) floor = Math.max(label ? 10 : SCREEN_MIN_FONT, Math.round(size * (label ? STYLED_LABEL_MIN_SCALE : STYLED_MIN_SCALE)));
+      else if (manual && label) floor = Math.max(10, Math.round(size * STYLED_LABEL_MIN_SCALE));
+      if (manual && label) {
+        el.style.textAlign = manualAlign;
+        // En küçük genişlik (minWidth) kısa yazıyı ("EXIT") sağa uzatıp tuş simgesini örtüyordu: sağa yaslı etikette fazlası sola.
+        var ownWidth = (Math.min(1, box.right + pad) - left) * width;
+        if (manualAlign === 'right' && itemWidth > ownWidth) el.style.left = Math.max(0, left * width - (itemWidth - ownWidth)) + 'px';
+      }
       if (bubble) {
         floor = Math.min(size, Math.max(Math.round(BUBBLE_MIN_FONT * height / 1080), Math.round(size * BUBBLE_MIN_SCALE)));
         el.className += ' bubble';
@@ -1467,9 +1496,12 @@
       // gerektiği kadar genişler; özgün zemin rengiyle şeridin üstünde durur.
       if (label && el.style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1) {
         var extra = el.scrollWidth - el.clientWidth + 2;
-        var align = item.style && item.style.align;
+        var align = (item.style && item.style.align) || manualAlign;
         var shift = align === 'right' ? extra : align === 'left' ? 0 : extra / 2;
-        var newLeft = Math.max(0, Math.min(width - itemWidth - extra, left * width - shift));
+        var start = parseFloat(el.style.left) || 0;
+        // style.left yüzde ya da (sağa yaslı elle etikette) piksel olabilir.
+        var current = el.style.left.indexOf('%') > 0 ? start / 100 * width : start;
+        var newLeft = Math.max(0, Math.min(width - itemWidth - extra, current - shift));
         el.style.left = newLeft + 'px';
         el.style.width = (itemWidth + extra) + 'px';
       }
@@ -1481,6 +1513,10 @@
       }
       // En küçük okunabilir boyutta da sığmayan metni kesmeyiz/gizlemeyiz.
       // Bu uç durumda eski doğal büyüme davranışı korunur.
+      if (regionsAbove && regionId && !phone) {
+        // Çevirgen: Türkçe İngilizcenin hemen üstünde (örtmez); ekranın üstüne sığmazsa en üstte kalır.
+        el.style.top = Math.max(0, top * height - el.offsetHeight - 2) + 'px';
+      }
     }
     if (reuse) {
       for (var r = 0; r < reuse.all.length; r++) {
@@ -1571,7 +1607,10 @@
     } else {
       el.style.left = (Math.max(0, box.left - REGION_PAD) * 100) + '%';
     }
-    if ((box.top + box.bottom) / 2 > 0.5) {
+    if (regionsAbove && id.indexOf('auto-') !== 0 && id !== 'game-phone') {
+      // Çevirgen: "Ek alan çevirisi yazının üstünde": kutunun alt kenarı İngilizcenin üst kenarında.
+      el.style.bottom = (Math.min(1, Math.max(0, 1 - box.top + REGION_PAD)) * 100) + '%';
+    } else if ((box.top + box.bottom) / 2 > 0.5) {
       el.style.bottom = (Math.max(0, 1 - box.bottom - REGION_PAD) * 100) + '%';
     } else {
       el.style.top = (Math.max(0, box.top - REGION_PAD) * 100) + '%';
@@ -1996,6 +2035,7 @@
     bandShape = style.backgroundShape === 'band';
     // "Ekran yazılarını altyazıdan ayır" (alanı göndermeyen eski bilgisayarda açık).
     setApart = style.setApart !== false;
+    regionsAbove = style.regionsAbove === true;
     setBodyClass('band', bandShape);
     if (typeof style.background === 'number') {
       var alpha = Math.max(0, Math.min(100, style.background)) / 100;

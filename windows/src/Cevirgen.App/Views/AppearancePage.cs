@@ -50,7 +50,9 @@ public sealed class AppearancePage : UserControl
     private readonly SwitchRow band = new() { Content = "Tam genişlikte zemin", Description = "Zemin kutusu ekranın iki yanına uzanır; yan yana taşan İngilizceyi de örter." };
     private readonly SwitchRow previous = new() { Content = "Hızlı konuşmada önceki satırlar üstte", Description = "Kapalıysa yeni satır eskisinin yerine geçer." };
     private readonly SwitchRow names = new() { Content = "Konuşan adını göster", Description = "Satırın başındaki karakter adı (JASON: …) kalır; ad çevrilmez." };
-    private readonly SwitchRow nameColors = new() { Content = "Konuşan adlarını renklendir", Description = "Yalnız ad kendi renginde; satır yazı renginde kalır.", Divider = false };
+    private readonly SwitchRow nameColors = new() { Content = "Konuşan adlarını renklendir", Description = "Yalnız ad kendi renginde; satır yazı renginde kalır." };
+    // Çevirgen: ek alanların (tuş listesi, ipucu) Türkçesi İngilizceyi örtmez, hemen üstünde durur.
+    private readonly SwitchRow regionsAbove = new() { Content = "Ek alan çevirisi yazının üstünde", Description = "Kapalıysa Türkçe, menü ve ipucu yazısının yerine geçer (örter).", Divider = false };
     private bool loading;
 
     public AppearancePage(AppController controller)
@@ -277,9 +279,11 @@ public sealed class AppearancePage : UserControl
         names.Unchecked += (_, _) => ChangeSettings(s => s with { ShowSpeakerNames = false });
         nameColors.Checked += (_, _) => ChangeSettings(s => s with { SpeakerColors = true });
         nameColors.Unchecked += (_, _) => ChangeSettings(s => s with { SpeakerColors = false });
+        regionsAbove.Checked += (_, _) => Change(style => style with { RegionsAbove = true });
+        regionsAbove.Unchecked += (_, _) => Change(style => style with { RegionsAbove = false });
         // Anahtar satırları ayar sayfalarındaki gibi aralıklı bir yığında (SwitchRow kendi çizgisini çizer).
         var switches = new SpacedStack();
-        foreach (var row in new[] { bold, band, previous, names, nameColors }) switches.Children.Add(row);
+        foreach (var row in new[] { bold, band, previous, names, nameColors, regionsAbove }) switches.Children.Add(row);
         stack.Children.Add(switches);
 
         var test = ScreenKit.Button("TV'de dene", "OutlineButton", (_, _) => controller.SendTestSubtitle());
@@ -341,6 +345,7 @@ public sealed class AppearancePage : UserControl
             previous.IsChecked = style.StackPrevious;
             names.IsChecked = controller.Settings.ShowSpeakerNames;
             nameColors.IsChecked = controller.Settings.SpeakerColors;
+            regionsAbove.IsChecked = style.RegionsAbove;
         }
         finally
         {

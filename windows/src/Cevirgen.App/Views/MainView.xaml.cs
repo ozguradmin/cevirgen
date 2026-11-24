@@ -393,8 +393,15 @@ public partial class MainView : UserControl
                     () => ShellWindow.Navigate(ShellTab.Translation), Details([reason + text["Meanwhile the free translation is used."]]));
             }
             case LiveNoticeKind.SubtitlesOff:
+            {
+                // Çevirgen: GTA 6'da altyazı varsayılan kapalı; açma yolu ayrıntının başında, ayrıntı kendiliğinden açık.
+                var gameHint = GameAreaDefaults.SubtitleSettingHint(controller.PlayedGame);
                 return new(kind, level, text["Game Subtitles Off?"], text["Draw the Area Manually"], ShellWindow.EditAreas,
-                    Details([text["Çevirgen reads the English subtitles on screen, not the audio. Turn on the game's own subtitles."]]));
+                    Details(gameHint is null
+                        ? [text["Çevirgen reads the English subtitles on screen, not the audio. Turn on the game's own subtitles."]]
+                        : [gameHint, text["Çevirgen reads the English subtitles on screen, not the audio. Turn on the game's own subtitles."]]),
+                    AutoExpand: gameHint is not null);
+            }
             case LiveNoticeKind.AreaProfileOffer:
                 return new(kind, level, text.Format("Saved areas for %@ are available. Use them?", controller.OfferedAreaProfileGame ?? ""), text["Use"],
                     controller.UseOfferedAreaProfile, DismissLabel: text["No"], Dismiss: controller.DeclineOfferedAreaProfile);

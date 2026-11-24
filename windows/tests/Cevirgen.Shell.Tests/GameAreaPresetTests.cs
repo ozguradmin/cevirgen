@@ -101,7 +101,7 @@ public class GameAreaPresetTests
         // Oyun yanlış seçili (GTA 6) ama ekranda arayüz kutusu yok: hazır alan hiçbir şey çevirmez.
         var services = new FakeServices { ReaderLines = Reading.FromText("Follow Paulie to the car.") };
         var settings = new MemorySettings();
-        settings.Save(new UserSettings { FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
+        settings.Save(new UserSettings { DefaultGameAreas = false, FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
                                          AutoScreenTextReset = true, GameAreaPresets = true, ScreenTextExtrasReset = true });
         using var controller = AppControllerTests.Make(services, settings: settings);
         var events = new ConcurrentQueue<SubtitleEvent>();
@@ -125,7 +125,7 @@ public class GameAreaPresetTests
         var settings = new MemorySettings();
         var userRegion = new CropRegion(0.70, 0.90, 0.20, 0.80);
         var overlay = new OverlayBounds(100, 600, 900);
-        settings.Save(new UserSettings { FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
+        settings.Save(new UserSettings { DefaultGameAreas = false, FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
                                          AutoScreenTextReset = true, GameAreaPresets = true, ScreenTextExtrasReset = true,
                                          Overlay = overlay }.WithCustomRegion(userRegion));
         using var controller = AppControllerTests.Make(services, settings: settings);
@@ -169,7 +169,7 @@ public class GameAreaPresetTests
         // beta.63–68'de varsayılan açıktı. Göçten sonra sol üstteki arayüz kutusu da okunmaz.
         var services = new FakeServices { ReaderLines = Reading.FromText("Follow Paulie to the car.") };
         var settings = new MemorySettings();
-        settings.Save(new UserSettings { FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
+        settings.Save(new UserSettings { DefaultGameAreas = false, FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false,
                                          AutoScreenTextReset = true, GameAreaPresets = true });
         using var controller = AppControllerTests.Make(services, settings: settings);
         controller.SubtitleEcho = null;

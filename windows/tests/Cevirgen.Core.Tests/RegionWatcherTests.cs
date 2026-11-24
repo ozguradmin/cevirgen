@@ -1091,8 +1091,9 @@ public partial class RegionWatcherTests
     }
 
     [Theory]
-    [InlineData(true, null, "Aç", false)]
-    [InlineData(true, "Menüyü aç", "Menüyü aç", false)]
+    // Çevirgen: kısa arayüz etiketi paketten önce sözlükten gelir (pakette "SCROLL" bir diyalogdaki "parşömen"e bağlanıyordu).
+    [InlineData(true, null, "AÇ", false)]
+    [InlineData(true, "Menüyü aç", "AÇ", false)]
     [InlineData(false, null, "TR: OPEN", true)]
     public async Task CommandGlossaryRespectsPackAndLanguagePair(bool enabled, string? packText, string expected, bool usesEngine)
     {

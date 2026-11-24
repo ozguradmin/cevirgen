@@ -3018,6 +3018,16 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     {
         Changed(nameof(AreaProfileTarget));
         if (session is null) return;
+        // Çevirgen: oyunun hazır alanları (GTA 6: altyazı, ipucu, seçenekler) o oyunun profili hiç yoksa profil olarak eklenir.
+        if (settings.DefaultGameAreas && gameSense.Current?.Name is { } played && GameAreaDefaults.For(played) is { } defaults
+            && AreaProfiles.Key(played, settings.AreaSource) is { } defaultKey && settings.FindAreaProfile(defaultKey) is null)
+        {
+            Settings = settings with
+            {
+                AreaProfiles = AreaProfiles.Saved(settings.AreaProfiles, new AreaProfile(defaultKey, played, defaults), item => item.Key),
+            };
+            SubtitleLog.Write("hazır alan profili eklendi: " + defaultKey);
+        }
         var decision = AreaProfiles.Decide(settings.ActiveAreaProfile, gameSense.Current?.Name, gameSense.Source, settings.AreaSource,
                                            key => settings.FindAreaProfile(key) is not null, declinedAreaProfiles.Contains);
         SetOfferedAreaProfile(decision.Step == AreaProfiles.Step.Offer ? decision.Key : null);
@@ -3526,7 +3536,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                     watcherRequested = phoneArea is not null || autoAreas.Count > 0 || missionArea is not null || noticeAreas.Count > 0;
                     return;
                 }
-                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server)
+                // Çevirgen: kullanıcının alanları da yarım saniyede bir okunur (menü açılınca Türkçesi hemen gelsin, kapanınca gitsin).
+                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server, RegionWatcher.AutoIntervalMs)
                 {
                     Log = SubtitleLog.Write, SubtitleEcho = SubtitleEcho,
                     // Çevirgen: ek alanların ve ekran yazısının çevirileri ortak havuza; PS5'in Uzaktan Oynatma bildirimi ipucuna.

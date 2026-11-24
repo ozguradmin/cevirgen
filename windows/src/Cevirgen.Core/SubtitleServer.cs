@@ -72,7 +72,8 @@ public sealed record SubtitleStyle(
     bool NameOnly = false,
     int? HdmiInput = null,
     bool Outline = true,
-    int OutlineWidth = SubtitleStyle.DefaultOutlineWidth)
+    int OutlineWidth = SubtitleStyle.DefaultOutlineWidth,
+    bool RegionsAbove = false)
 {
     public const string DefaultBackgroundColor = "#101014";
     /// <summary>Kenarlığın varsayılan kalınlığı (32 px yazıda eski TV'nin çizdiğiyle aynı).</summary>
@@ -1046,6 +1047,7 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
             ["outline"] = style.OutlinePx > 0,
             ["outlineWidth"] = style.OutlinePx,
             ["placement"] = style.Placement.ToString().ToLowerInvariant(),
+            ["regionsAbove"] = style.RegionsAbove,
             ["setApart"] = setApart,
             ["stackPrevious"] = style.StackPrevious,
             ["textColor"] = style.TextColor.ToString().ToLowerInvariant(),

@@ -25,7 +25,7 @@ public class GamePhoneReadingTests
         var services = new FakeServices { ReaderLines = Reading.FromText("Hold the gate") };
         var settings = new MemorySettings();
         // Otomatik ekran yazıları ve hazır alanlar kapalı: telefon dışında ayrı okuyucu açılmasın (bkz. ScreenTextReadingTests).
-        settings.Save(new UserSettings { FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoReadGamePhone = featureEnabled, AutoScreenText = false, GameAreaPresets = false, ScreenTextExtrasReset = true });
+        settings.Save(new UserSettings { DefaultGameAreas = false, FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoReadGamePhone = featureEnabled, AutoScreenText = false, GameAreaPresets = false, ScreenTextExtrasReset = true });
         using var controller = AppControllerTests.Make(services, settings: settings);
         var events = new ConcurrentQueue<SubtitleEvent>();
         controller.StreamEvent += events.Enqueue;
@@ -48,7 +48,7 @@ public class GamePhoneReadingTests
     {
         var services = new FakeServices { ReaderLines = Reading.FromText("Call me tomorrow.") };
         var settings = new MemorySettings();
-        settings.Save(new UserSettings { FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false, GameAreaPresets = false });
+        settings.Save(new UserSettings { DefaultGameAreas = false, FrameSource = FrameSource.RemotePlayWindow, Output = SubtitleOutput.Computer, AutoScreenText = false, GameAreaPresets = false });
         var controller = AppControllerTests.Make(services, settings: settings);
         var events = new ConcurrentQueue<SubtitleEvent>();
         controller.StreamEvent += events.Enqueue;

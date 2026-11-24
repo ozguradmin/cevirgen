@@ -400,6 +400,15 @@ public sealed partial class RegionWatcher
         }
         var candidate = ReadCandidate(frame, crop, signature, area, state, started);
         if (candidate is null) return;
+        // Çevirgen: kullanıcının alanında görüntü değişip yazı tamamen kaybolduysa (menü kapandı) Türkçesi ikinci okumayı
+        // beklemeden kalkar; ekranda fazladan kalmaz.
+        if (!area.Auto && candidate.Key.Length == 0 && state.Shown.Length > 0)
+        {
+            state.LastRead = candidate.Key;
+            state.Candidate = null;
+            await CommitAsync(candidate, area, state, started).ConfigureAwait(false);
+            return;
+        }
         if (state.LastRead == candidate.Key)
         {
             state.Candidate = null;
@@ -1109,7 +1118,9 @@ public sealed partial class RegionWatcher
         string?[] result = [.. paragraphs.Select(paragraph =>
             // Yalnız özel adlardan oluşan yazı ("JASON & LUCIA") çevrilmez (#859).
             (ScreenTranslation.KeepsNames(paragraph) ? paragraph : null)
-            ?? (labelsFirst && TranslatesUiCommands ? UiCommands.TranslateLabel(IconText.Plain(paragraph)) : null)
+            // Çevirgen: kullanıcının alanında da kısa arayüz etiketi pakete gitmeden sözlükten çevrilir (pakette "Scroll"
+            // başka bir bağlamda "Parşömen" diye geçiyordu; GTA 6 menüsünde "Kaydır").
+            ?? (TranslatesUiCommands ? UiCommands.TranslateLabel(IconText.Plain(paragraph)) : null)
             ?? PackLookup?.Invoke(IconText.Plain(paragraph))?.Text ?? (TranslatesUiCommands ? UiCommands.Translate(paragraph) : null))];
         var readyCount = result.Count(text => text is not null);
         // Zaten Türkçe olan parça çevrilmez: aslı kalır, tümü öyleyse kutu gösterilmez.
