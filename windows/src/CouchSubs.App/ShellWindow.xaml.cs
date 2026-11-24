@@ -29,20 +29,15 @@ public enum ShellTab { Home, Appearance, Translation, History, Settings }
 public partial class ShellWindow : Window
 {
     /// <summary>
-    /// Sekmelerin sayfaları. 2. bölüm (Görünüm, Çeviri, Geçmiş ve sözlük, Alanları düzenle) kendi ekranlarını buraya bağlar;
-    /// şimdilik Görünüm eski görünüm düzenleyicisini, Çeviri Ayarlar › Gelişmiş'i (motor seçimi orada), Geçmiş eski Geçmiş'i açar.
+    /// Sekmelerin sayfaları: Görünüm (okunurluk testi), Çeviri (kör test ve motor kurulumu), Geçmiş ve sözlük, Ayarlar.
     /// Canlı ekran (MainView) bir kez kurulur ve saklanır; diğerleri her açılışta güncel ayarlarla yeniden kurulur.
+    /// Alanları düzenle sekme değildir: <see cref="EditAreas"/> pencerenin tamamını kaplar.
     /// </summary>
     internal static readonly Dictionary<ShellTab, Func<AppController, FrameworkElement>> Pages = new()
     {
         [ShellTab.Appearance] = controller => new AppearancePage(controller),
-        [ShellTab.Translation] = controller =>
-        {
-            var page = new SettingsView(controller);
-            page.Show(SettingsGroup.Advanced);
-            return page;
-        },
-        [ShellTab.History] = controller => new HistoryView(controller),
+        [ShellTab.Translation] = controller => new TranslationPage(controller),
+        [ShellTab.History] = controller => new HistoryPage(controller),
         [ShellTab.Settings] = controller => new SettingsView(controller),
     };
 
@@ -253,9 +248,42 @@ public partial class ShellWindow : Window
         if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
         window.Activate();
         if (!window.showingMain) return;
-        // Eski bölüm adları: Görünüm artık kendi sekmesinde.
+        // Eski bölüm adları: Görünüm ve çeviri motoru artık kendi sekmelerinde.
         if (tab == ShellTab.Settings && section == SettingsSection.Appearance) { window.SelectTab(ShellTab.Appearance, null); return; }
+        if (tab == ShellTab.Settings && section == SettingsSection.Translation) { window.SelectTab(ShellTab.Translation, null); return; }
         window.SelectTab(tab, section is { } wanted ? SettingsView.GroupFor(wanted) : null);
+    }
+
+    /// <summary>
+    /// "Alanları düzenle" (Canlı ekrandaki bağlantı, Ayarlar › Okuma alanları): düzenleyici pencerenin tamamını kaplar (üst
+    /// çubuk, duyuru ve reklam bandı gizlenir); "Bitti" ya da "Vazgeç" ile önceki ekrana dönülür.
+    /// </summary>
+    public static void EditAreas()
+    {
+        if (current is not { } window || !window.showingMain || window.Host.Content is AreaEditorView) return;
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        window.Activate();
+        var previous = window.Host.Content as FrameworkElement;
+        window.TopBar.Visibility = Visibility.Collapsed;
+        window.AnnouncementBar.Visibility = Visibility.Collapsed;
+        window.Ads.Visibility = Visibility.Collapsed;
+        window.Show(new AreaEditorView(window.controller, () =>
+        {
+            window.TopBar.Visibility = window.showingMain ? Visibility.Visible : Visibility.Collapsed;
+            window.ApplyAds();
+            window.ShowAnnouncement();
+            // Ayarlar sayfası yeni alanlarla yeniden kurulur; Canlı ekran saklıdır, aynen döner.
+            if (previous is SettingsView) window.SelectTabFresh(ShellTab.Settings, SettingsGroup.Areas);
+            else if (previous is MainView) window.SelectTabFresh(ShellTab.Home, null);
+            else if (previous is not null) window.Show(previous);
+        }));
+    }
+
+    /// <summary>Sekmeyi (açıksa da) yeniden kurarak açar; Canlı ekran saklı olanıdır.</summary>
+    private void SelectTabFresh(ShellTab chosen, SettingsGroup? group)
+    {
+        tab = (ShellTab)(-1);
+        SelectTab(chosen, group);
     }
 
     /// <summary>Ayarlar'ı belli bir bölümde açar.</summary>

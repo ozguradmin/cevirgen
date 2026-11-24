@@ -38,6 +38,15 @@ public static class SubtitleLegibility
         new("Gece", "#0C0E13", 4), new("Gölge", "#3E444E", 25), new("Gündüz gök", "#B7C6D6", 72), new("Kar", "#F1F3F5", 95),
     ];
 
+    /// <summary>
+    /// Testin karosu TV ekranının alt ortasındaki bu genişlikte (1920 genişlikli TV pikseli) bir bölümü gösterir: yazı boyu
+    /// ve kenarlık karo genişliği / 960 oranıyla, TV'deki gerçek oranda çizilir (bütün ekranı gösterseydi 32 px yazı küçük
+    /// karoda 6 px'e inerdi). Karedeki İngilizce de aynı oranla, 1080p oyundaki boyuyla (<see cref="EnglishPx"/>).
+    /// </summary>
+    public const double TileTvWidth = 960;
+    /// <summary>Karodaki İngilizce satırın 1080p'deki boyu (GTA tarzı oyun altyazısı ~30–34 px).</summary>
+    public const double EnglishPx = 32;
+
     /// <summary>Bu orandan itibaren "Okunur".</summary>
     public const double ReadableRatio = 3;
     /// <summary>Bu orandan itibaren "Zor"; altı "Okunmaz".</summary>

@@ -26,15 +26,8 @@ public enum SettingsGroup { Devices, Areas, Dubbing, Shortcuts, Advanced, App }
 
 public partial class SettingsView : UserControl
 {
-    private static readonly (string Code, string Name)[] Languages =
-        [("en", "English"), ("ja", "Japanese"), ("de", "German"), ("fr", "French"), ("es", "Spanish")];
-
     private readonly AppController controller;
     private bool loading = true;
-    /// <summary>Çerçevesi düzenlenen alan: 0 altyazı, 1, 2 ve 3 sıradaki ek alanlar.</summary>
-    private int area;
-    /// <summary>Önizlemenin oyun görüntüsüyle son yenilendiği an (ms).</summary>
-    private long lastPreview;
     /// <summary>Kısayollar'da yeni tuşu bekleyen yuva; null ise beklenmiyor.</summary>
     private (HotkeyAction Action, int Slot, Button Button)? recording;
     /// <summary>Kısayollar'daki düğmeler: iş ve yuvaya göre.</summary>
@@ -48,28 +41,11 @@ public partial class SettingsView : UserControl
         InstalledVersion.Text = Localizer.Current.Format("Installed version: %@", AppVersion.Current(typeof(SettingsView).Assembly));
         var settings = controller.Settings;
         DataContext = controller;
-        GeminiPaidTier.IsChecked = settings.GeminiPaidTier;
-        TextSize.Value = Math.Clamp(settings.Style.FontSize, TextSize.Minimum, TextSize.Maximum);
-        TextSizeValue.Text = ((int)TextSize.Value).ToString();
-        Position.Value = settings.Style.BottomPercent;
-        Placement.SelectedItem = Placement.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Style.Placement.ToString());
-        ShowPlacement(settings.Style.Placement);
-        BackgroundOpacity.Value = settings.Style.Background;
-        BackgroundShape.SelectedItem = BackgroundShape.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Style.BackgroundShape.ToString());
-        Bold.IsChecked = settings.Style.Bold;
-        Outline.IsChecked = settings.Style.Outline;
-        StackPrevious.IsChecked = settings.Style.StackPrevious;
         MisreadWait.Value = settings.MisreadWaitMs / 1000.0;
         PartialWait.Value = settings.PartialWaitMs / 1000.0;
         ShowWaits();
-        TextColor.SelectedItem = TextColor.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Style.TextColor.ToString());
         DisplayMode.SelectedItem = DisplayMode.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Style.DisplayMode.ToString());
-        // Yalnız çeviri modeli olan diller listelenir; tek dil varsa seçim gösterilmez.
-        foreach (var (code, name) in Languages.Where(l => controller.SupportsLanguage(l.Code)))
-            GameLanguage.Items.Add(new ComboBoxItem { Content = Localizer.Current[name], Tag = code, IsSelected = code == settings.SourceLanguage });
-        LanguageCard.Visibility = GameLanguage.Items.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         (settings.FreeAreaTarget switch { ResultTarget.Pc => FreePc, ResultTarget.Both => FreeBoth, _ => FreeTv }).IsChecked = true;
-        Region.Frame = controller.LastFrame;
         ObsAddress.Text = controller.ObsAddress;
         LegacyTvWarning.Visibility = controller.LegacyTvWarning ? Visibility.Visible : Visibility.Collapsed;
         // Localhost'u kabul etmeyen yayın programları (TikTok LIVE Studio) için aynı adres bilgisayarın ağ adresiyle.
@@ -77,13 +53,10 @@ public partial class SettingsView : UserControl
         else NetworkObsPanel.Visibility = Visibility.Collapsed;
         var streamBackground = controller.StreamBackground.ToString();
         StreamBackgroundChoice.SelectedItem = StreamBackgroundChoice.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == streamBackground);
-        ShowArea(0);
         ShowAreaProfile();
         GameProfilesHint.Text = Localizer.Current["Each game keeps its own subtitle area and extra areas. A game that isn't in the list can be added by typing its name; one profile never overwrites another."];
         ShowGameProfiles();
-        // Num 8: oyunun o anki görüntüsü önizlemeye alınır.
-        controller.SnapshotRequested += OnSnapshot;
-        Unloaded += (_, _) => controller.SnapshotRequested -= OnSnapshot;
+        ShowAreasSummary();
         Dubbing.Attach(controller);
         FirewallSettings.Attach(controller);
         OutputCard.Attach(controller);
@@ -91,7 +64,6 @@ public partial class SettingsView : UserControl
         ShowStyleTitle();
         controller.PropertyChanged += OnControllerChanged;
         Unloaded += (_, _) => controller.PropertyChanged -= OnControllerChanged;
-        Engine.SelectedItem = Engine.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.Engine.ToString());
         TranslationDeviceChoice.SelectedItem = TranslationDeviceChoice.Items.Cast<ComboBoxItem>()
             .First(item => (string)item.Tag == settings.TranslationDevice.ToString());
         foreach (var count in CpuThreadOptions.Available(Environment.ProcessorCount))
@@ -105,15 +77,12 @@ public partial class SettingsView : UserControl
         OcrEngineChoice.SelectedItem = OcrEngineChoice.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.OcrEngine.ToString());
         ShowAdvancedOcr();
         ShowCpuThreads();
-        ShowEngine();
         GamePacks.IsChecked = settings.GamePacks;
         SharePool.IsChecked = settings.SharePool;
         UsageData.IsChecked = settings.UsageData;
         // Telefonlardaki Profil › Kullanım verisi ile aynı; ölçüm bu derlemede yoksa gizli.
         UsageDataRow.Visibility = controller.UsageConfigured ? Visibility.Visible : Visibility.Collapsed;
         AskGame.IsChecked = settings.AskGame;
-        SpeakerNames.IsChecked = settings.ShowSpeakerNames;
-        SpeakerColors.IsChecked = settings.SpeakerColors;
         AutoScreenText.IsChecked = settings.AutoScreenText;
         ScreenTextPhone.IsChecked = settings.ScreenTextPhone;
         ScreenTextMission.IsChecked = settings.ScreenTextMission;
@@ -127,15 +96,9 @@ public partial class SettingsView : UserControl
         (settings.Appearance switch { AppAppearance.Light => AppearanceLight, AppAppearance.System => AppearanceSystem, _ => AppearanceDark }).IsChecked = true;
         StartupSound.IsChecked = settings.StartupSound;
         TransitionAnimations.IsChecked = settings.TransitionAnimations;
-        ShowPace();
-        MiniPreview.Content = new AspectBox { Child = AppearanceEditor.PerdeStage(MiniSubtitle, null) };
-        ShowMiniSubtitle();
         ShowTvStatus();
         Sections.SelectedIndex = 0;
         ShowHeading();
-        // Yazı boyutu, koyuluk ve yazı rengi Görünüm sekmesindeki düzenleyicide; eski satırlar gizlenir (ayarın kendisi aynı).
-        foreach (var old in new FrameworkElement[] { TextSizeUnit, BackgroundUnit, TextColorUnit })
-            old.Visibility = Visibility.Collapsed;
         RemotePlayAppChoice.SelectedItem = RemotePlayAppChoice.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.RemotePlayApp.ToString());
         XboxAudioOnComputer.IsChecked = settings.XboxAudioOnComputer;
         XboxLegacyFrameRate.IsChecked = settings.XboxLegacyFrameRate;
@@ -507,7 +470,6 @@ public partial class SettingsView : UserControl
         }
         if (e.PropertyName is nameof(AppController.Settings) or nameof(AppController.ShowsOnTv) or nameof(AppController.ShowsOnComputer))
             ShowStyleTitle();
-        if (e.PropertyName == nameof(AppController.LastFrame)) ShowLiveFrame();
         if (e.PropertyName == nameof(AppController.InstalledPacks)) ShowPacks();
         if (e.PropertyName is nameof(AppController.Settings) or nameof(AppController.AdvancedOcrInstalled) or nameof(AppController.AdvancedOcrDownloading)
             or nameof(AppController.AdvancedOcrProgress) or nameof(AppController.AdvancedOcrError))
@@ -517,8 +479,8 @@ public partial class SettingsView : UserControl
             or nameof(AppController.AreaProfileTarget) or nameof(AppController.OfferedAreaProfileGame))
             ShowAreaProfile();
         if (e.PropertyName is nameof(AppController.GameProfiles) or nameof(AppController.AreaProfileGame)) ShowGameProfiles();
-        // Oyun değişince alanlar profilden gelir ya da genel alanlara dönülür: açık sekme yeni alanı gösterir.
-        if (e.PropertyName == nameof(AppController.AreaProfileGame) && !Region.IsDragging) ShowArea(area);
+        // Oyun değişince alanlar profilden gelir ya da genel alanlara dönülür; özet yenilenir.
+        if (e.PropertyName is nameof(AppController.AreaProfileGame) or nameof(AppController.Settings)) ShowAreasSummary();
     }
 
     /// <summary>
@@ -671,21 +633,6 @@ public partial class SettingsView : UserControl
 
     private void OnRenewAccessKey(object sender, RoutedEventArgs e) => controller.RotateSubtitleKey();
 
-    /// <summary>
-    /// Alan sekmesi açıkken önizleme oyunun görüntüsüyle saniyede dört kez yenilenir (çerçeve sürüklenirken beklenir); çerçeve
-    /// akan görüntüde yerleştirilir. Yalnız bu sekme açıkken; okuma hattına iş eklemez.
-    /// </summary>
-    private const int PreviewIntervalMs = 250;
-
-    private void ShowLiveFrame()
-    {
-        if (!AreaTab.IsSelected || Region.IsDragging || controller.LastFrame is not { } frame) return;
-        var now = Environment.TickCount64;
-        if (now - lastPreview < PreviewIntervalMs) return;
-        lastPreview = now;
-        Region.Frame = frame;
-    }
-
     /// <summary>Altyazı bilgisayar ekranında da gösteriliyorsa görünüm kartı yalnız TV'ye ait değildir.</summary>
     private void ShowStyleTitle()
     {
@@ -693,9 +640,6 @@ public partial class SettingsView : UserControl
         // Görüntü modu yalnız Android TV uygulamasında var.
         DisplayModePanel.Visibility = controller.ShowsOnTv && controller.Tv?.Brand == TvBrand.AndroidTv
             ? Visibility.Visible : Visibility.Collapsed;
-        // Yer ayarları TV içindir; bilgisayar ekranında "ekrandaki konum ayarı işlemiyor" sanılıyordu (Genzo, 2026-11-13).
-        // OBS katmanı da yeri kullanır ("Yalnız OBS (yayın)").
-        TvPlacementPanel.Visibility = controller.ShowsOnTv || controller.Settings.Output == SubtitleOutput.Obs ? Visibility.Visible : Visibility.Collapsed;
         ComputerPlacementPanel.Visibility = controller.ShowsOnComputer ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -954,10 +898,6 @@ public partial class SettingsView : UserControl
 
     private void OnAskGame(object sender, RoutedEventArgs e) => Update(s => s with { AskGame = AskGame.IsChecked == true });
 
-    private void OnSpeakerNames(object sender, RoutedEventArgs e) => Update(s => s with { ShowSpeakerNames = SpeakerNames.IsChecked == true });
-
-    private void OnSpeakerColors(object sender, RoutedEventArgs e) => Update(s => s with { SpeakerColors = SpeakerColors.IsChecked == true });
-
     private void OnAutoScreenText(object sender, RoutedEventArgs e)
     {
         // Türler yalnız ayar açıkken görünür.
@@ -979,17 +919,6 @@ public partial class SettingsView : UserControl
 
     private void OnGameAreaPresets(object sender, RoutedEventArgs e) => Update(s => s with { GameAreaPresets = GameAreaPresets.IsChecked == true });
 
-    /// <summary>Seçili motor (ayarlarda ücretsiz ise Free).</summary>
-    private TranslationEngine SelectedEngine =>
-        Engine.SelectedItem is ComboBoxItem { Tag: string tag } ? Enum.Parse<TranslationEngine>(tag) : TranslationEngine.Free;
-
-    private void OnGeminiPaidTier(object sender, RoutedEventArgs e)
-    {
-        if (loading) return;
-        Update(s => s with { GeminiPaidTier = GeminiPaidTier.IsChecked == true });
-        ShowEngine();
-    }
-
     /// <summary>Ayarlar › Konsol › TV girişi: seçilen giriş kaydedilir ve TV'de deneme altyazısı gösterilir (Mac ile aynı).</summary>
     private void OnHdmiInput(object sender, RoutedEventArgs e)
     {
@@ -997,170 +926,6 @@ public partial class SettingsView : UserControl
         if (controller.Settings.Style.HdmiInput == input) return;
         controller.TryHdmiInput(input, confirmed: true);
         controller.SendTestSubtitle();
-    }
-
-    /// <summary>Motor seçenek kartı seçildi: gizli Engine kutusu da aynı motora geçer (OnEngine kaydeder).</summary>
-    private void OnEngineOption(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: string tag }) return;
-        var item = Engine.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == tag);
-        if (item is not null && !ReferenceEquals(Engine.SelectedItem, item)) Engine.SelectedItem = item;
-    }
-
-    private void ShowEngine()
-    {
-        var text = Localizer.Current;
-        var engine = SelectedEngine;
-        foreach (var option in EngineOptions.Children.OfType<Controls.OptionCard>())
-            option.IsChecked = (string)option.Tag == engine.ToString();
-        EngineHint.Text = text[engine switch
-        {
-            TranslationEngine.Free => "Free. The translation model built into CouchSubs runs on this computer; subtitle text never leaves it.",
-            TranslationEngine.DeepL => "Optional. With your own free DeepL key, translations read more naturally. Subtitle text is sent to DeepL; when DeepL cannot be reached, the translation model on this computer takes over.",
-            TranslationEngine.Gemini => "Google's AI translates with the game's tone and keeps names as they are. Subtitle text is sent to Google with your own key, and any cost is billed to your Google account. When Gemini cannot be reached, the free translation takes over.",
-            TranslationEngine.OpenAi => "OpenAI's AI translates with the game's tone and keeps names as they are. Subtitle text is sent to OpenAI with your own key, and any cost is billed to your OpenAI account. When OpenAI cannot be reached, the free translation takes over.",
-            TranslationEngine.Local => "Free, with no quota. An AI model on this computer (Ollama or LM Studio) translates; subtitle text never leaves it. Speed depends on your computer. When the model cannot be reached, the free translation takes over.",
-            _ => "Anthropic's Claude translates with the game's tone and keeps names as they are. Subtitle text is sent to Anthropic with your own key, and any cost is billed to your Anthropic account. When Claude cannot be reached, the free translation takes over.",
-        }];
-        EnglishOnlyHint.Visibility = engine != TranslationEngine.Free && controller.Settings.SourceLanguage != "en" ? Visibility.Visible : Visibility.Collapsed;
-        KeyPanel.Visibility = engine == TranslationEngine.Free ? Visibility.Collapsed : Visibility.Visible;
-        FreeGeminiOffer.Visibility = engine == TranslationEngine.Free ? Visibility.Visible : Visibility.Collapsed;
-        FreeGeminiNotes.Visibility = engine == TranslationEngine.Gemini ? Visibility.Visible : Visibility.Collapsed;
-        FreeGeminiLimit.Visibility = controller.Settings.GeminiPaidTier ? Visibility.Collapsed : Visibility.Visible;
-        KeyStatus.Visibility = Visibility.Collapsed;
-        KeyError.Visibility = Visibility.Collapsed;
-        if (engine == TranslationEngine.Free) return;
-
-        var saved = controller.HasKey(engine);
-        var isLocal = engine == TranslationEngine.Local;
-        NewKey.Visibility = saved ? Visibility.Collapsed : Visibility.Visible;
-        SavedKey.Visibility = saved ? Visibility.Visible : Visibility.Collapsed;
-        // DeepL'in denemesi bu ayki kullanımı gösterir; ayrı bir "Dene" düğmesi gerekmez.
-        KeyTest.Visibility = engine == TranslationEngine.DeepL ? Visibility.Collapsed : Visibility.Visible;
-        // Yerel modelde anahtar isteğe bağlıdır: düğme yalnız bağlantıyı dener (yazılan anahtar kabul edilirse saklanır).
-        NoKeyHint.Visibility = engine == TranslationEngine.DeepL || isLocal ? Visibility.Collapsed : Visibility.Visible;
-        KeySave.Content = text[isLocal ? "Test connection" : "Save and test"];
-        KeyTest.Content = text[isLocal ? "Test connection" : "Test"];
-        var provider = engine.Provider();
-        KeyLink.NavigateUri = provider?.KeyPage() ?? new Uri("https://www.deepl.com/pro-api");
-        KeyLinkText.Text = isLocal ? text["Download Ollama"]
-            : provider is { } named ? text.Format("Get a %@ API key", named.DisplayName()) : text["Get a free DeepL API key"];
-        ModelPanel.Visibility = provider is null || isLocal ? Visibility.Collapsed : Visibility.Visible;
-        LocalPanel.Visibility = isLocal ? Visibility.Visible : Visibility.Collapsed;
-        // Ek talimat yalnız yapay zekâ motorlarında (Gemini, OpenAI, Claude, yerel model); DeepL'de yoktur.
-        InstructionPanel.Visibility = provider is null ? Visibility.Collapsed : Visibility.Visible;
-        if (!Instruction.IsKeyboardFocusWithin) Instruction.Text = controller.Settings.AiInstruction;
-        LocalKeyLabel.Visibility = saved ? Visibility.Collapsed : Visibility.Visible;
-        // Yerel modelde geçersiz adres düğmeleri kapatır; başka motora geçince yeniden açılır.
-        KeySave.IsEnabled = true;
-        KeyTest.IsEnabled = true;
-        if (isLocal) ShowLocal();
-        else if (provider is { } p) ShowModels(p);
-        if (saved && engine == TranslationEngine.DeepL) _ = ShowDeepLUsageAsync();
-    }
-
-    /// <summary>Yerel modelin kayıtlı adresi ve model adı; adres geçersizse uyarı.</summary>
-    private void ShowLocal()
-    {
-        var settings = controller.Settings;
-        LocalAddress.Text = settings.LocalAiBaseUrl;
-        LocalModel.Text = settings.LocalAiModel;
-        ShowLocalAddressError();
-    }
-
-    private void ShowLocalAddressError()
-    {
-        var invalid = LocalAiServer.Normalize(LocalAddress.Text) is null;
-        LocalAddressError.Visibility = invalid ? Visibility.Visible : Visibility.Collapsed;
-        LocalAddressError.Text = Localizer.Current.Format("This address is not valid. Example: %@", LocalAiServer.OllamaUrl);
-        KeySave.IsEnabled = !invalid;
-        KeyTest.IsEnabled = !invalid;
-    }
-
-    /// <summary>Yazılan adres ve model alandan çıkınca ya da Enter'a basınca kaydedilir; her tuşta hat yeniden kurulmaz.</summary>
-    private void CommitLocal()
-    {
-        var address = LocalAddress.Text.Trim();
-        var model = LocalModel.Text.Trim();
-        var settings = controller.Settings;
-        if (address != settings.LocalAiBaseUrl || model != settings.LocalAiModel)
-        {
-            Update(s => s with { LocalAiBaseUrl = address, LocalAiModel = model });
-            KeyStatus.Visibility = Visibility.Collapsed;
-            KeyError.Visibility = Visibility.Collapsed;
-        }
-        ShowLocalAddressError();
-    }
-
-    private void OnLocalChanged(object sender, RoutedEventArgs e) => CommitLocal();
-
-    /// <summary>Ek talimat alandan çıkınca kaydedilir; her tuşta çeviri hattı yeniden kurulmaz.</summary>
-    private void OnInstructionChanged(object sender, RoutedEventArgs e)
-    {
-        var instruction = Instruction.Text.Trim();
-        if (instruction != controller.Settings.AiInstruction) Update(s => s with { AiInstruction = instruction });
-    }
-
-    private void OnInstructionTyped(object sender, System.Windows.Controls.TextChangedEventArgs e) =>
-        InstructionPlaceholder.Visibility = Instruction.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-
-    private void OnLocalKey(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key == System.Windows.Input.Key.Enter) CommitLocal();
-    }
-
-    private void OnUseOllama(object sender, RoutedEventArgs e) => UseLocalAddress(LocalAiServer.OllamaUrl);
-
-    private void OnUseLmStudio(object sender, RoutedEventArgs e) => UseLocalAddress(LocalAiServer.LmStudioUrl);
-
-    private void UseLocalAddress(string address)
-    {
-        LocalAddress.Text = address;
-        CommitLocal();
-    }
-
-    private void ShowStatus(string message, bool error)
-    {
-        KeyStatus.Visibility = error ? Visibility.Collapsed : Visibility.Visible;
-        KeyError.Visibility = error ? Visibility.Visible : Visibility.Collapsed;
-        (error ? KeyError : KeyStatus).Text = message;
-    }
-
-    private void ShowDeepLStatus(OnlineKeyCheck check)
-    {
-        var text = Localizer.Current;
-        // Mac/iPhone'daki DeepLUsageText ile aynı metinler: her hata kendi nedeniyle (geçersiz karakter, 429, HTTP kodu, ağ yok).
-        ShowStatus(check.State switch
-        {
-            OnlineKeyState.Valid when check.Limit >= OnlineKeyCheck.Unlimited => text.Format("This month: %@ characters used (no limit).", check.Used.ToString("N0")),
-            OnlineKeyState.Valid when check.Limit <= 0 => text["DeepL accepted the key. This month's usage could not be read."],
-            OnlineKeyState.Valid => text.Format("This month: %1$@ of %2$@ characters used.", check.Used.ToString("N0"), check.Limit.ToString("N0")),
-            OnlineKeyState.QuotaExceeded => text["This month's DeepL limit is used up. Until it renews, the translation model on this computer translates."],
-            OnlineKeyState.Invalid when check.Reason == OnlineKeyReason.MalformedKey =>
-                text["The key contains characters a DeepL key cannot have. Copy it again from your DeepL account page."],
-            OnlineKeyState.Invalid => text["DeepL did not accept this key. Copy it again from your DeepL account page."],
-            OnlineKeyState.KeychainWriteFailed => text["The API key could not be saved to this computer's secure storage."],
-            OnlineKeyState.Busy => text["DeepL is receiving too many requests right now (HTTP 429). The key is saved; DeepL translates again in a few minutes."],
-            _ when check.Reason == OnlineKeyReason.HttpStatus => text.Format("DeepL answered with an error (HTTP %lld). Try again in a few minutes.", check.Code),
-            _ => text["DeepL could not be reached. Check your internet connection."],
-        }, check.State is not (OnlineKeyState.Valid or OnlineKeyState.QuotaExceeded or OnlineKeyState.Busy));
-    }
-
-    private void ShowAiResult(AiTestResult result, TranslationEngine engine)
-    {
-        if (result.State == OnlineKeyState.Valid)
-            ShowStatus(Localizer.Current.Format("It works. Sample translation: %@", result.Sample ?? ""), false);
-        else
-            ShowStatus(result.State.Describe(engine, Localizer.Current, controller.Settings.LocalAiServer), true);
-    }
-
-    private async Task ShowDeepLUsageAsync() => ShowDeepLStatus(await controller.CheckDeepLKeyAsync());
-
-    private void OnEngine(object sender, SelectionChangedEventArgs e)
-    {
-        if (loading) return;
-        Update(s => s.WithEngine(SelectedEngine));
-        ShowEngine();
     }
 
     private void OnOcrEngine(object sender, SelectionChangedEventArgs e)
@@ -1225,105 +990,6 @@ public partial class SettingsView : UserControl
     private void OnPhoneMessages(object sender, RoutedEventArgs e) =>
         Update(s => s with { PhoneMessagesPanel = PhoneMessagesPanel.IsChecked == true });
 
-    private async void OnKeySave(object sender, RoutedEventArgs e)
-    {
-        var engine = SelectedEngine;
-        KeySave.IsEnabled = false;
-        KeyBox.IsEnabled = false;
-        // Deneme sürerken düğme bekleme durumunu gösterir (Mac'teki "Testing…" ile aynı).
-        KeySave.Content = Localizer.Current["Testing…"];
-        try
-        {
-            if (engine == TranslationEngine.Local)
-            {
-                CommitLocal();
-                var result = await controller.TestLocalAiAsync(KeyBox.Password);
-                if (controller.HasKey(engine)) KeyBox.Clear();
-                ShowEngine();
-                ShowAiResult(result, engine);
-            }
-            else if (engine.Provider() is { } provider)
-            {
-                var result = await controller.SetAiKeyAsync(provider, KeyBox.Password);
-                var saved = controller.HasKey(engine);
-                if (saved) KeyBox.Clear();
-                ShowEngine();
-                ShowAiResult(result, engine);
-            }
-            else
-            {
-                var check = await controller.SetDeepLKeyAsync(KeyBox.Password);
-                if (controller.HasDeepLKey) KeyBox.Clear();
-                ShowEngine();
-                ShowDeepLStatus(check);
-            }
-        }
-        finally
-        {
-            KeySave.IsEnabled = engine != TranslationEngine.Local || LocalAiServer.Normalize(LocalAddress.Text) is not null;
-            KeyBox.IsEnabled = true;
-            KeySave.Content = Localizer.Current[engine == TranslationEngine.Local ? "Test connection" : "Save and test"];
-        }
-    }
-
-    private async void OnKeyTest(object sender, RoutedEventArgs e)
-    {
-        var engine = SelectedEngine;
-        if (engine.Provider() is not { } provider) return;
-        var isLocal = engine == TranslationEngine.Local;
-        if (isLocal) CommitLocal();
-        KeyTest.IsEnabled = false;
-        KeyTest.Content = Localizer.Current["Testing…"];
-        try
-        {
-            ShowAiResult(isLocal ? await controller.TestLocalAiAsync() : await controller.TestAiKeyAsync(provider), engine);
-        }
-        finally
-        {
-            KeyTest.IsEnabled = true;
-            KeyTest.Content = Localizer.Current[isLocal ? "Test connection" : "Test"];
-        }
-    }
-
-    private void OnKeyRemove(object sender, RoutedEventArgs e)
-    {
-        var engine = SelectedEngine;
-        controller.RemoveKey(engine);
-        ShowEngine();
-    }
-
-    /// <summary>Hizmetin listedeki modelleri; seçili olan işaretlenir.</summary>
-    private void ShowModels(AiProvider provider)
-    {
-        var wasLoading = loading;
-        loading = true;
-        ModelChoice.Items.Clear();
-        var selected = provider.Model(controller.Settings.ModelFor(provider)).Id;
-        foreach (var option in provider.Models())
-            ModelChoice.Items.Add(new ComboBoxItem { Content = Localizer.Current[option.Label], Tag = option.Id, IsSelected = option.Id == selected });
-        loading = wasLoading;
-    }
-
-    private void OnModel(object sender, SelectionChangedEventArgs e)
-    {
-        if (loading || SelectedEngine.Provider() is not { } provider || ModelChoice.SelectedItem is not ComboBoxItem { Tag: string id }) return;
-        Update(s => s.WithModel(provider, id));
-    }
-
-    /// <summary>"Ücretsiz anahtar al": Gemini seçilir (anahtar alanı görünür) ve Google AI Studio'nun anahtar sayfası açılır.</summary>
-    private void OnFreeGemini(object sender, RoutedEventArgs e)
-    {
-        controller.ChooseFreeGemini();
-        loading = true;
-        Engine.SelectedItem = Engine.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == nameof(TranslationEngine.Gemini));
-        loading = false;
-        ShowEngine();
-        Process.Start(new ProcessStartInfo(AiProvider.Gemini.KeyPage().AbsoluteUri) { UseShellExecute = true });
-    }
-
-    private void OnLink(object sender, RequestNavigateEventArgs e) =>
-        Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
-
     /// <summary>Ayarların sahibi olan pencere (ileti kutuları ve dosya seçicileri bunun üstünde açılır).</summary>
     private Window? Host => Window.GetWindow(this) ?? Application.Current?.MainWindow;
 
@@ -1336,7 +1002,7 @@ public partial class SettingsView : UserControl
     /// <summary>Ayarları belli bir bölümde açar (ana ekrandaki bilgi karosunun "Çeviri" satırı).</summary>
     public static void Open(Window? owner, AppController controller, SettingsSection section) => ShellWindow.Navigate(ShellTab.Settings, section);
 
-    /// <summary>Eski bölüm adının yeni bölümü (Görünüm artık kendi sekmesinde; 2. bölüme dek Gelişmiş'te TV'deki yer/biçim).</summary>
+    /// <summary>Eski bölüm adının Ayarlar'daki bölümü (Görünüm ve Çeviri kendi sekmelerinde; kabuk onları sekmeye yönlendirir).</summary>
     public static SettingsGroup GroupFor(SettingsSection section) => section switch
     {
         SettingsSection.PictureSource => SettingsGroup.Devices,
@@ -1370,8 +1036,6 @@ public partial class SettingsView : UserControl
     {
         if (loading) return;
         controller.Settings = change(controller.Settings);
-        ShowPace();
-        ShowMiniSubtitle();
     }
 
     // ───── Yeni arayüz: gezinme, Temel sayfası ─────
@@ -1396,8 +1060,6 @@ public partial class SettingsView : UserControl
         ShowHeading();
         if (Sections.SelectedContent is FrameworkElement page) Theme.Motion.EnterFrom(page, 8, Theme.Motion.Medium);
     }
-
-    private void OnEditAppearance(object sender, RoutedEventArgs e) => ShellWindow.Navigate(ShellTab.Appearance);
 
     /// <summary>
     /// Seçim hapını seçili menü satırına taşır (Mac matchedGeometryEffect): konum ve yükseklik giriş eğrisiyle orta sürede
@@ -1427,39 +1089,6 @@ public partial class SettingsView : UserControl
         Selection.BeginAnimation(HeightProperty, Theme.Motion.To(height, Theme.Motion.Medium));
     }
 
-    /// <summary>
-    /// Çeviri hızı: Hızlı (kötü okunan satır beklenmez), Dengeli (önerilen bekleme süreleri), Doğru (cümle tamamlanana
-    /// dek daha uzun beklenir). Gelişmiş'teki iki kaydırıcının hazır değerleridir; onlar elle değişince seçim kalkar.
-    /// </summary>
-    private static readonly (string Tag, int Misread, int Partial, string Hint)[] Paces =
-    [
-        ("Fast", 400, 0, "Subtitles arrive as fast as possible; you may rarely see half a sentence."),
-        ("Balanced", 800, 300, "Recommended for most games. Speed and accuracy balanced."),
-        ("Accurate", 1000, 800, "Translated once the sentence is complete; arrives about half a second later."),
-    ];
-
-    private void OnPace(object sender, RoutedEventArgs e)
-    {
-        if (loading || sender is not RadioButton { Tag: string tag }) return;
-        var pace = Paces.First(p => p.Tag == tag);
-        MisreadWait.Value = pace.Misread / 1000.0;
-        PartialWait.Value = pace.Partial / 1000.0;
-        ShowPace();
-    }
-
-    private void ShowPace()
-    {
-        var settings = controller.Settings;
-        var match = Paces.FirstOrDefault(p => p.Misread == settings.MisreadWaitMs && p.Partial == settings.PartialWaitMs);
-        var was = loading;
-        loading = true;
-        PaceFast.IsChecked = match.Tag == "Fast";
-        PaceBalanced.IsChecked = match.Tag == "Balanced";
-        PaceAccurate.IsChecked = match.Tag == "Accurate";
-        loading = was;
-        PaceHint.Text = match.Tag is null ? "" : Localizer.Current[match.Hint];
-        PaceHint.Visibility = match.Tag is null ? Visibility.Collapsed : Visibility.Visible;
-    }
 
     private void OnStartupSound(object sender, RoutedEventArgs e)
     {
@@ -1534,15 +1163,6 @@ public partial class SettingsView : UserControl
         return stack;
     }
 
-    /// <summary>Temel sayfasındaki küçük altyazı plakası (Perde sahnesinin altında).</summary>
-    private readonly Border MiniSubtitle = new()
-    {
-        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = Sp.T("m"), Padding = Sp.T("s", "xs", "s", "xs"),
-        CornerRadius = new CornerRadius(10), Child = new TextBlock { FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Center },
-    };
-
-    private TextBlock MiniSubtitleText => (TextBlock)MiniSubtitle.Child;
-
     /// <summary>Bölümlerin başlığı (Mac SectionHeading): simge, ton, ad ve iki kelimelik alt yazı; menü sırasıyla.</summary>
     private static readonly string[] Headings = ["Cihazlar", "Okuma alanları", "Seslendirme", "Kısayollar", "Gelişmiş", "Uygulama"];
 
@@ -1569,31 +1189,6 @@ public partial class SettingsView : UserControl
         }
     }
 
-    /// <summary>Temel sayfasındaki küçük altyazı önizlemesi: yazı boyu, zemin koyuluğu ve yazı rengi.</summary>
-    private void ShowMiniSubtitle()
-    {
-        var style = controller.Settings.Style;
-        var alpha = (byte)Math.Round(Math.Clamp(style.Background, 0, 100) / 100.0 * 255);
-        MiniSubtitle.Background = new SolidColorBrush(SpeakerText.Rgb(style.BackgroundRgb, alpha));
-        MiniSubtitleText.Foreground = new SolidColorBrush(SpeakerText.Rgb(style.TextRgb));
-        // Kaydırıcıdaki boy (16–50) yarıya (Mac ile aynı önizleme).
-        MiniSubtitleText.FontSize = Math.Clamp(Math.Round((16 + (style.FontSize - 16) * 34.0 / 74) * 0.5), 8, 25);
-        MiniSubtitleText.TextWrapping = TextWrapping.NoWrap;
-        MiniSubtitleText.Inlines.Clear();
-        var name = new System.Windows.Documents.Run("Jason: ");
-        name.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "accentBrush");
-        MiniSubtitleText.Inlines.Add(name);
-        MiniSubtitleText.Inlines.Add(new System.Windows.Documents.Run(Localizer.Current.Language == "tr" ? "Tamam. Gidelim." : "Okay. Let's go."));
-    }
-
-
-    private void OnTextSize(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (loading) return;
-        var size = (int)Math.Round(e.NewValue);
-        TextSizeValue.Text = size.ToString();
-        Update(s => s with { Style = s.Style with { FontSize = size } });
-    }
 
     private void OnFreeTarget(object sender, RoutedEventArgs e)
     {
@@ -1601,49 +1196,6 @@ public partial class SettingsView : UserControl
         var target = Enum.Parse<ResultTarget>(tag);
         Update(s => s with { FreeAreaTarget = target });
     }
-
-    /// <summary>Önizlemeyi oyunun şu anki görüntüsüyle yeniler (çerçeve olduğu gibi kalır).</summary>
-    private void OnRefresh(object sender, RoutedEventArgs e) => Region.Frame = controller.LastFrame;
-
-    private void OnSnapshot() => Dispatcher.Invoke(() => Region.Frame = controller.LastFrame);
-
-    private void OnPosition(object sender, RoutedPropertyChangedEventArgs<double> e) =>
-        Update(s => s with { Style = s.Style with { BottomPercent = (int)Math.Round(e.NewValue) } });
-
-    private void OnPositionStart(object sender, System.Windows.Input.MouseButtonEventArgs e) => controller.SendTestSubtitle();
-
-    private void OnPlacement(object sender, SelectionChangedEventArgs e)
-    {
-        if (Placement.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
-        var placement = Enum.Parse<SubtitlePlacement>(tag);
-        ShowPlacement(placement);
-        Update(s => s with { Style = s.Style with { Placement = placement } });
-    }
-
-    /// <summary>Elle ayarlanan yükseklik yalnız sabit yerleşimde anlamlıdır.</summary>
-    private void ShowPlacement(SubtitlePlacement placement)
-    {
-        var isFixed = placement == SubtitlePlacement.Fixed;
-        FixedPanel.Visibility = isFixed ? Visibility.Visible : Visibility.Collapsed;
-        FollowsHint.Visibility = isFixed ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    private void OnBackground(object sender, RoutedPropertyChangedEventArgs<double> e) =>
-        Update(s => s with { Style = s.Style with { Background = (int)Math.Round(e.NewValue) } });
-
-    private void OnBackgroundShape(object sender, SelectionChangedEventArgs e)
-    {
-        if (BackgroundShape.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
-        var shape = Enum.Parse<SubtitleBackgroundShape>(tag);
-        Update(s => s with { Style = s.Style with { BackgroundShape = shape } });
-    }
-
-    private void OnBold(object sender, RoutedEventArgs e) =>
-        Update(s => s with { Style = s.Style with { Bold = Bold.IsChecked == true } });
-
-    /// <summary>Çevirgen: TV'deki yazının siyah kenarlığı.</summary>
-    private void OnOutline(object sender, RoutedEventArgs e) =>
-        Update(s => s with { Style = s.Style with { Outline = Outline.IsChecked == true } });
 
     private void OnMisreadWait(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -1672,255 +1224,37 @@ public partial class SettingsView : UserControl
         PartialWaitValue.Text = $"{PartialWait.Value.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture)} {unit}";
     }
 
-    private void OnStackPrevious(object sender, RoutedEventArgs e) =>
-        Update(s => s with { Style = s.Style with { StackPrevious = StackPrevious.IsChecked == true } });
-
-    private void OnTextColor(object sender, SelectionChangedEventArgs e)
-    {
-        if (TextColor.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
-        Update(s => s with { Style = s.Style with { TextColor = Enum.Parse<SubtitleTextColor>(tag) } });
-    }
-
     private void OnDisplayMode(object sender, SelectionChangedEventArgs e)
     {
         if (DisplayMode.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
         Update(s => s with { Style = s.Style with { DisplayMode = Enum.Parse<TvDisplayMode>(tag) } });
     }
 
-    private void OnLanguage(object sender, SelectionChangedEventArgs e)
-    {
-        if (GameLanguage.SelectedItem is ComboBoxItem { Tag: string code }) Update(s => s with { SourceLanguage = code });
-    }
 
     /// <summary>
-    /// Çerçeve elle değişti. Altyazı bölgesinde seçim, bölge bir hazır seçimle aynıysa ("Alanı sıfırla") o, değilse Özel olur.
+    /// Okunan alanların özeti: altyazı alanı ve ek alanlar (ad, sürekli / kısayolla, yüzde koordinatlar); alanların hangi
+    /// oyuna ait olduğu. Düzenleme "Alanları düzenle" ekranında.
     /// </summary>
-    private void OnRegion(object? sender, CropRegion region)
+    private void ShowAreasSummary()
     {
-        if (area == 0)
+        var model = new AreaEditModel(controller.Settings.Areas, controller.Settings.KeepAreaCentered);
+        AreasIntro.Text = controller.AreaEditGame is { } game
+            ? $"{game} için okunan alanlar. Kutuları son oyun karesinin üstünde taşıyıp boyutlandırmak için Alanları düzenle'yi aç."
+            : "Genel alanlar (oyun bilinmiyor). Kutuları son oyun karesinin üstünde taşıyıp boyutlandırmak için Alanları düzenle'yi aç.";
+        AreasSummary.Children.Clear();
+        foreach (var box in model.Boxes)
         {
-            Update(s => s with { Region = region, AreaPreset = AreaPresets.Matching(region) });
-            ShowPreset();
+            var row = new DockPanel { Margin = Sp.T("0", "0", "0", "xxs") };
+            var where = ScreenKit.Mono(AreaEditModel.Coordinates(box.Region), 12);
+            DockPanel.SetDock(where, Dock.Right);
+            row.Children.Add(where);
+            var mode = box.Main ? "" : box.Live ? " · sürekli" : " · kısayolla";
+            row.Children.Add(ScreenKit.Text($"{model.Number(box)} · {model.DisplayName(box)}{mode}", 14, wrap: false));
+            AreasSummary.Children.Add(row);
         }
-        else if (SelectedExtraArea() is { } extra)
-        {
-            Update(s => s.WithExtraArea(extra.Id, a => a with { Region = region }));
-        }
     }
 
-    /// <summary>Düzenlenen ek alan; altyazı alanı seçiliyse null.</summary>
-    private ExtraArea? SelectedExtraArea() => area == 0 ? null : controller.Settings.ExtraAreaAt(area);
-
-    /// <summary>Altyazı bölgesinin hazır seçimi işaretlenir; Özel'de kaydırıcılar bölgeyi gösterir.</summary>
-    private void ShowPreset()
-    {
-        var wasLoading = loading;
-        loading = true;
-        var settings = controller.Settings;
-        (settings.AreaPreset switch
-        {
-            AreaPreset.Top => PresetTop,
-            AreaPreset.Full => PresetFull,
-            AreaPreset.Custom => PresetCustom,
-            _ => PresetBottom,
-        }).IsChecked = true;
-        CustomPanel.Visibility = settings.AreaPreset == AreaPreset.Custom ? Visibility.Visible : Visibility.Collapsed;
-        var (position, height) = settings.Region.VerticalPercent();
-        VerticalPosition.Value = Math.Clamp(Math.Round(position), VerticalPosition.Minimum, VerticalPosition.Maximum);
-        AreaHeight.Value = Math.Clamp(Math.Round(height), AreaHeight.Minimum, AreaHeight.Maximum);
-        ShowVerticalValues();
-        loading = wasLoading;
-    }
-
-    private void ShowVerticalValues()
-    {
-        var text = Localizer.Current;
-        VerticalPositionValue.Text = text.Format("%lld%%", (int)Math.Round(VerticalPosition.Value));
-        AreaHeightValue.Text = text.Format("%lld%%", (int)Math.Round(AreaHeight.Value));
-    }
-
-    /// <summary>Hazır seçim bölgeyi değiştirir; Özel'de kayıtlı bölge kalır, kaydırıcılar açılır.</summary>
-    private void OnPreset(object sender, RoutedEventArgs e)
-    {
-        if (loading || area != 0 || sender is not RadioButton { Tag: string tag }) return;
-        var preset = Enum.Parse<AreaPreset>(tag);
-        Update(s => s.WithAreaPreset(preset));
-        Region.ShowRegion(controller.Settings.Region);
-        ShowPreset();
-    }
-
-    /// <summary>Özel bölgenin dikey konumu ya da yüksekliği değişti; sol ve sağ kenar olduğu gibi kalır.</summary>
-    private void OnVertical(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (loading || area != 0) return;
-        ShowVerticalValues();
-        var region = controller.Settings.Region.WithVertical(Math.Round(VerticalPosition.Value), Math.Round(AreaHeight.Value));
-        Update(s => s.WithCustomRegion(region));
-        Region.ShowRegion(region);
-    }
-
-    private void OnArea(object sender, RoutedEventArgs e)
-    {
-        if (!loading && sender is RadioButton { Tag: int tag }) ShowArea(tag);
-    }
-
-    /// <summary>
-    /// Alan sekmeleri: "Altyazı" ve her ek alan adıyla (adsızsa "Bölge 1"). Sınır dolmadıysa "Ek alan ekle" görünür.
-    /// </summary>
-    private void BuildAreaTabs()
-    {
-        var settings = controller.Settings;
-        AreaTabs.Children.Clear();
-        AreaTabs.Children.Add(AreaTabButton(Localizer.Current["Subtitles"], 0));
-        for (var number = 1; number <= settings.ExtraAreas.Count; number++)
-            AreaTabs.Children.Add(AreaTabButton(settings.ExtraAreas[number - 1].DisplayName(number), number));
-        AddAreaButton.Visibility = settings.CanAddExtraArea ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private RadioButton AreaTabButton(string title, int number)
-    {
-        var button = new RadioButton
-        {
-            Content = title,
-            GroupName = "area",
-            Style = (Style)FindResource("SegmentButton"),
-            Tag = number,
-            IsChecked = number == area,
-        };
-        button.Checked += OnArea;
-        return button;
-    }
-
-    /// <summary>"Ek alan ekle": hazır köşe seçimleri açılır.</summary>
-    private void OnAddArea(object sender, RoutedEventArgs e)
-    {
-        if (AddAreaButton.ContextMenu is not { } menu) return;
-        menu.PlacementTarget = AddAreaButton;
-        menu.IsOpen = true;
-    }
-
-    /// <summary>Hazır köşe seçimiyle yeni ek alan eklenir (adı seçimin adı) ve onun sekmesi açılır.</summary>
-    private void OnAddAreaPreset(object sender, RoutedEventArgs e)
-    {
-        if (loading || sender is not MenuItem { Tag: string tag } || !controller.Settings.CanAddExtraArea) return;
-        var preset = Enum.Parse<ExtraAreaPreset>(tag);
-        var name = Localizer.Current[preset switch { ExtraAreaPreset.Quest => "Quest", ExtraAreaPreset.Notification => "Notification", _ => "Phone" }];
-        Update(s => s.WithAddedExtraArea(ExtraArea.Create(name, preset.Region())));
-        ShowArea(controller.Settings.ExtraAreas.Count);
-    }
-
-    /// <summary>Ek alan kaldırılır; arkasındakiler (ve kısayolları) bir sıra öne gelir.</summary>
-    private void OnRemoveArea(object sender, RoutedEventArgs e)
-    {
-        if (loading || SelectedExtraArea() is not { } extra) return;
-        Update(s => s.WithoutExtraArea(extra.Id));
-        ShowArea(Math.Min(area, controller.Settings.ExtraAreas.Count));
-    }
-
-    private void OnAreaName(object sender, TextChangedEventArgs e)
-    {
-        if (loading || SelectedExtraArea() is not { } extra) return;
-        var name = ExtraName.Text;
-        Update(s => s.WithExtraArea(extra.Id, a => a with { Name = name }));
-        if (AreaTabs.Children.OfType<RadioButton>().FirstOrDefault(tab => tab.Tag is int number && number == area) is { } current)
-            current.Content = controller.Settings.ExtraAreaAt(area)?.DisplayName(area) ?? current.Content;
-    }
-
-    /// <summary>Seçilen alanın çerçevesini gösterir.</summary>
-    private void ShowArea(int slot)
-    {
-        var wasLoading = loading;
-        loading = true;
-        var settings = controller.Settings;
-        if (slot > settings.ExtraAreas.Count) slot = 0;
-        area = slot;
-        BuildAreaTabs();
-        if (slot == 0)
-        {
-            ExtraNamePanel.Visibility = Visibility.Collapsed;
-            ExtraTargetPanel.Visibility = Visibility.Collapsed;
-            ExtraLivePanel.Visibility = Visibility.Collapsed;
-            PresetPanel.Visibility = Visibility.Visible;
-            ShowPreset();
-            Region.IsEnabled = true;
-            Region.DefaultRegion = new CropRegion();
-            KeepCentered.IsChecked = settings.KeepAreaCentered;
-            Region.Centered = settings.KeepAreaCentered;
-            Region.ShowRegion(settings.Region);
-            ShowSubtitleAreaHint();
-        }
-        else
-        {
-            var extra = settings.ExtraAreas[slot - 1];
-            ExtraNamePanel.Visibility = Visibility.Visible;
-            ExtraName.Text = extra.Name;
-            PresetPanel.Visibility = Visibility.Collapsed;
-            ExtraTargetPanel.Visibility = Visibility.Visible;
-            ExtraLivePanel.Visibility = Visibility.Visible;
-            ExtraLive.IsChecked = extra.Enabled;
-            ShowExtraFullScreenHint(settings);
-            (extra.Target switch { ResultTarget.Pc => ExtraPc, ResultTarget.Both => ExtraBoth, _ => ExtraTv }).IsChecked = true;
-            Region.IsEnabled = true;
-            Region.DefaultRegion = ExtraAreaPreset.Quest.Region();
-            Region.Centered = false;
-            Region.ShowRegion(extra.Region);
-            ShowAreaHint();
-        }
-        loading = wasLoading;
-    }
-
-    /// <summary>Altyazı alanının ipucu: "ortalı kalır" yalnız Ortada tut açıkken yazılır.</summary>
-    private void ShowSubtitleAreaHint() =>
-        AreaHint.Text = Localizer.Current[controller.Settings.KeepAreaCentered
-            ? "Drag on the picture to draw the area where the game shows its subtitles. Drag an edge or corner to resize it; it stays centered. Drag the inside to move it."
-            : "Drag on the picture to draw the area where the game shows its subtitles. Drag an edge or corner to resize it, or the inside to move it."];
-
-    /// <summary>Ortada tut: açıkken altyazı alanı ortadan boyutlanır; kapalıyken yalnız tutulan kenar oynar.</summary>
-    private void OnKeepCentered(object sender, RoutedEventArgs e)
-    {
-        if (loading || area != 0) return;
-        var on = KeepCentered.IsChecked == true;
-        Update(s => s with { KeepAreaCentered = on });
-        Region.Centered = on;
-        ShowSubtitleAreaHint();
-    }
-
-    private void OnExtraTarget(object sender, RoutedEventArgs e)
-    {
-        if (loading || sender is not RadioButton { Tag: string tag } || SelectedExtraArea() is not { } extra) return;
-        var target = Enum.Parse<ResultTarget>(tag);
-        Update(s => s.WithExtraArea(extra.Id, a => a with { Target = target }));
-    }
-
-    /// <summary>
-    /// Altyazı alanı Tam ekranken sürekli okuma durur (bkz. <see cref="UserSettings.ExtraAreasPausedByFullScreen"/>);
-    /// "Sürekli oku" ayarı korunur, kullanıcıya nedeni yazılır.
-    /// </summary>
-    private void ShowExtraFullScreenHint(UserSettings settings)
-    {
-        var paused = settings.ExtraAreasPausedByFullScreen;
-        ExtraFullScreenHint.Text = paused
-            ? Localizer.Current["Extra areas aren't read while the subtitle area is Full screen, because the whole screen is already read. They're read again when you pick another area."]
-            : "";
-        ExtraFullScreenHint.Visibility = paused ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    /// <summary>Ek bölge tuşa basmadan da sürekli okunsun (görev, telefon mesajı, bildirim).</summary>
-    private void OnExtraLive(object sender, RoutedEventArgs e)
-    {
-        if (loading || SelectedExtraArea() is not { } extra) return;
-        var live = ExtraLive.IsChecked == true;
-        Update(s => s.WithExtraArea(extra.Id, a => a with { Enabled = live }));
-    }
-
-    /// <summary>Hazır köşe seçimi: çerçeve o köşeye gelir.</summary>
-    private void OnExtraPreset(object sender, RoutedEventArgs e)
-    {
-        if (loading || sender is not Button { Tag: string tag } || SelectedExtraArea() is not { } extra) return;
-        var region = Enum.Parse<ExtraAreaPreset>(tag).Region();
-        Region.ShowRegion(region);
-        Update(s => s.WithExtraArea(extra.Id, a => a with { Region = region }));
-    }
+    private void OnEditAreas(object sender, RoutedEventArgs e) => ShellWindow.EditAreas();
 
     private void OnTest(object sender, RoutedEventArgs e) => controller.SendTestSubtitle();
 
@@ -1946,26 +1280,10 @@ public partial class SettingsView : UserControl
     private void ShowStreamWindowToggle() =>
         StreamWindowToggle.Content = Localizer.Current[StreamWindow.IsOpen ? "Close the stream window" : "Open the stream window"];
 
-    /// <summary>Ek bölgenin ipucu, o bölgenin kısayoluyla.</summary>
-    private void ShowAreaHint()
-    {
-        if (area == 0) return;
-        if (area > ExtraArea.ShortcutCount)
-        {
-            // Dördüncü ve sonraki alanların kısayolu yok: yalnız sürekli okunur.
-            AreaHint.Text = Localizer.Current["No Shortcut"] + " · " + Localizer.Current["Also reads small text next to the subtitle, such as objectives, phone messages or notifications. Each area is read once a second and translated again when the text changes; the translation appears on the TV next to that text."];
-            return;
-        }
-        var action = HotkeyTable.AreaActions[Math.Clamp(area, 1, HotkeyTable.AreaActions.Count) - 1];
-        AreaHint.Text = HotkeyText.Sentence(controller.Settings, action,
-            "Draw the area to translate, for example a quest panel. While you play, press its shortcut (%@) to read and translate it once. Choose where the result shows. It works even when CouchSubs is in the background.");
-    }
-
     /// <summary>Kısayolların geçtiği bütün metinler ve Kısayollar'daki düğmeler kullanıcının seçtiği tuşları gösterir.</summary>
     private void ShowShortcutTexts()
     {
         var settings = controller.Settings;
-        RefreshButton.Content = HotkeyText.Title(settings, HotkeyAction.Snapshot, "Refresh picture (%@)");
         ScreenCard.Title = HotkeyText.Title(settings, HotkeyAction.Screen, "Translate the screen (%@)");
         ScreenHint.Text = HotkeyText.Sentence(settings, HotkeyAction.Screen,
             "Press %@ while playing: every text on the screen is translated once and shown on the TV in its own place. Press again to remove the translations.");
@@ -1974,7 +1292,6 @@ public partial class SettingsView : UserControl
             "Press %@ while playing: the picture freezes on the PC, drag over any part of it to translate that part once. Esc closes.");
         PauseHint.Text = HotkeyText.Sentence(settings, HotkeyAction.PauseSubtitles,
             "%@ pauses or resumes the live subtitle translation, which helps when you translate areas.");
-        ShowAreaHint();
         foreach (var ((action, slot), button) in shortcutButtons)
             if (recording?.Button != button) button.Content = ShortcutLabel(HotkeyTable.KeyFor(settings.Hotkeys, action, slot));
     }

@@ -314,8 +314,8 @@ public partial class MainView : UserControl
 
     private void OnLook(object sender, RoutedEventArgs e) => ShellWindow.Navigate(ShellTab.Appearance);
 
-    /// <summary>"Alanları düzenle": 1. bölümde eski alan düzenleyicisi (Ayarlar › Okuma alanları); 2. bölüm yenisini bağlar.</summary>
-    private void OnEditAreas(object sender, RoutedEventArgs e) => ShellWindow.Navigate(SettingsGroup.Areas);
+    /// <summary>"Alanları düzenle": son kare üstünde kutularla düzenleme ekranı (pencerenin tamamını kaplar).</summary>
+    private void OnEditAreas(object sender, RoutedEventArgs e) => ShellWindow.EditAreas();
 
     // ───── Bildirimler ─────
 
@@ -402,7 +402,7 @@ public partial class MainView : UserControl
                     () => controller.Settings = controller.Settings with { AutoScreenText = true, ScreenTextMenus = true });
                 break;
             default:
-                AddFix(text["Draw the Area Manually"], primary: false, () => ShellWindow.Navigate(SettingsGroup.Areas));
+                AddFix(text["Draw the Area Manually"], primary: false, ShellWindow.EditAreas);
                 break;
         }
     }
