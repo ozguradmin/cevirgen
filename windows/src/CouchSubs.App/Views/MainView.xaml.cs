@@ -418,6 +418,14 @@ public partial class MainView : UserControl
                 return new(kind, level, text.Format("Using the saved areas for %@.", controller.AreaProfileGame ?? ""), text["Undo"], controller.UndoAreaProfile);
             case LiveNoticeKind.GpuFallback:
                 return new(kind, level, text["GPU could not be used; free translation is running on CPU."]);
+            case LiveNoticeKind.RemotePlayPopup:
+                // Çevirgen: karede PS5'in Uzaktan Oynatma bildirimi okundu. Kapatmak yalnız bu oturum için gizler.
+                return new(kind, level, RemotePlayHint.Headline, Details: Details([RemotePlayHint.Instruction, RemotePlayHint.Accounts]),
+                    DismissLabel: text["Close"], Dismiss: () =>
+                    {
+                        controller.DismissRemotePlayHint();
+                        ShowNotices();
+                    }, AutoExpand: true);
             case LiveNoticeKind.MainAccountTip:
                 return new(kind, level, "Kol kapanmasın: PS5'te oyunu ana hesabınla başlat, oynarken hesap değiştirme.", Details: Details(
                     [text["To play without the connection dropping: 1. On the PS5, start the game with your MAIN account first. 2. Then start translating. 3. Don't switch users during the game; when you turn on the controller, choose your MAIN account. Don't play with the second account CouchSubs signs in with, or the controller will turn off by itself or won't work in the game."]]));

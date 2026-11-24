@@ -20,6 +20,9 @@ public partial class ConsoleStep : UserControl
     public ConsoleStep()
     {
         InitializeComponent();
+        RemotePlayPopupText.Text = "PS5 bağlıyken ekranın üstünde “Uzaktan Oynatma'ya bağlandı” penceresi kalır ve altyazıyı kapatabilir. "
+                                   + RemotePlayHint.Instruction;
+        RemotePlayPopupAccounts.Text = RemotePlayHint.Accounts;
         Loaded += async (_, _) =>
         {
             ShowDone();

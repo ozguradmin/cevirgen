@@ -80,7 +80,7 @@ public partial class SettingsView : UserControl
         ShowAdvancedOcr();
         ShowCpuThreads();
         GamePacks.IsChecked = settings.GamePacks;
-        SharePool.IsChecked = settings.SharePool;
+        ShareLines.IsChecked = settings.ShareLines;
         UsageData.IsChecked = settings.UsageData;
         // Telefonlardaki Profil › Kullanım verisi ile aynı; ölçüm bu derlemede yoksa gizli.
         UsageDataRow.Visibility = controller.UsageConfigured ? Visibility.Visible : Visibility.Collapsed;
@@ -108,6 +108,9 @@ public partial class SettingsView : UserControl
         ShowDisplayModeSegment();
         // Çevirgen: anonim sayım (KVKK açıklaması satırın altında) ve arayüz dili.
         AnonymousCount.IsChecked = controller.AnonymousCount;
+        ShowDiagnostics();
+        AppContact.Content = new DeveloperContact();
+        NavContact.Content = new DeveloperContact(compact: true);
         AnonymousCount.Description = AppController.AnonymousCountDisclosure;
         InterfaceLanguage.Text = Localizer.Current.Language == "tr" ? "Türkçe" : System.Globalization.CultureInfo.CurrentUICulture.NativeName;
         ShowPasscode();
@@ -250,7 +253,8 @@ public partial class SettingsView : UserControl
         PlatformName.Text = $"Platform: {option.Name}";
         PlatformDesc.Text = option.How;
         var ps5 = platform == SetupPlatform.Ps5;
-        Ps5Item.Visibility = PsnItem.Visibility = ps5 ? Visibility.Visible : Visibility.Collapsed;
+        Ps5Item.Visibility = PsnItem.Visibility = RemotePlayPopupItem.Visibility = ps5 ? Visibility.Visible : Visibility.Collapsed;
+        RemotePlayPopupDesc.Text = $"PS5'te {RemotePlayHint.MenuPath} ayarını aç; hem ana hesapta hem ikinci hesapta.";
         if (controller.Console is { } console)
         {
             Ps5Name.Text = string.IsNullOrEmpty(console.Name) ? "PS5" : console.Name;
@@ -341,6 +345,38 @@ public partial class SettingsView : UserControl
     }
 
     private void OnShowLogs(object sender, RoutedEventArgs e) => Services.LogArchive.ShowInExplorer();
+
+    /// <summary>Gelişmiş › Tanılama: anahtar ve klasörün yolu (açıkken bu oturumun klasörü).</summary>
+    private void ShowDiagnostics()
+    {
+        var wasLoading = loading;
+        loading = true;
+        DiagnosticsOn.IsChecked = controller.DiagnosticsOn;
+        loading = wasLoading;
+        DiagnosticsPath.Text = controller.DiagnosticsSessionFolder ?? controller.DiagnosticsFolder;
+    }
+
+    private void OnDiagnostics(object sender, RoutedEventArgs e)
+    {
+        if (loading) return;
+        controller.DiagnosticsOn = DiagnosticsOn.IsChecked == true;
+        ShowDiagnostics();
+    }
+
+    /// <summary>"Klasörü aç": tanılama klasörü (yoksa oluşturulur) Dosya Gezgini'nde.</summary>
+    private void OnOpenDiagnostics(object sender, RoutedEventArgs e)
+    {
+        var folder = controller.DiagnosticsSessionFolder is { } session && Directory.Exists(session) ? session : controller.DiagnosticsFolder;
+        try
+        {
+            Directory.CreateDirectory(folder);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            SubtitleLog.Write($"tanılama klasörü açılamadı: {error.GetType().Name}");
+        }
+    }
 
     /// <summary>"Güncellemeleri denetle": yeni sürüm varsa pencerenin en üstünde sarı şerit çıkar.</summary>
     private async void OnCheckUpdate(object sender, RoutedEventArgs e)
@@ -481,6 +517,7 @@ public partial class SettingsView : UserControl
         if (e.PropertyName is nameof(AppController.Settings) or nameof(AppController.ShowsOnTv) or nameof(AppController.ShowsOnComputer))
             ShowStyleTitle();
         if (e.PropertyName == nameof(AppController.InstalledPacks)) ShowPacks();
+        if (e.PropertyName is nameof(AppController.DiagnosticsOn) or nameof(AppController.DiagnosticsSessionFolder)) Dispatcher.BeginInvoke(ShowDiagnostics);
         if (e.PropertyName is nameof(AppController.Settings) or nameof(AppController.AdvancedOcrInstalled) or nameof(AppController.AdvancedOcrDownloading)
             or nameof(AppController.AdvancedOcrProgress) or nameof(AppController.AdvancedOcrError))
             ShowAdvancedOcr();
@@ -902,7 +939,7 @@ public partial class SettingsView : UserControl
 
     private void OnGamePacks(object sender, RoutedEventArgs e) => Update(s => s with { GamePacks = GamePacks.IsChecked == true });
 
-    private void OnSharePool(object sender, RoutedEventArgs e) => Update(s => s with { SharePool = SharePool.IsChecked == true });
+    private void OnShareLines(object sender, RoutedEventArgs e) => Update(s => s with { ShareLines = ShareLines.IsChecked == true });
 
     private void OnUsageData(object sender, RoutedEventArgs e) => Update(s => s with { UsageData = UsageData.IsChecked == true });
 

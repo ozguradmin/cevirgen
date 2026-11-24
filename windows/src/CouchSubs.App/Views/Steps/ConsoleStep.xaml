@@ -73,6 +73,13 @@
             </c:Card>
             <!-- Eşleştirme başarısızsa ve güvenlik duvarında izin yoksa -->
             <v:FirewallCard />
+            <!-- Çevirgen: PS5'in "Uzaktan Oynatma'ya bağlandı" penceresi ekranda kalıp altyazıyı kapatmasın (RemotePlayHint). -->
+            <c:Card Title="Son adım: Uzaktan Oynatma bildirimini gizle">
+                <StackPanel>
+                    <TextBlock x:Name="RemotePlayPopupText" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="RemotePlayPopupAccounts" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="{t:Sp '0,xs,0,0'}" />
+                </StackPanel>
+            </c:Card>
         </c:SpacedStack>
     </c:StepLayout>
 </UserControl>

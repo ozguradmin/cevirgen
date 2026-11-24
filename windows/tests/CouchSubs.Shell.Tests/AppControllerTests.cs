@@ -136,6 +136,11 @@ internal sealed class FakeServices : IAppServices
     public string? HistoryFile { get; set; }
     /// <summary>Çevirgen: verilirse düzeltmeler ve kullanıcı sözlüğü bu klasöre yazılır.</summary>
     public string? DataFolder { get; set; }
+    /// <summary>Çevirgen: ortak havuz (verilmezse null; hiçbir şey gönderilmez).</summary>
+    public LinePool? Pool { get; set; }
+    /// <summary>Çevirgen: tanılama kaydının JPEG kodlayıcısı (verilmezse kayıt yazılmaz).</summary>
+    public Func<Frame, int, byte[]?>? Jpeg { get; set; }
+    public byte[]? EncodeJpeg(Frame frame, int maxWidth) => Jpeg?.Invoke(frame, maxWidth);
     /// <summary>Çevirgen: verilirse uzaktan ayarlar buradan (sahte HTTP katmanıyla).</summary>
     public RemoteConfigClient? RemoteConfig { get; set; }
     /// <summary>Çevirgen: verilirse anonim sayım buraya gider (sahte HTTP katmanıyla).</summary>

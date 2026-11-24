@@ -28,6 +28,8 @@
             <TextBlock Text="{t:T 'Remote Play connection by chiaki-ng (AGPL-3.0). Thanks to its developers.'}" Style="{StaticResource HintText}" TextAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
             <TextBlock Text="{t:T 'The Xbox home console picture uses the open source approach of Greenlight (MIT).'}" Style="{StaticResource HintText}" TextAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
             <TextBlock Text="{t:T 'Translation model: OPUS-MT, University of Helsinki (CC BY 4.0).'}" Style="{StaticResource HintText}" TextAlignment="Center" Margin="{t:Sp '0,xs,0,0'}" />
+            <!-- Çevirgen: geliştiricinin iletişimi (DeveloperContact). -->
+            <ContentControl x:Name="Contact" Focusable="False" HorizontalAlignment="Center" Margin="{t:Sp '0,s,0,0'}" />
             <TextBlock Text="{t:T 'CouchSubs is not affiliated with Sony Interactive Entertainment. PlayStation and PS5 are trademarks of Sony Interactive Entertainment Inc.'}"
                        Style="{StaticResource CaptionText}" TextAlignment="Center" Margin="{t:Sp '0,s,0,0'}" />
             <TextBlock Text="{t:T 'CouchSubs is not affiliated with Microsoft. Xbox is a trademark of Microsoft Corporation.'}"

@@ -29,6 +29,8 @@
                         <Button Content="Sorun bildir" Style="{StaticResource TextLink}" Foreground="{DynamicResource mutedBrush}" Click="OnReportIssue"
                                 ToolTip="github.com/ozguradmin/cevirgen/issues" />
                     </WrapPanel>
+                    <!-- Çevirgen: destek adresi (DeveloperContact, kısa biçim). -->
+                    <ContentControl x:Name="NavContact" Focusable="False" />
                 </StackPanel>
             </Border>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
@@ -92,6 +94,13 @@
                                         <TextBlock x:Name="PsnDesc" Style="{StaticResource ItemDesc}" Text="Çevirgen ekranı bu hesapla izler; sen kendi hesabınla oynarsın." />
                                     </StackPanel>
                                 </DockPanel>
+                            </Border>
+                            <!-- PS5'in "Uzaktan Oynatma'ya bağlandı" penceresi altyazıyı kapatmasın: iki hesapta da gizlenir (RemotePlayHint). -->
+                            <Border Style="{StaticResource SettingItem}" x:Name="RemotePlayPopupItem">
+                                <StackPanel>
+                                    <TextBlock Text="Uzaktan Oynatma bildirimini gizle" Style="{StaticResource ItemName}" />
+                                    <TextBlock x:Name="RemotePlayPopupDesc" Style="{StaticResource ItemDesc}" />
+                                </StackPanel>
                             </Border>
                             <Border x:Name="PasscodeTab" Style="{StaticResource SettingItem}">
                                 <StackPanel>
@@ -583,9 +592,6 @@
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
                             <c:SwitchRow x:Name="GamePacks" Content="{t:T 'Use game packs'}" Checked="OnGamePacks" Unchecked="OnGamePacks" />
-                            <c:SwitchRow x:Name="SharePool" Visibility="Collapsed" Content="{t:T 'Send the English subtitles read to the shared pool'}"
-                                         Description="{t:T 'Only the game\'s English text is sent, anonymously. It is used to make better Turkish translations for everyone.'}"
-                                         Checked="OnSharePool" Unchecked="OnSharePool" />
                             <!-- Kullanım verisi: telefonlardaki Profil › Kullanım verisi ile aynı ad ve açıklama; ölçüm yoksa gizli. -->
                             <StackPanel x:Name="UsageDataRow" Visibility="Collapsed">
                                 <c:SwitchRow x:Name="UsageData" Content="{t:T 'Usage data'}" Description="{t:T 'Error and usage statistics'}"
@@ -594,6 +600,20 @@
                             <c:SwitchRow x:Name="AskGame" Content="{t:T 'Ask which game I\'m playing'}"
                                          Description="{t:T 'If no pack recognises the game, asked once two minutes after translation starts.'}"
                                          Checked="OnAskGame" Unchecked="OnAskGame" />
+                        </c:SpacedStack>
+                    </c:Card>
+                    <!-- Çevirgen: tanılama kaydı (DiagnosticRecorder): kapalı başlar, 30 dk sonra ve yeniden açılışta kapanır; gönderilmez. -->
+                    <c:Card Title="Tanılama">
+                        <c:SpacedStack Gap="m">
+                            <c:SwitchRow x:Name="DiagnosticsOn" Content="Tanılama kaydı"
+                                         Description="Çeviri sürerken 5 saniyede bir o anki görüntü (1280 px) ve alanların bilgisi bu bilgisayara kaydedilir; oturum başına en çok 400 kare. 30 dakika sonra ya da uygulama yeniden açılınca kendiliğinden kapanır. Kayıtlar 3 gün sonra silinir ve hiçbir yere gönderilmez."
+                                         Checked="OnDiagnostics" Unchecked="OnDiagnostics" />
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Klasörü aç" Style="{StaticResource OutlineButton}" VerticalAlignment="Center"
+                                        Margin="{t:Sp 's,0,0,0'}" Click="OnOpenDiagnostics" />
+                                <TextBlock x:Name="DiagnosticsPath" Style="{StaticResource HintText}" FontFamily="{StaticResource MonoFont}"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
                         </c:SpacedStack>
                     </c:Card>
                 </c:SpacedStack>
@@ -624,7 +644,13 @@
                         </c:SpacedStack>
                     </c:Card>
                     <c:Card Title="Gizlilik">
-                        <c:SwitchRow x:Name="AnonymousCount" Content="Anonim kullanım sayımı" Checked="OnAnonymousCount" Unchecked="OnAnonymousCount" />
+                        <c:SpacedStack Gap="m">
+                            <c:SwitchRow x:Name="AnonymousCount" Content="Anonim kullanım sayımı" Checked="OnAnonymousCount" Unchecked="OnAnonymousCount" />
+                            <!-- Ortak havuz (LinePool): sıradan bir satır; kapatınca bekleyen kuyruk da silinir. -->
+                            <c:SwitchRow x:Name="ShareLines" Content="Çevirileri iyileştirmeye katkı"
+                                         Description="Ekranda okunan İngilizce satırlar ve çevirileri oyunun adıyla gönderilir; kişisel bilgi süzülür."
+                                         Checked="OnShareLines" Unchecked="OnShareLines" />
+                        </c:SpacedStack>
                     </c:Card>
                     <c:Card Title="Günlükler">
                         <StackPanel>
@@ -651,6 +677,8 @@
                                 <Button Content="Kurulumu baştan başlat…" Style="{StaticResource DangerButton}" MinHeight="36" FontSize="13" Click="OnReset" Margin="{t:Sp '0,0,0,xs'}" />
                             </WrapPanel>
                             <TextBlock x:Name="UpdateStatus" Style="{StaticResource HintText}" Visibility="Collapsed" />
+                            <!-- Çevirgen: geliştiricinin iletişimi (DeveloperContact). -->
+                            <ContentControl x:Name="AppContact" Focusable="False" Margin="{t:Sp '0,s,0,0'}" />
                         </StackPanel>
                     </c:Card>
                 </StackPanel>

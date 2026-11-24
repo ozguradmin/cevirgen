@@ -212,6 +212,13 @@ public sealed partial class RegionWatcher
     public Action<string>? Rejected { get; set; }
     /// <summary>Her okumanın süresi (ms; ölçüm için).</summary>
     public Action<long>? ReadMeasured { get; set; }
+    /// <summary>
+    /// Çevirgen: alanda motorun yeni çevirdiği ve gösterilen paragraf (alan, İngilizce, Türkçe); ortak havuz için. Önbellekten
+    /// ya da tamamen paketten gelen çeviri, aslıyla aynı kalan paragraf ve telefon bildirilmez. Okuma iş parçacığında çağrılır.
+    /// </summary>
+    public Action<WatchedArea, string, string>? Translated { get; set; }
+    /// <summary>Çevirgen: alanda PS5'in Uzaktan Oynatma bildirimi okundu (satırları atılır; bkz. <see cref="RemotePlayNotice"/>).</summary>
+    public Action? RemotePlayNoticeSeen { get; set; }
     public int Passes => Volatile.Read(ref passes);
     public int Reads => Volatile.Read(ref reads);
     public bool IsBusy => Volatile.Read(ref busy) == 1;
@@ -457,6 +464,8 @@ public sealed partial class RegionWatcher
         if (Volatile.Read(ref session) != started) return null;
         Interlocked.Increment(ref reads);
         ReadMeasured?.Invoke(now() - clock);
+        reading = RemotePlayNotice.Without(reading, out var remotePlay);
+        if (remotePlay) RemotePlayNoticeSeen?.Invoke();
         state.Signature = signature;
         state.LastReadCrop = crop;
         state.LastFullCheck = now();
@@ -1018,6 +1027,10 @@ public sealed partial class RegionWatcher
         }
         var origin = cached || readyCount == candidate.Paragraphs.Count ? "hazır çeviri" : readyCount > 0 ? "hazır çeviri+motor" : "motor";
         Log?.Invoke($"ek alan {area.Name}: {SubtitleLog.Excerpt(IconText.Plain(string.Join(' ', candidate.Paragraphs)))} → {origin}");
+        if (Translated is { } onTranslated && !cached && readyCount < candidate.Paragraphs.Count && !area.PanelLifetime.HasValue)
+            for (var i = 0; i < candidate.Paragraphs.Count; i++)
+                if (!similar[i] && result[i]?.Trim() is { Length: > 0 } shownText)
+                    onTranslated(area, IconText.Plain(candidate.Paragraphs[i]), IconText.Plain(shownText));
         var (shown, icons) = IconText.Render(string.Join('\n', text), slots);
         var blocks = candidate.Blocks is { } layout ? RenderBlocks(candidate, layout, text, similar, slots, keepUnchanged) : null;
         var box = candidate.Box;

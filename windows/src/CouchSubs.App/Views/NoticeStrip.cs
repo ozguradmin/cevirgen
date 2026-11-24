@@ -96,7 +96,9 @@ public sealed class NoticeStrip : Border
             rows.Children.Add(Row(item, first ? items.Count : 0));
             if (expanded.Contains(item.Kind) && item.Details?.Invoke() is { } details)
             {
-                details.Margin = Sp.T(LabelWidth.ToString(System.Globalization.CultureInfo.InvariantCulture), "0", "s", "s");
+                // Ayrıntı iletinin hizasında başlar (etiket sütununun genişliği); "96" boşluk belirteci değildir, sayı olarak verilir.
+                var pad = Sp.T("0", "0", "s", "s");
+                details.Margin = new Thickness(LabelWidth, 0, pad.Right, pad.Bottom);
                 rows.Children.Add(details);
             }
             first = false;

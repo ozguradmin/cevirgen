@@ -73,14 +73,24 @@ public static class LastFrameStore
         }
     }
 
+    /// <summary>Çevirgen (tanılama kaydı): kareyi en çok <paramref name="maxWidth"/> genişlikte JPEG baytlarına çevirir.</summary>
+    public static byte[] Jpeg(Frame frame, int maxWidth)
+    {
+        var encoder = new JpegBitmapEncoder { QualityLevel = 85 };
+        encoder.Frames.Add(BitmapFrame.Create(Downscale(frame, maxWidth)));
+        using var memory = new MemoryStream();
+        encoder.Save(memory);
+        return memory.ToArray();
+    }
+
     /// <summary>BGRA kareyi en çok <see cref="MaxWidth"/> genişliğe küçültür (oran korunur); dondurulmuş, iş parçacıkları arası kullanılabilir.</summary>
-    public static BitmapSource Downscale(Frame frame)
+    public static BitmapSource Downscale(Frame frame, int maxWidth = MaxWidth)
     {
         var source = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgr32, null, frame.Pixels, frame.Stride);
         BitmapSource result = source;
-        if (frame.Width > MaxWidth)
+        if (frame.Width > maxWidth)
         {
-            var scale = (double)MaxWidth / frame.Width;
+            var scale = (double)maxWidth / frame.Width;
             result = new TransformedBitmap(source, new ScaleTransform(scale, scale));
         }
         result.Freeze();

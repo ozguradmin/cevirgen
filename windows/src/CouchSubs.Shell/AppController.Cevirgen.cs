@@ -42,6 +42,8 @@ public sealed partial class AppController
     {
         if (!corrections.Set(english, turkish)) return false;
         SubtitleLog.Write($"düzeltme kaydedildi: {SubtitleLog.Excerpt(english)} → {SubtitleLog.Excerpt(turkish)}");
+        // Ortak havuza da kullanıcının çevirisi olarak gider (motor "user"; ayar kapalıysa gitmez).
+        OfferLine(english, turkish, LinePool.UserEngine, LinePool.Area.Subtitle);
         Changed(nameof(Corrections));
         return true;
     }

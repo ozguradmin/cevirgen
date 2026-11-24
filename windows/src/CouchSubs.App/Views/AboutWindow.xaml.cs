@@ -17,6 +17,7 @@ public partial class AboutWindow : Window
         // Derleme sürümü (AssemblyVersion) ön sürüm ekini taşımaz: 0.1.0-beta.38 "0.1.0" görünüyordu. Etiketteki sürüm
         // InformationalVersion'dadır; güncelleme denetimi de onu kullanır.
         Version.Text = AppVersion.Current(Assembly.GetEntryAssembly() ?? typeof(AboutWindow).Assembly);
+        Contact.Content = new DeveloperContact(centered: true);
         ShowLogo();
         ThemeManager.Changed += ShowLogo;
         Closed += (_, _) => ThemeManager.Changed -= ShowLogo;

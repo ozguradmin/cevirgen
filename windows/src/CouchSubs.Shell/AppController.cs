@@ -851,7 +851,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             if (pipeline is not null) pipeline.ShowSpeakerNames = value.ShowSpeakerNames;
             server.SpeakerColors = value.SpeakerColors;
             if ((old.MisreadWaitMs != value.MisreadWaitMs || old.PartialWaitMs != value.PartialWaitMs) && pipeline is not null) ApplyWaits(pipeline);
-            if (old.SharePool != value.SharePool) services.Pool?.SetEnabled(value.SharePool);
+            if (old.ShareLines != value.ShareLines) services.Pool?.SetEnabled(value.ShareLines);
             if (old.AutoScreenText != value.AutoScreenText) ShowsAutoScreenTextNotice = false;
             if (old.UsageData != value.UsageData) services.Usage?.SetEnabled(value.UsageData);
             if (old.UsageNoticeSeen != value.UsageNoticeSeen) Changed(nameof(ShowsUsageNotice));
@@ -2301,6 +2301,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             // Deneme karelerinde oyun yoktur: oyun sorulmaz, oyuna göre alan uygulanmaz.
             if (demoMode) gameSense.StartSession();
             else StartGameSense();
+            ResetRemotePlayHint();
 
             sleep.Begin(KeepsDisplayOn);
             IsRunning = true;
@@ -3035,7 +3036,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         regionWatcher?.Reset();
         publishedGame = current;
         UpdateRegionWatcher();
-        services.Pool?.SetGame(current);
+        services.Pool?.SetGame(PoolGame(current));
         if (current is not null && services.PackUpdates is { } packUpdater) _ = RefreshPacksAsync(packUpdater, maxAge: PackUpdater.GameCheckInterval);
     }
 
@@ -3058,7 +3059,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             {
                 try { await Task.Delay(TimeSpan.FromSeconds(15), token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
-                if (!gameSense.ShouldAsk(DateTime.UtcNow - started, settings.AskGame && settings.SharePool)) continue;
+                if (!gameSense.ShouldAsk(DateTime.UtcNow - started, settings.AskGame && settings.ShareLines)) continue;
                 gameSense.MarkAsked();
                 post(() => { if (!token.IsCancellationRequested) AskingGame = true; });
                 return;
@@ -3156,7 +3157,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         StartPackUpdates();
         StartUsage();
         if (services.Pool is not { } pool) return;
-        pool.SetEnabled(settings.SharePool);
+        pool.SetEnabled(settings.ShareLines);
         // Beş dakikada bir gönderilir; sunucuya ulaşılamazsa kuyruk diskte bekler, sonra yeniden denenir.
         poolTimer = new Timer(_ => _ = pool.FlushAsync(), null, LinePool.FlushInterval, LinePool.FlushInterval);
     }
@@ -3278,7 +3279,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
 
     private void ConnectPacks(SubtitlePipeline target)
     {
-        // Deneme satırları paketlerde aranmaz (havuza da önerilmez, bkz. OfferToPool).
+        // Deneme satırları paketlerde aranmaz (havuza da önerilmez, bkz. OfferLine).
         if (demoMode)
         {
             target.PackLookup = null;
@@ -3297,13 +3298,6 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         target.CleanWait = Math.Clamp(settings.PartialWaitMs, 0, 2000);
     }
 
-    /// <summary>Pakette olmayan İngilizce satır havuza önerilir (paketler kapalıysa da yalnız hiçbir pakette olmayanlar).</summary>
-    private void OfferToPool(string text)
-    {
-        if (demoMode || settings.SourceLanguage != "en" || services.Pool is not { } pool) return;
-        if (!PacksActive && services.FindInPacks(text) is not null) return;
-        pool.Offer(text);
-    }
 
     // --- İç işleyiş ---
 
@@ -3353,6 +3347,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             var hit = services.GamePacks?.TakeDistinctiveHit();
             var recognised = gameSense.NoteLine(origin == LineOrigin.Pack ? hit?.Id : null, origin == LineOrigin.Pack ? hit?.Title : null);
             var pack = origin == LineOrigin.Pack ? services.GamePacks?.SearchScope : null;
+            // Çevirgen: ekranda gösterilen satır ve çevirisi ortak havuza (paketten gelenler hariç; kendi düzeltmen "user").
+            if (origin != LineOrigin.Pack) OfferLine(source, translation, origin == LineOrigin.Correction ? LinePool.UserEngine : null, LinePool.Area.Subtitle);
             post(() =>
             {
                 if (recognised)
@@ -3372,7 +3368,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         // Model bu arada inmiş olabilir; her çeviri sonucu durumu günceller.
         built.TranslationResult += error => post(() => TranslatorStatus = error ?? TranslatorStatus.Ready);
         built.SpeechReady += lines => post(() => Speak(lines));
-        built.PackMissed += OfferToPool;
+        built.RemotePlayNoticeSeen += OnRemotePlayNoticeSeen;
         built.Log = SubtitleLog.Write;
         // Çevirgen: kullanıcının düzeltmeleri her şeyden önce gelir; satırın ekranda kaldığı süre geçmişe yazılır.
         built.CorrectionLookup = demoMode ? null : corrections.Find;
@@ -3511,7 +3507,12 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                     watcherRequested = phoneArea is not null || autoAreas.Count > 0 || missionArea is not null || noticeAreas.Count > 0;
                     return;
                 }
-                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server) { Log = SubtitleLog.Write, SubtitleEcho = SubtitleEcho };
+                regionWatcher = new RegionWatcher(reader, MakeTranslator(), server)
+                {
+                    Log = SubtitleLog.Write, SubtitleEcho = SubtitleEcho,
+                    // Çevirgen: ek alanların ve ekran yazısının çevirileri ortak havuza; PS5'in Uzaktan Oynatma bildirimi ipucuna.
+                    Translated = OnRegionTranslated, RemotePlayNoticeSeen = OnRemotePlayNoticeSeen,
+                };
             }
             // Okunup yazısız ya da gürültülü çıkan otomatik alan dedektöre bildirilir (o görüntüde yeniden önerilmez).
             var detector = screenText;
@@ -3945,6 +3946,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
                 LastFrame = frame;
                 UpdateSubtitleOffTip(frameArrived: true);
             });
+            // Çevirgen: tanılama kaydı açıksa beş saniyede bir kare ve alanlar diske (arka planda).
+            RecordDiagnostics(frame);
             // Duraklatıldıysa kare yalnız ek bölgeler ve serbest alan için saklanır; altyazı okunmaz.
             if (subtitlesPaused) return;
             // Önceki kare hâlâ işleniyorsa bu kare atlanır; okuma kareleri biriktirmez.

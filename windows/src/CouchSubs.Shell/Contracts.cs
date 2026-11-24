@@ -459,8 +459,12 @@ public sealed record UserSettings
     public OverlayBounds? Overlay { get; init; }
     /// <summary>Oyun paketlerindeki hazır Türkçe çeviriler kullanılır (yalnız İngilizce→Türkçe).</summary>
     public bool GamePacks { get; init; } = true;
-    /// <summary>Pakette bulunmayan İngilizce satırlar ortak havuza gönderilir (anonim; bkz. <see cref="LinePool"/>).</summary>
-    public bool SharePool { get; init; } = LinePool.EnabledByDefault;
+    /// <summary>
+    /// Çevirgen: "Çevirileri iyileştirmeye katkı" (Ayarlar › Uygulama): ekranda gösterilen İngilizce satırlar ve çevirileri
+    /// oyunun adıyla Çevirgen'in sunucusuna gider (bkz. <see cref="LinePool"/>; kişisel bilgi süzülür). Varsayılan açık;
+    /// kapatılınca gönderim durur ve bekleyen kuyruk silinir. CouchSubs'ın eski <c>SharePool</c> ayarı okunmaz.
+    /// </summary>
+    public bool ShareLines { get; init; } = LinePool.EnabledByDefault;
     /// <summary>Oynanan oyun paketle tanınmazsa çeviri başladıktan iki dakika sonra bir kez sorulur (bkz. <see cref="GameSense"/>).</summary>
     public bool AskGame { get; init; } = true;
     /// <summary>Kullanım verisi: telefonlardaki gibi kimliğe bağlanmayan kullanım istatistikleri gönderilir (bkz. <see cref="UsageStats"/>).</summary>
@@ -1026,6 +1030,11 @@ public interface IAppServices
     RemoteConfigClient? RemoteConfig => null;
     /// <summary>Çevirgen: anonim kullanım sayımı (<c>POST /v1/ping</c>); testlerde null (hiçbir istek gitmez).</summary>
     UsageCounter? Counter => null;
+    /// <summary>
+    /// Çevirgen (tanılama kaydı): kareyi en çok <paramref name="maxWidth"/> genişlikte JPEG'e çevirir (oran korunur);
+    /// bu derlemede ya da testlerde null (kayıt yazılmaz).
+    /// </summary>
+    byte[]? EncodeJpeg(Frame frame, int maxWidth) => null;
 }
 
 /// <param name="Launched">false ise TV uygulaması açılamadı; büyük olasılıkla TV'de kurulu değil.</param>

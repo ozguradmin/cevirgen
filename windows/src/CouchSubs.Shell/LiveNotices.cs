@@ -50,6 +50,8 @@ public enum LiveNoticeKind
     AreaProfileActive,
     /// <summary>Ekran kartı kullanılamadı; ücretsiz çeviri işlemcide.</summary>
     GpuFallback,
+    /// <summary>Çevirgen: karede PS5'in "Uzaktan Oynatma'ya bağlandı" bildirimi okundu; nasıl gizleneceği.</summary>
+    RemotePlayPopup,
     /// <summary>PS5'te oyunu ana hesapla başlat ipucu.</summary>
     MainAccountTip,
     /// <summary>Otomatik ekran yazısı deneysel; Ayarlar'dan açılabilir.</summary>
@@ -81,6 +83,7 @@ public sealed record LiveNoticeState
     public bool CrashPending { get; init; }
     public bool GpuFallback { get; init; }
     public bool MainAccountTip { get; init; }
+    public bool RemotePlayPopup { get; init; }
     public bool AutoScreenTextNotice { get; init; }
 }
 
@@ -131,6 +134,8 @@ public static class LiveNotices
         }
         if (state.CrashPending) kinds.Add(LiveNoticeKind.Crash);
         if (state.GpuFallback) kinds.Add(LiveNoticeKind.GpuFallback);
+        // Bildirim yalnız okunduysa (ve bu oturumda kapatılmadıysa) görünür; deneme karelerinde okunmaz.
+        if (state.RemotePlayPopup && !state.DemoMode) kinds.Add(LiveNoticeKind.RemotePlayPopup);
         if (state.MainAccountTip) kinds.Add(LiveNoticeKind.MainAccountTip);
         if (state.AutoScreenTextNotice) kinds.Add(LiveNoticeKind.AutoScreenText);
         if (!state.CanStart && !state.Running && !state.DemoMode) kinds.Add(LiveNoticeKind.Demo);

@@ -1,18 +1,29 @@
 # Gizlilik / Privacy
 
-*Son güncelleme / Last updated: 2026-11-21*
+*Son güncelleme / Last updated: 2026-11-24*
 
 ## Çevirgen
 
-Çevirgen, CouchSubs'ın değiştirilmiş bir sürümüdür; CouchSubs ve Google sunucularına hiçbir şey göndermez (ortak havuz
-ve kullanım istatistikleri kapalıdır). Çevirgen'in kendi sunucusuna (`cevirgen-api.ozgurglr256.workers.dev`) yalnız şu
-iki istek gider:
+Çevirgen, CouchSubs'ın değiştirilmiş bir sürümüdür; CouchSubs ve Google sunucularına hiçbir şey göndermez (CouchSubs'ın
+ortak havuzu ve kullanım istatistikleri kapalıdır). Çevirgen'in kendi sunucusuna (`cevirgen.ozgurguler.tech`, yedeği
+`cevirgen-api.ozgurglr256.workers.dev`) yalnız şunlar gider:
 
 - **Uzaktan ayarlar:** açılışta ve saatte bir reklam, açılır reklam ve duyuru listesi düz bir istekle alınır (çerez ya
   da kimlik gönderilmez). Görseller yalnız https adreslerinden indirilip bilgisayarda saklanır.
-- **Anonim sayım (Ayarlar'dan kapatılabilir):** 5 dakikada bir ve çeviri başlayıp durunca rastgele bir kurulum kimliği,
-  uygulama sürümü, platform (ps5, xbox, pc, capture) ve çevirinin sürüp sürmediği gönderilir. Adınız, oyununuz,
-  altyazılarınız ya da IP adresiniz saklanmaz. Kapatınca kimlik bilgisayardan silinir.
+- **Anonim sayım (Ayarlar › Uygulama'dan kapatılabilir):** 5 dakikada bir ve çeviri başlayıp durunca rastgele bir kurulum
+  kimliği, uygulama sürümü, platform (ps5, xbox, pc, capture) ve çevirinin sürüp sürmediği gönderilir. Adınız, oyununuz,
+  altyazılarınız ya da IP adresiniz bu sayımda saklanmaz. Kapatınca kimlik bilgisayardan silinir.
+- **Çevirileri iyileştirmeye katkı (Ayarlar › Uygulama'dan kapatılabilir, varsayılan açık):** ekranda okunup çevrilen
+  İngilizce oyun satırları, gösterilen Türkçe çevirileri, çeviren motorun adı (ör. "free", "deepl", "gemini:…"; kendi
+  düzeltmeniz "user"), satırın yeri (altyazı, ek alan, ekran yazısı) ve biliniyorsa oyunun adı 5 dakikada bir gönderilir;
+  amaç ileride oyunlar için hazır çeviri paketleri hazırlamaktır. Kimlik olarak yalnız bu özelliğe ait rastgele bir kimlik
+  gider; sunucu onu yalnız karıştırılmış (hash) olarak saklar ve 180 gün sonra siler. E-posta, bağlantı, telefon
+  numarası, @ad ya da kullanıcı adına benzeyen satırlar, PS5'in sistem yazıları ve yazı tanıma çöpü hem uygulamada hem
+  sunucuda süzülür, hiç saklanmaz. Kapatınca gönderim durur ve bilgisayarda bekleyen satırlar silinir.
+
+**Tanılama kaydı** (Ayarlar › Gelişmiş, varsayılan kapalı) açılırsa çeviri sürerken 5 saniyede bir oyun görüntüsü ve
+alan bilgisi yalnız bu bilgisayara (`%LOCALAPPDATA%\Cevirgen\tanilama`) yazılır; 30 dakika sonra ya da uygulama yeniden
+açılınca kapanır, kayıtlar 3 gün sonra silinir ve hiçbir yere gönderilmez.
 
 Güncellemeler GitHub'daki `ozguradmin/cevirgen` sürümlerinden denetlenir. Aşağıdaki metin CouchSubs'ın özgün gizlilik
 metnidir.

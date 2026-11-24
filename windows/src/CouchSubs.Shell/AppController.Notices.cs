@@ -40,6 +40,7 @@ public sealed partial class AppController
             CrashPending = crashPending,
             GpuFallback = GpuFallbackWarning,
             MainAccountTip = ShowsMainAccountTip,
+            RemotePlayPopup = ShowsRemotePlayHint,
             AutoScreenTextNotice = ShowsAutoScreenTextNotice,
         };
     }

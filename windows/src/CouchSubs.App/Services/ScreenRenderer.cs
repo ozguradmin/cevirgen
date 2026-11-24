@@ -194,6 +194,7 @@ public static class ScreenRenderer
                 Save(() => new OnboardingView(Demo(OnboardingStep.PsnLogin)), w, h, Path.Combine(folder, $"boy-{w}-kurulum-{suffix}.png"));
             }
             RenderV14(folder, suffix);
+            RenderV15(folder, suffix);
         }
         app.Shutdown();
     }
@@ -253,6 +254,33 @@ public static class ScreenRenderer
             controller.ChoosePlatform(SetupPlatform.Ps5);
             return new OnboardingView(controller);
         }, Width, Height, Path.Combine(folder, $"v14-kurulum-platform-{suffix}.png"));
+    }
+
+    /// <summary>
+    /// Çevirgen 1.5: Ayarlar › Uygulama ("Çevirileri iyileştirmeye katkı" ve geliştiricinin iletişimi), Gelişmiş › Tanılama kaydı
+    /// (kapalı ve açık; uzun pencere), Cihazlar'daki PS5 bildirim satırı, Canlı'da PS5 Uzaktan Oynatma bildirimi ipucu, kurulumun
+    /// PS5 adımının son maddesi ve Hakkında penceresi.
+    /// </summary>
+    private static void RenderV15(string folder, string suffix)
+    {
+        Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, SettingsGroup.App)), Width, 1400, Path.Combine(folder, $"v15-ayarlar-uygulama-{suffix}.png"));
+        foreach (var on in new[] { false, true })
+            Save(() =>
+            {
+                var controller = Demo(OnboardingStep.Done);
+                controller.DiagnosticsOn = on;
+                return Detach(Shell(controller, ShellTab.Settings, SettingsGroup.Advanced));
+            }, Width, 1500, Path.Combine(folder, $"v15-ayarlar-gelismis{(on ? "-kayit-acik" : "")}-{suffix}.png"));
+        Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, SettingsGroup.Devices)), Width, 1200, Path.Combine(folder, $"v15-ayarlar-cihazlar-{suffix}.png"));
+        foreach (var (w, h) in new[] { (Width, Height), (1920, 1080) })
+            Save(() =>
+            {
+                var controller = Running();
+                typeof(AppController).GetMethod("OnRemotePlayNoticeSeen", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(controller, null);
+                return Detach(Live(controller));
+            }, w, h, Path.Combine(folder, $"v15-canli-uzaktan-{w}-{suffix}.png"));
+        Save(() => new OnboardingView(Demo(OnboardingStep.Console)), Width, 1700, Path.Combine(folder, $"v15-kurulum-ps5-{suffix}.png"));
+        Save(() => Detach(new AboutWindow()), 460, 900, Path.Combine(folder, $"v15-hakkinda-{suffix}.png"));
     }
 
     /// <summary>Destek alanı açık (20 satır çevrilmiş); <paramref name="support"/> verilirse sunucudan gelmiş gibi.</summary>
@@ -327,7 +355,7 @@ public static class ScreenRenderer
     ];
 
     /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme en az bu kadarını bekler.</summary>
-    public const int ExpectedCount = 178;
+    public const int ExpectedCount = 194;
 
     /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar bölümü) açık.</summary>
     private static ShellWindow Shell(AppController controller, ShellTab tab, SettingsGroup? group = null)

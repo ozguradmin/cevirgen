@@ -207,6 +207,23 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     public event Action<string>? PackMissed;
 
     /// <summary>
+    /// Çevirgen: karede PS5'in "Uzaktan Oynatma'ya bağlandı" bildirimi okundu (<see cref="RemotePlayNotice"/>). Satırları
+    /// altyazıya girmez, çevrilmez. Okuma iş parçacığında çağrılır.
+    /// </summary>
+    public event Action? RemotePlayNoticeSeen;
+
+    /// <summary>
+    /// Çevirgen (tanılama kaydı): son yazı tanıma okumasının satırları, kutuları altyazı alanına göre (0–1) ve okunan alan;
+    /// hiç okunmadıysa null.
+    /// </summary>
+    public (Reading Reading, CropRegion Region)? LastRead
+    {
+        get { lock (gate) return lastOcrRegion is { } region ? (lastOcrReading, region) : null; }
+    }
+
+    private CropRegion? lastOcrRegion;
+
+    /// <summary>
     /// Görev satırının bölgesi değişti (null: görev kalktı). Görev altyazıya girmez; bölgesi "auto-mission" ek alanı olarak
     /// kendi yerinde ve özgün stilinde gösterilir (bkz. <see cref="MissionLine"/>). Okuma iş parçacığında çağrılır.
     /// </summary>
@@ -356,6 +373,7 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
                     {
                         schedule.Record(read.Text);
                         lastOcrReading = recognized;
+                        lastOcrRegion = region;
                         lastReadMs = readMs;
                     }
                 }
@@ -379,6 +397,10 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
                 return;
             }
         }
+        // Çevirgen: PS5'in Uzaktan Oynatma bildirimi ("Uzaktan Oynatma'ya bağlandı") altyazı değildir; okunduysa atılır ve
+        // Canlı ekranda ayarın nasıl kapatılacağı söylenir.
+        raw = RemotePlayNotice.Without(raw, out var remotePlay);
+        if (remotePlay) RemotePlayNoticeSeen?.Invoke();
         // Kumanda ipuçları ("R2 Swing") altyazı değildir; çevrilmez, yeri de altyazının yerine katılmaz.
         // Yazı tanımanın uydurduğu sözcük çöpleri ("ou$3e") de çevirmene gitmez.
         // Alandaki menü ve köşe göstergeleri de altyazı değildir; yalnız altyazı bloğu çevrilir ve kutusu ona göre olur.

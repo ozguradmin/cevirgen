@@ -53,10 +53,23 @@ public sealed class LiveServices : IAppServices
     public GamePackLibrary? GamePacks { get; } = new(GamePackLibrary.EmbeddedPacks, GamePackLibrary.UserDirectory);
     public PackMatch? FindInPacks(string text) => GamePacks is { } packs ? PackLookup.Match(packs, text) : null;
     public PackPartial? FindPartialInPacks(string text) => GamePacks is { } packs ? PackLookup.MatchPartial(packs, text) : null;
-    public LinePool? Pool { get; } = new(Path.Combine(AppPaths.Data, "pool.json"),
-        AppVersion.Current(System.Reflection.Assembly.GetEntryAssembly() ?? typeof(LiveServices).Assembly));
+    // Ortak havuz ("Çevirileri iyileştirmeye katkı"): kuyruk %LOCALAPPDATA%\Cevirgen\lines-queue.json, Çevirgen sunucusuna
+    // (asıl adres ve yedeği) gider; ayar kapalıysa denetleyici kapatır ve kuyruğu siler.
+    public LinePool? Pool { get; } = new(Path.Combine(AppPaths.Data, LinePool.FileName),
+        AppVersion.Current(System.Reflection.Assembly.GetEntryAssembly() ?? typeof(LiveServices).Assembly), CevirgenApi.BaseUrls());
     public string? HistoryFile { get; } = Path.Combine(AppPaths.Data, "history.json");
     public string? DataFolder => AppPaths.Data;
+    // Tanılama kaydı: kare WPF'in JPEG kodlayıcısıyla (en çok 1280 px genişlik).
+    public byte[]? EncodeJpeg(Frame frame, int maxWidth)
+    {
+        if (frame is not { Width: > 0, Height: > 0, IsConsistent: true }) return null;
+        try { return LastFrameStore.Jpeg(frame, maxWidth); }
+        catch (Exception error) when (error is IOException or NotSupportedException or InvalidOperationException or ArgumentException)
+        {
+            SubtitleLog.Write($"tanılama karesi kodlanamadı: {error.GetType().Name}");
+            return null;
+        }
+    }
     // Çevirgen sunucusu (CevirgenApi: sabit adres; derlemede CevirgenApiUrl ya da CEVIRGEN_API_URL ile değişir).
     // Uzaktan ayarlar: reklam, açılır reklam ve duyuru; son geçerli yanıt ve görseller veri klasöründe.
     public RemoteConfigClient? RemoteConfig { get; } = new(CevirgenApi.BaseUrls(), AppPaths.Data);
