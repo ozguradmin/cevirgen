@@ -134,6 +134,8 @@ internal sealed class FakeServices : IAppServices
     public Reading? ReaderLines { get; set; }
     /// <summary>Verilirse geçmiş bu dosyaya yazılır (geçici klasörde).</summary>
     public string? HistoryFile { get; set; }
+    /// <summary>Çevirgen: verilirse düzeltmeler ve kullanıcı sözlüğü bu klasöre yazılır.</summary>
+    public string? DataFolder { get; set; }
     /// <summary>Verilirse kullanım verisi buraya gider (sahte HTTP katmanıyla).</summary>
     public UsageStats? Usage { get; set; }
     public bool HasOcr { get; set; } = true;

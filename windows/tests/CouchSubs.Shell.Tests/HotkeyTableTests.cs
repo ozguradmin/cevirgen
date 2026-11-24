@@ -10,7 +10,7 @@ public class HotkeyTableTests
     [Fact]
     public void EveryActionHasNumpadAndCtrlShiftKey()
     {
-        foreach (var action in Enum.GetValues<HotkeyAction>())
+        foreach (var (action, _) in HotkeyTable.Digits)
         {
             var keys = HotkeyTable.Bindings.Where(binding => binding.Action == action).ToList();
             Assert.Equal(2, keys.Count);
@@ -49,7 +49,25 @@ public class HotkeyTableTests
     public void CombosDoNotSwallowAltGrCharacters()
     {
         Assert.DoesNotContain(HotkeyTable.Bindings, b => b.Modifiers.HasFlag(HotkeyModifiers.Control) && b.Modifiers.HasFlag(HotkeyModifiers.Alt));
-        Assert.All(HotkeyTable.Bindings, b => Assert.True(b.Modifiers is HotkeyModifiers.None or (HotkeyModifiers.Control | HotkeyModifiers.Shift)));
+        Assert.All(HotkeyTable.Bindings.Where(b => b.Action != HotkeyAction.HideSubtitles),
+            b => Assert.True(b.Modifiers is HotkeyModifiers.None or (HotkeyModifiers.Control | HotkeyModifiers.Shift)));
+    }
+
+    /// Çevirgen: altyazıları gizle/göster varsayılanı Ctrl+H (tek değiştiricili harf olsa da tutulur) ve Num 4.
+    [Fact]
+    public void HideSubtitlesDefaultsToCtrlH()
+    {
+        var keys = HotkeyTable.Bindings.Where(b => b.Action == HotkeyAction.HideSubtitles).ToList();
+        Assert.Equal(["Ctrl+H", "Num 4"], keys.Select(b => b.Label));
+        Assert.Equal([HotkeyTable.HideSubtitlesKey, new HotkeyKey(HotkeyModifiers.None, 0x64)], HotkeyTable.KeysFor([], HotkeyAction.HideSubtitles));
+        // Her iş Ayarlar'da listelenir ve değiştirilebilir.
+        Assert.Equal(Enum.GetValues<HotkeyAction>().Order(), HotkeyTable.Actions.Order());
+        var altH = new HotkeyKey(HotkeyModifiers.Alt, 0x48);
+        var choices = HotkeyTable.Assign([], HotkeyAction.HideSubtitles, 0, altH, out _);
+        Assert.Equal([altH, new HotkeyKey(HotkeyModifiers.None, 0x64)], HotkeyTable.KeysFor(choices, HotkeyAction.HideSubtitles));
+        // Kapatılabilir.
+        Assert.Empty(HotkeyTable.KeysFor(HotkeyTable.Assign(HotkeyTable.Assign([], HotkeyAction.HideSubtitles, 0, null, out _),
+            HotkeyAction.HideSubtitles, 1, null, out _), HotkeyAction.HideSubtitles));
     }
 
     /// Kısayol kimliği sıradan gelir: Num tuşlarının kimlikleri eskisi gibi kalır, yenileri arkadan eklenir.

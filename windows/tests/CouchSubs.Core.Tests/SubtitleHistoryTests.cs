@@ -119,7 +119,8 @@ public sealed class SubtitleHistoryTests : IDisposable
         var history = new SubtitleHistory();
         history.Add("Get down!", "Yere yat!", LineOrigin.Pack, Ten.AddTicks(1234567));
         history.Save(path);
-        Assert.Equal("""{"version":1,"entries":[{"id":0,"date":"2026-11-12T10:00:00Z","source":"Get down!","translation":"Yere yat!","origin":"pack"}]}""",
+        // Çevirgen: Mac'in alanları aynı; ekrana geliş anı ("shownAt", milisaniyeli) ek alan olarak gelir (Mac yok sayar).
+        Assert.Equal("""{"version":1,"entries":[{"id":0,"date":"2026-11-12T10:00:00Z","source":"Get down!","translation":"Yere yat!","origin":"pack","shownAt":"2026-11-12T10:00:00.123Z"}]}""",
             File.ReadAllText(path));
     }
 

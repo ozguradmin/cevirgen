@@ -126,13 +126,25 @@ public interface ISubtitleSender
     /// <param name="replaces">Satır az önce gösterilenin uzamış ya da düzelmiş okumasıdır (<see cref="TextMatch.IsRevision"/>); TV onu öncekinin üstüne yığmaz.</param>
     void SendSubtitle(string text, int durationMs = 15000, TextBox? box = null, bool paragraphs = false, bool replaces = false);
     void Clear();
+
+    /// <summary>
+    /// Çevirgen: altyazı, üstünde gösterilecek eski satırların çevirileriyle (yukarıdan aşağı; boşsa üstte satır yok).
+    /// İngilizce yığının aynısı: eski replik ekranda kaldıkça Türkçesi de yeni satırın üstünde durur. Varsayılanı üst
+    /// satırları yok sayar.
+    /// </summary>
+    void SendWithAbove(string text, int durationMs, TextBox? box, bool replaces, IReadOnlyList<string> above) =>
+        SendSubtitle(text, durationMs, box, replaces: replaces);
+
+    /// <summary>Çevirgen: ekrandaki satırın üstündeki eski satırlar değişti (İngilizcesi kalkan çıkarıldı).</summary>
+    void SendAbove(IReadOnlyList<string> above) { }
 }
 
 /// <summary>
 /// <c>Screen</c>: "ekranı çevir" sonuçları (metin: grupların çevirisi, yukarıdan aşağı, her biri ayrı satırda);
 /// <c>ScreenClear</c>: onların kaldırılması. Bilgisayardaki altyazı penceresi bunları da gösterir.
+/// <c>Above</c> (Çevirgen): ekrandaki satırın üstündeki eski satırlar değişti (<see cref="SubtitleEvent.Above"/>).
 /// </summary>
-public enum SubtitleEventKind { Subtitle, Clear, Screen, ScreenClear, Region, RegionClear }
+public enum SubtitleEventKind { Subtitle, Clear, Screen, ScreenClear, Region, RegionClear, Above }
 
 /// <summary>Sunucudan geçen ve bilgisayar ekranındaki altyazı penceresinin de gösterdiği olay.</summary>
 /// <param name="Replaces">Satır öncekinin uzamış ya da düzelmiş okumasıdır; öncekinin üstüne yığılmaz, yerine geçer.</param>
@@ -140,8 +152,11 @@ public enum SubtitleEventKind { Subtitle, Clear, Screen, ScreenClear, Region, Re
 /// <param name="Box">Ek alan olayında yazının karedeki yeri; altyazı olayında oyundaki altyazının karedeki yeri (bilgisayardaki
 /// pencere "Yazı kadar" kutuyu onu örtecek kadar büyütür).</param>
 /// <param name="Blocks">Ek alan olayında ayrı yazı gruplarının çevirileri (otomatik ekran yazısında stilleriyle).</param>
+/// <param name="Above">Çevirgen: altyazının üstünde duran eski satırların çevirileri, yukarıdan aşağı (null: hat bildirmedi,
+/// eski süreli yığın kuralı geçerli; boş: üstte satır yok).</param>
 public sealed record SubtitleEvent(SubtitleEventKind Kind, string Text = "", int DurationMs = 0, bool Paragraphs = false, bool Replaces = false,
-                                   string? Id = null, TextBox? Box = null, IReadOnlyList<ScreenTranslation.Item>? Blocks = null)
+                                   string? Id = null, TextBox? Box = null, IReadOnlyList<ScreenTranslation.Item>? Blocks = null,
+                                   IReadOnlyList<string>? Above = null)
 {
     public static readonly SubtitleEvent Cleared = new(SubtitleEventKind.Clear);
 }
@@ -393,7 +408,26 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
 
     /// <param name="paragraphs">true ise metin satır satır, sola yaslı gösterilir (görev paneli gibi başlık ve maddeli yazılar).</param>
     /// <param name="replaces">TV satırı öncekinin üstüne yığmaz, yerine koyar (<c>replace</c> alanı; eski TV uygulamaları yok sayar).</param>
-    public void SendSubtitle(string text, int durationMs = 15000, TextBox? box = null, bool paragraphs = false, bool replaces = false)
+    public void SendSubtitle(string text, int durationMs = 15000, TextBox? box = null, bool paragraphs = false, bool replaces = false) =>
+        SendLine(text, durationMs, box, paragraphs, replaces, null);
+
+    /// <summary>
+    /// Çevirgen: <c>subtitle</c> olayı <c>above</c> alanıyla (üstteki eski satırların çevirileri, yukarıdan aşağı; boş dizi:
+    /// üstte satır yok). Alanı tanıyan TV (1.0.1+) üst satırları süreyle değil bilgisayarın söylediğine göre gösterir;
+    /// eski TV alanı yok sayar, eskisi gibi kendi süreli yığınını kullanır.
+    /// </summary>
+    public void SendWithAbove(string text, int durationMs, TextBox? box, bool replaces, IReadOnlyList<string> above) =>
+        SendLine(text, durationMs, box, false, replaces, above);
+
+    /// <summary>Çevirgen: <c>above</c> olayı (<c>{"lines": [...]}</c>): ekrandaki satıra dokunmadan üstündeki eski satırlar değişir.</summary>
+    public void SendAbove(IReadOnlyList<string> above)
+    {
+        var lines = above.ToList();
+        Broadcast(Frame("above", new SortedDictionary<string, object> { ["lines"] = lines }), subtitle: true);
+        EventSent?.Invoke(new SubtitleEvent(SubtitleEventKind.Above, Above: lines));
+    }
+
+    private void SendLine(string text, int durationMs, TextBox? box, bool paragraphs, bool replaces, IReadOnlyList<string>? above)
     {
         var json = new SortedDictionary<string, object>
         {
@@ -404,7 +438,9 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
         if (paragraphs) json["paragraphs"] = true;
         if (replaces) json["replace"] = true;
         if (box is { } b) json["box"] = BoxJson(b);
-        if (SpeakerColors && Core.SpeakerColors.Speakers(text) is { Count: > 0 } speakers)
+        if (above is not null) json["above"] = above.ToList();
+        var named = above is { Count: > 0 } ? string.Join("\n", above.Append(text)) : text;
+        if (SpeakerColors && Core.SpeakerColors.Speakers(named) is { Count: > 0 } speakers)
             json["speakerNames"] = speakers.Select(name => new SortedDictionary<string, object> { ["name"] = name, ["color"] = SpeakerBook.Color(name)! }).ToList();
         lock (gate)
         {
@@ -412,8 +448,32 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
             legacyHoldUntil = DateTime.UtcNow + LegacyClearHold(text.Length);
         }
         Broadcast(Frame("subtitle", json), subtitle: true);
-        EventSent?.Invoke(new SubtitleEvent(SubtitleEventKind.Subtitle, text, durationMs, paragraphs, replaces, Box: box));
+        EventSent?.Invoke(new SubtitleEvent(SubtitleEventKind.Subtitle, text, durationMs, paragraphs, replaces, Box: box, Above: above?.ToList()));
     }
+
+    private bool subtitlesHidden;
+
+    /// <summary>
+    /// Çevirgen: altyazılar gizli mi (kısayol; çeviri sürer). Değişince <c>visibility</c> olayı (<c>{"hidden": true}</c>)
+    /// gider; yeni bağlanan TV'ye de stilden sonra gönderilir. TV 1.0.1+ gizliyken gelen satırları göstermez; eski TV olayı
+    /// yok sayar.
+    /// </summary>
+    public bool SubtitlesHidden
+    {
+        get { lock (gate) return subtitlesHidden; }
+        set
+        {
+            lock (gate)
+            {
+                if (subtitlesHidden == value) return;
+                subtitlesHidden = value;
+            }
+            Broadcast(VisibilityFrame(value), subtitle: true);
+        }
+    }
+
+    internal static string VisibilityFrame(bool hidden) =>
+        Frame("visibility", new SortedDictionary<string, object> { ["hidden"] = hidden });
 
     /// <summary>Dört basamağa yuvarlanır (decimal: JSON'da 0.8 olarak yazılsın).</summary>
     /// Bölme sondaki sıfırları atar (0.8750 → 0.875).
@@ -837,6 +897,7 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
             if (lastStyle is { } style) head.Append(StyleFrame(style, SetApart));
             // Kimlik stilden sonra: TV'ye ilk giden veri eskisi gibi stil olsun (olay sırası protokolü etkilemez).
             if (client.LinkId is { } link) head.Append(Frame("link", new SortedDictionary<string, object> { ["id"] = link }));
+            if (subtitlesHidden) head.Append(VisibilityFrame(true));
             clients.Add(client);
             if (hdmi is not null) consolePort = hdmi;
             count = TvCount();

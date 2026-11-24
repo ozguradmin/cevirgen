@@ -17,7 +17,7 @@ namespace CouchSubs.Shell;
 /// başlatma/durdurma, PS5 ve TV durumları. Arayüz bu nesneye bağlanır; olaylar <c>post</c> ile
 /// arayüz iş parçacığına aktarılır.
 /// </summary>
-public sealed class AppController : INotifyPropertyChanged, IDisposable
+public sealed partial class AppController : INotifyPropertyChanged, IDisposable
 {
     public const string TvAppId = "com.cevirgen.tv";
     public const int DefaultServerPort = 8787;
@@ -178,6 +178,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         services.Translation.EngineFailure += OnEngineFailure;
         services.Translation.GpuFallback += OnGpuFallback;
         history = services.HistoryFile is { } file ? SubtitleHistory.Load(file) : new SubtitleHistory();
+        (corrections, userGlossary) = LoadUserData(services.DataFolder);
     }
 
     /// <summary>
@@ -211,6 +212,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         server.SendsToTv = settings.Output.ShowsOnTv();
         server.SpeakerColors = settings.SpeakerColors;
         server.SetApart = settings.SetTextApart;
+        server.SubtitlesHidden = subtitlesHidden;
     }
 
     private void DetachServer()
@@ -2221,6 +2223,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
             server.SpeakerBook.Reset();
             SubtitlesPaused = false;
             recentDelays.Clear();
+            BeginSessionStats();
             LastFrameAt = null;
             MetricsText = "";
             framesSince = null;
@@ -3294,6 +3297,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         };
         built.MetricsReady += metrics => post(() =>
         {
+            NoteLatency(metrics.TotalMs);
             recentDelays.Enqueue(metrics.TotalMs);
             while (recentDelays.Count > 10) recentDelays.Dequeue();
             MetricsText = metrics.Summary(text);
@@ -3301,7 +3305,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         built.PairShown += (source, translation) =>
         {
             var box = built.LastBox;
-            var origin = built.LastOrigin == "paket" ? LineOrigin.Pack : LineOrigin.Engine;
+            var origin = built.LastOrigin switch { "paket" => LineOrigin.Pack, "senin" => LineOrigin.Correction, _ => LineOrigin.Engine };
             // Satır yalnız tek bir pakette bulunduysa o pakete bir oy: son 20 satırın 5'i aynı paketten gelince oyun odur.
             var hit = services.GamePacks?.TakeDistinctiveHit();
             var recognised = gameSense.NoteLine(origin == LineOrigin.Pack ? hit?.Id : null, origin == LineOrigin.Pack ? hit?.Title : null);
@@ -3327,6 +3331,9 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         built.SpeechReady += lines => post(() => Speak(lines));
         built.PackMissed += OfferToPool;
         built.Log = SubtitleLog.Write;
+        // Çevirgen: kullanıcının düzeltmeleri her şeyden önce gelir; satırın ekranda kaldığı süre geçmişe yazılır.
+        built.CorrectionLookup = demoMode ? null : corrections.Find;
+        built.PairLeft += (source, visibleMs) => post(() => MarkLeftInHistory(source, visibleMs));
         built.PackName = () => services.GamePacks?.SearchScope;
         built.MissionChanged += OnMissionChanged;
         built.NoticesChanged += OnNoticesChanged;
@@ -3581,7 +3588,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
     private void AddToHistory(string source, string translation, LineOrigin origin)
     {
         if (!history.Add(source, translation, origin)) return;
-        Changed(nameof(History));
+        Changed(nameof(History), nameof(SessionStats));
         SaveHistory();
     }
 
@@ -3589,7 +3596,7 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
     public void ClearHistory()
     {
         history.Clear();
-        Changed(nameof(History));
+        Changed(nameof(History), nameof(SessionStats));
         SaveHistory();
     }
 
@@ -3633,13 +3640,13 @@ public sealed class AppController : INotifyPropertyChanged, IDisposable
         if (engine == TranslationEngine.Local && settings.LocalAiServer is { } server)
         {
             // Yerel modelin anahtarı isteğe bağlıdır; önbellekte sunucu ve model ayrı tutulur.
-            online = services.MakeLocalAiTranslator(server, store.Load<string>(storeKey) ?? "", fallback, game, settings.AiInstruction);
+            online = services.MakeLocalAiTranslator(server, store.Load<string>(storeKey) ?? "", fallback, game, AiInstructionWithGlossary);
         }
         else
         {
             if (store.Load<string>(storeKey) is not { Length: > 0 } key) return local;
             online = engine.Provider() is { } provider
-                ? services.MakeAiTranslator(provider, key, provider.Model(settings.ModelFor(provider)).Id, fallback, game, settings.AiInstruction,
+                ? services.MakeAiTranslator(provider, key, provider.Model(settings.ModelFor(provider)).Id, fallback, game, AiInstructionWithGlossary,
                     settings.GeminiPaidTier && provider == AiProvider.Gemini)
                 : services.MakeOnlineTranslator(key, fallback);
         }

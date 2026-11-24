@@ -160,6 +160,7 @@ public partial class ShellWindow : Window
             case HotkeyAction.FreeArea: FreeAreaWindow.Open(controller); break;
             case HotkeyAction.Screen: _ = controller.TranslateScreenAsync(); break;
             case HotkeyAction.ClickThrough: controller.ToggleClickThrough(); break;
+            case HotkeyAction.HideSubtitles: controller.ToggleSubtitlesHidden(); break;
         }
     }
 

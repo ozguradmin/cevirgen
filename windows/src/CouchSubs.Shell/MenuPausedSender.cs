@@ -17,14 +17,30 @@ public sealed class MenuPausedSender(ISubtitleSender inner, Func<bool> inMenu, A
 
     public void SendSubtitle(string text, int durationMs = 15000, TextBox? box = null, bool paragraphs = false, bool replaces = false)
     {
+        if (Paused()) return;
+        inner.SendSubtitle(text, durationMs, box, paragraphs, replaces);
+    }
+
+    public void SendWithAbove(string text, int durationMs, TextBox? box, bool replaces, IReadOnlyList<string> above)
+    {
+        if (Paused()) return;
+        inner.SendWithAbove(text, durationMs, box, replaces, above);
+    }
+
+    public void SendAbove(IReadOnlyList<string> above)
+    {
+        if (!inMenu()) inner.SendAbove(above);
+    }
+
+    private bool Paused()
+    {
         var menu = inMenu();
         if (menu != paused)
         {
             paused = menu;
             log?.Invoke(menu ? "ekran menüsü açık: altyazı gösterilmiyor" : "ekran menüsü kapandı: altyazı gösteriliyor");
         }
-        if (menu) return;
-        inner.SendSubtitle(text, durationMs, box, paragraphs, replaces);
+        return menu;
     }
 
     public void Clear() => inner.Clear();

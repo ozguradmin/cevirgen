@@ -27,6 +27,8 @@ public enum HotkeyAction
     Screen,
     /// <summary>Num 7 / Ctrl+Shift+7: bilgisayar ekranındaki altyazı penceresinde "Tıklamalar geçsin"i aç / kapat.</summary>
     ClickThrough,
+    /// <summary>Çevirgen, Ctrl+H / Num 4: altyazıları TV'de ve bilgisayarda gizle / göster (çeviri sürer).</summary>
+    HideSubtitles,
 }
 
 /// <summary>RegisterHotKey'in değiştirici tuşları (değerler Win32 MOD_* ile aynı).</summary>
@@ -99,12 +101,22 @@ public static class HotkeyTable
         (HotkeyAction.ClickThrough, 7),
     ];
 
+    /// <summary>Çevirgen: rakamı olmayan işler (varsayılan tuşları <see cref="DefaultKey"/>'de); rakamlı işlerden sonra gelir.</summary>
+    public static IReadOnlyList<HotkeyAction> Extra { get; } = [HotkeyAction.HideSubtitles];
+
+    /// <summary>Bütün işler, tablo sırasıyla (önce rakamlılar).</summary>
+    public static IReadOnlyList<HotkeyAction> Actions { get; } = [.. Digits.Select(entry => entry.Action), .. Extra];
+
+    /// <summary>Çevirgen: altyazıları gizle/göster'in varsayılanı Ctrl+H (0. yuva) ve Num 4 (1. yuva).</summary>
+    public static readonly HotkeyKey HideSubtitlesKey = new(HotkeyModifiers.Control, 0x48);
+
     /// <summary>Varsayılan tablo: önce bütün Num tuşları, sonra Ctrl+Shift+rakam tuşları; sırası kısayol kimliğini belirler.</summary>
     public static IReadOnlyList<HotkeyBinding> Bindings { get; } = Resolve(null);
 
     /// <summary>İşin varsayılan tuşu: 0. yuva Num rakamı, 1. yuva Ctrl+Shift+rakam.</summary>
     public static HotkeyKey DefaultKey(HotkeyAction action, int slot)
     {
+        if (action == HotkeyAction.HideSubtitles) return slot == 0 ? HideSubtitlesKey : new HotkeyKey(HotkeyModifiers.None, NumPad0 + 4);
         var digit = (uint)Digits.Single(entry => entry.Action == action).Digit;
         return slot == 0 ? new HotkeyKey(HotkeyModifiers.None, NumPad0 + digit) : new HotkeyKey(ComboModifiers, Digit0 + digit);
     }
@@ -125,7 +137,7 @@ public static class HotkeyTable
         var result = new List<HotkeyBinding>();
         var used = new HashSet<HotkeyKey>();
         for (var slot = 0; slot < SlotCount; slot++)
-            foreach (var (action, _) in Digits)
+            foreach (var action in Actions)
             {
                 if (KeyFor(choices, action, slot) is not { } key || Validate(key) != HotkeyProblem.None || !used.Add(key)) continue;
                 result.Add(new HotkeyBinding(action, key.Modifiers, key.VirtualKey, key.Label));
@@ -145,7 +157,7 @@ public static class HotkeyTable
     {
         displaced = null;
         var keys = new Dictionary<(HotkeyAction, int), HotkeyKey?>();
-        foreach (var (each, _) in Digits)
+        foreach (var each in Actions)
             for (var s = 0; s < SlotCount; s++)
                 keys[(each, s)] = KeyFor(choices, each, s);
         keys[(action, slot)] = key;
@@ -192,6 +204,9 @@ public static class HotkeyTable
         if (key.Modifiers.HasFlag(HotkeyModifiers.Control) && key.Modifiers.HasFlag(HotkeyModifiers.Alt)) return HotkeyProblem.AltGr;
         if (key.VirtualKey == 0x73 && key.Modifiers.HasFlag(HotkeyModifiers.Alt)) return HotkeyProblem.Reserved;
         if (StandsAlone(key.VirtualKey)) return HotkeyProblem.None;
+        // Çevirgen: Ctrl+H (altyazıları gizle) bilerek kabul edilir; kısayollar yalnız çeviri sürerken tutulur, o sırada
+        // tarayıcıların Ctrl+H'si (geçmiş/değiştir) çalışmaz.
+        if (key == HideSubtitlesKey) return HotkeyProblem.None;
         // Harf, rakam, ok ve gezinme tuşları: yalnız Ctrl+Shift, Alt ya da Alt+Shift ile (Ctrl+harf kopyala/yapıştır gibi
         // işlerle, Shift+harf büyük harfle çakışır).
         return key.Modifiers is ComboModifiers or HotkeyModifiers.Alt or (HotkeyModifiers.Alt | HotkeyModifiers.Shift)

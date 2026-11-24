@@ -225,7 +225,7 @@ public sealed class StreamWindow : Window
         {
             case SubtitleEventKind.Subtitle:
                 screenUntil = 0;
-                stack.Show(e.Text, e.DurationMs, e.Paragraphs, Now, e.Replaces);
+                stack.Show(e.Text, e.DurationMs, e.Paragraphs, Now, e.Replaces, e.Above);
                 break;
             case SubtitleEventKind.Screen:
                 // Özgün stiliyle gelen çeviriler ekran yazısı gibi stilli kutularda (telefon kartı balonlarıyla);
@@ -254,6 +254,10 @@ public sealed class StreamWindow : Window
                 break;
             case SubtitleEventKind.RegionClear:
                 regions.Clear();
+                break;
+            // Çevirgen: üstteki eski satırlardan İngilizcesi kalkan çıktı.
+            case SubtitleEventKind.Above:
+                stack.SetAbove(e.Above ?? [], Now);
                 break;
             default:
                 if (screenUntil <= Now) stack.Clear(Now);

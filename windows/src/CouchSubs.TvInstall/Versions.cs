@@ -21,6 +21,22 @@ public static class Versions
     private static int[] Parts(string version) =>
         [.. version.Split('.', '-').Select(p => int.TryParse(p, out var n) ? n : 0)];
 
+    /// <summary>
+    /// Çevirgen: klasörde aynı türden birden çok paket varsa (derleme çıktısında eski sürümün dosyası kalmış) en yeni
+    /// sürümlüsü; sürümü okunabilen dosya yoksa null. Eskiden ilk bulunan alınıyordu, eski APK yenisinin önüne geçebiliyordu.
+    /// </summary>
+    public static string? Newest(IEnumerable<string> files)
+    {
+        string? best = null;
+        string? bestVersion = null;
+        foreach (var file in files)
+        {
+            if (OfBundledFile(file) is not { } version) continue;
+            if (bestVersion is null || IsNewer(version, bestVersion)) (best, bestVersion) = (file, version);
+        }
+        return best;
+    }
+
     /// <summary><c>couchsubs-androidtv_0.7.0.apk</c> → <c>0.7.0</c>; ad bu biçimde değilse null.</summary>
     public static string? OfBundledFile(string fileName)
     {

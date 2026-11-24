@@ -11963,6 +11963,38 @@
         }
       }
     },
+    "Your correction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your correction"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senin düzeltmen"
+          }
+        }
+      }
+    },
+    "Hide or show subtitles": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide or show subtitles"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altyazıları gizle ya da göster"
+          }
+        }
+      }
+    },
     "Delay %lld ms": {
       "localizations": {
         "en": {

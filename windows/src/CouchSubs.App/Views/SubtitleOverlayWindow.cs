@@ -141,7 +141,7 @@ public sealed partial class SubtitleOverlayWindow : Window
 
     private void OnChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is not (nameof(AppController.Settings) or nameof(AppController.OverlayAdjusting))) return;
+        if (e.PropertyName is not (nameof(AppController.Settings) or nameof(AppController.OverlayAdjusting) or nameof(AppController.SubtitlesHidden))) return;
         Guard("ayar değişikliği", () =>
         {
             // Yazı boyu, rengi ya da zemini değişmiş olabilir; kutular yeniden kurulur.
@@ -167,7 +167,7 @@ public sealed partial class SubtitleOverlayWindow : Window
                     var covering = look.Placement == SubtitlePlacement.Cover && look.BackgroundShape != SubtitleBackgroundShape.Band && !e.Paragraphs;
                     subtitleBox = (e.Text, e.Box ?? subtitleBox?.Box, covering ? coverFont.Scale(e.Text, look.FontSize) : 1);
                 }
-                stack.Show(e.Text, e.DurationMs, e.Paragraphs, Now, e.Replaces);
+                stack.Show(e.Text, e.DurationMs, e.Paragraphs, Now, e.Replaces, e.Above);
                 break;
             // "Ekranı çevir": çeviriler satır satır gösterilir. Hemen ardından gelen "temizle" ("Ekran çevriliyor…"
             // yazısı için) onları kaldırmaz; yeniden basmak (ScreenClear) ya da yeni altyazı kaldırır.
@@ -201,6 +201,10 @@ public sealed partial class SubtitleOverlayWindow : Window
                 break;
             case SubtitleEventKind.RegionClear:
                 regions.Clear();
+                break;
+            // Çevirgen: üstteki eski satırlardan İngilizcesi kalkan çıktı.
+            case SubtitleEventKind.Above:
+                stack.SetAbove(e.Above ?? [], Now);
                 break;
             default:
                 if (screenUntil <= Now) stack.Clear(Now);
@@ -288,7 +292,8 @@ public sealed partial class SubtitleOverlayWindow : Window
         regionsPanel.PanelFont = Math.Max(13, OverlayPlacement.FontSize(controller.Settings.Style.FontSize) * Scale * 0.55);
         regionsPanel.ShowRegions(regions, MakeRegionBox);
 
-        var visible = controller.ShowsOnComputer && (lines.Count > 0 || regions.Count > 0);
+        // Çevirgen: altyazılar gizliyken (Ctrl+H) pencere de görünmez; konumlandırırken görünür kalır.
+        var visible = controller.ShowsOnComputer && (lines.Count > 0 || regions.Count > 0) && (!controller.SubtitlesHidden || adjusting);
         if (visible && !IsVisible) Show();
         else if (!visible && IsVisible) Hide();
         // Arada öne gelen tam ekran/üstte duran pencere altyazıyı örtmüş olabilir; odak alınmadan yeniden üste konur.

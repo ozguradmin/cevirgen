@@ -36,6 +36,15 @@ Main changes (2026-11-23):
   - New default look (above the subtitle, no background, bold, outlined text).
   - Optional black text outline on the TV.
 
+Changes (2026-11-24):
+  - Stacked subtitles: the Turkish of an older line stays above the new line while
+    its English is still on screen, and leaves with it (TV app 1.0.1).
+  - User corrections ("Düzelt") that win over packs, cache and engines.
+  - User glossary with "keep" / "always translate as" rules.
+  - Reading speed (characters per second) per line and session summary.
+  - SRT export (Turkish and bilingual) from the subtitle history.
+  - Shortcut (Ctrl+H) to hide/show subtitles without stopping translation.
+
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or
 Microsoft. Game translation packs of CouchSubs are not part of Çevirgen.

@@ -144,6 +144,14 @@ public sealed class Glossary
         return new Glossary(merged, _phrases, _lines);
     }
 
+    /// <summary>Çevirgen: terim listesinden sözlük (İngilizce → Türkçe; ikisi aynıysa terim olduğu gibi kalır).</summary>
+    public static Glossary Of(IEnumerable<(string English, string Turkish)> entries)
+    {
+        var terms = new Dictionary<string, (string, string, bool)>(StringComparer.Ordinal);
+        foreach (var (english, turkish) in entries) Add(terms, english, turkish);
+        return new Glossary(terms, [], []);
+    }
+
     /// <summary>Sözlükleri birleştirir; aynı terimde sonraki kazanır.</summary>
     public static Glossary Merge(IEnumerable<Glossary> glossaries)
     {
@@ -293,15 +301,28 @@ public sealed class GlossaryStore
     private readonly Func<DateTimeOffset> _clock;
     private readonly object _gate = new();
     private Glossary? _current;
+    /// <summary>Klasörden okunan sözlük (kullanıcı terimleri eklenmeden).</summary>
+    private Glossary? _loaded;
+    private Glossary? _extra;
     private string _stamp = "";
     private DateTimeOffset _checkedAt = DateTimeOffset.MinValue;
 
+    /// <summary>
+    /// Çevirgen: uygulamanın kullanıcı sözlüğü (<see cref="UserGlossary.AsGlossary"/>); her sözlüğün üstüne eklenir, aynı
+    /// terimde kazanır. Dönen örnek değişince sözlük hemen yenilenir. Uygulama bir kez verir; yoksa (testler) null.
+    /// </summary>
+    public static Func<Glossary?>? UserTerms { get; set; }
+
     /// <param name="directory">Kullanıcı sözlüklerinin klasörü; null ise yalnız genel sözlük.</param>
-    public GlossaryStore(string? directory, Func<DateTimeOffset>? clock = null)
+    /// <param name="userTerms">Çevirgen: kullanıcı sözlüğü; verilmezse <see cref="UserTerms"/> (uygulamanınki).</param>
+    public GlossaryStore(string? directory, Func<DateTimeOffset>? clock = null, Func<Glossary?>? userTerms = null)
     {
         _directory = directory;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _userTerms = userTerms;
     }
+
+    private readonly Func<Glossary?>? _userTerms;
 
     /// <summary>%LOCALAPPDATA%\CouchSubs\glossary</summary>
     public static string UserDirectory { get; } =
@@ -316,15 +337,21 @@ public sealed class GlossaryStore
         {
             lock (_gate)
             {
+                var extra = (_userTerms ?? UserTerms)?.Invoke();
                 var now = _clock();
-                if (_current is not null && now - _checkedAt < CheckEvery) return _current;
-                _checkedAt = now;
-                var stamp = Stamp();
-                if (_current is null || stamp != _stamp)
+                if (_current is not null && now - _checkedAt < CheckEvery && ReferenceEquals(extra, _extra)) return _current;
+                if (_loaded is null || now - _checkedAt >= CheckEvery)
                 {
-                    _current = Glossary.Load(_directory);
-                    _stamp = stamp;
+                    _checkedAt = now;
+                    var stamp = Stamp();
+                    if (_loaded is null || stamp != _stamp)
+                    {
+                        _loaded = Glossary.Load(_directory);
+                        _stamp = stamp;
+                    }
                 }
+                _extra = extra;
+                _current = extra is null ? _loaded : Glossary.Merge([_loaded, extra]);
                 return _current;
             }
         }

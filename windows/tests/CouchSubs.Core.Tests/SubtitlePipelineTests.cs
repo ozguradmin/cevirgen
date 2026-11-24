@@ -84,9 +84,21 @@ internal sealed class FakeSender : ISubtitleSender
     public List<TextBox?> Boxes { get; } = [];
     public List<bool> Replaces { get; } = [];
     public int Clears { get; private set; }
+    /// <summary>Her gönderilen satırın üst satırları (Çevirgen yığını; null: üst satırsız eski yol).</summary>
+    public List<IReadOnlyList<string>?> Above { get; } = [];
+    /// <summary><c>above</c> olayları (üstteki satırlar değişti).</summary>
+    public List<IReadOnlyList<string>> AboveUpdates { get; } = [];
     public void SendSubtitle(string text, int durationMs = 15000, TextBox? box = null, bool paragraphs = false, bool replaces = false)
     {
-        lock (Sent) { Sent.Add(text); Durations.Add(durationMs); Boxes.Add(box); Replaces.Add(replaces); }
+        lock (Sent) { Sent.Add(text); Durations.Add(durationMs); Boxes.Add(box); Replaces.Add(replaces); Above.Add(null); }
+    }
+    public void SendWithAbove(string text, int durationMs, TextBox? box, bool replaces, IReadOnlyList<string> above)
+    {
+        lock (Sent) { Sent.Add(text); Durations.Add(durationMs); Boxes.Add(box); Replaces.Add(replaces); Above.Add(above); }
+    }
+    public void SendAbove(IReadOnlyList<string> above)
+    {
+        lock (Sent) AboveUpdates.Add(above);
     }
     public void Clear() => Clears++;
 }

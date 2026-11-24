@@ -170,6 +170,15 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     /// motora gider.
     /// </summary>
     public Func<string, PackPartial?>? PartialPackLookup { get; set; }
+    /// <summary>
+    /// Çevirgen "Düzelt": kullanıcının kendi çevirisi (konuşan adı olmadan; yoksa null; bkz. <see cref="UserCorrections.Find"/>).
+    /// Paketten, önbellekten ve motordan önce bakılır; bulunursa beklemeden gösterilir, günlükte kaynağı "senin" yazar.
+    /// </summary>
+    public Func<string, string?>? CorrectionLookup { get; set; }
+
+    /// <summary>Satırın kullanıcı düzeltmesi (yoksa null).</summary>
+    private string? FindCorrection(string source) => CorrectionLookup?.Invoke(source);
+
     /// <summary>Konuşan adı ("ARTHUR: …") TV'ye giden çeviride gösterilir; kapalıysa yalnız cümle gider.</summary>
     public bool ShowSpeakerNames { get; set; } = true;
     /// <summary>
@@ -246,7 +255,7 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     private string? loggedPhone;
     /// <summary>Doğruysa bu karede okunan blok kaydedilmez (ekranda menü var, altyazı gönderilmiyor).</summary>
     public Func<bool>? EchoPaused { get; init; }
-    /// <summary>Son gösterilen çevirinin nereden geldiği: "paket" ya da "motor" (günlük ve sayım için).</summary>
+    /// <summary>Son gösterilen çevirinin nereden geldiği: "paket", "senin" (kullanıcı düzeltmesi) ya da "motor" (günlük ve sayım için).</summary>
     public string? LastOrigin { get; private set; }
     /// <summary>Bu hatta paketten gelen satır sayısı.</summary>
     public int PackHits { get; private set; }
@@ -414,6 +423,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         // Çevirgen: tuş ipucu, yazı tanıma onu simgenin yerinden ikiye bölse de birleşik satır üstünden de denetlenir
         // ("Press" + "to scope out the deal" ayrı ayrı ipucuna benzemiyor, çevrilip tuşun üstünü örtüyordu).
         var rows = cleaned.JoiningRows().WithoutButtonPrompts();
+        // Çevirgen: karedeki bütün satırlar (sabit satır süzgecinden önce); üstte kalan eski replik buradan aranır.
+        var frameRows = rows.Lines;
         bool missionMoved;
         CropRegion? missionRegion;
         lock (gate)
@@ -490,6 +501,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
                 quiet = new QuietReads(now());
             }
             currentRead = new ReadInfo(captured, ocrMs, reading.Confidence);
+            // Çevirgen: üstte kalan eski repliklerin Türkçesi İngilizcesi ekrandan kalkınca kaldırılır (bkz. MirrorsStack).
+            if (!menu) NoteFrameRows(frameRows, reading.Box?.Top);
             // Bölge izi ve satırın yeri: okuma boş dönse de satırın yeri değişmediyse satır silinmez (parlak zemin).
             // Altyazının yerinde yalnız kendi çevirimiz okunduysa (örtme ya da üst üste binen katman) satır kalkmış sayılmaz.
             var ownOnly = ownLines.Count > 0 && reading.Lines.Count == 0 && OwnSubtitles.CoversLine(ownLines, LastBox);
@@ -716,7 +729,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         // Yeniden okuma denetimi gecikme eklemez; bekleme süreleri 0 olsa da çalışır.
         var enabled = PackLookup is not null || HoldWithoutPacks;
         if (!enabled) { LineLeft(); return Enqueue(source, box); }
-        var packed = FindPack(source) is not null;
+        // Kullanıcının düzeltmesi de paket gibi beklemeden gösterilir.
+        var packed = FindPack(source) is not null || FindCorrection(source) is not null;
         // Paket eşleşmesi kötü yeniden okumayı tam repliğin önüne geçirmesin.
         // Bölge gerçekten temizlendiyse aynı kısa metin yeni bir replik olabilir.
         // Az önce çevrilen satırın daha iyi olmayan yeniden okuması yeni satır değildir (TV'de üst üste binmesin).
@@ -940,6 +954,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         var request = new Request(++lastRequested, source, box, session) { Read = read ?? currentRead ?? new ReadInfo(now(), null, null) };
         lineOnScreen = request.Number;
         lastSent = (source, ReadingScore(source), now());
+        if (FindCorrection(source) is { } corrected)
+            return ShowPacked(request, new PackMatch(corrected, [new SpokenLine(request.Prefix?.Body ?? source, corrected, request.Prefix?.Name)]), corrected: true);
         if (FindPack(source) is { } packed) return ShowPacked(request, packed);
         if (SkipsTurkish && TurkishText.IsSure(source))
         {
@@ -1015,16 +1031,17 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     private bool RevisesShown(string source) => LastPair is { } shown && TextMatch.IsRevision(source, shown.Source);
 
     /// <summary>Paketteki Türkçe hemen gösterilir; süren çevirinin sonucu (eski satır) artık gösterilmez.</summary>
-    private Action? ShowPacked(Request request, PackMatch packed)
+    /// <param name="corrected">Çevirgen: Türkçe paketten değil kullanıcının düzeltmesinden geliyor ("senin").</param>
+    private Action? ShowPacked(Request request, PackMatch packed, bool corrected = false)
     {
-        foreach (var old in waiting) Write(old, $"atıldı: sonraki satır paketten geldi (#{request.Number})");
+        foreach (var old in waiting) Write(old, $"atıldı: sonraki satır {(corrected ? "düzeltmeden" : "paketten")} geldi (#{request.Number})");
         waiting.Clear();
-        PackHits++;
+        if (!corrected) PackHits++;
         var source = request.Source;
         var translated = Present(packed.Text, request);
         var shouldSend = stabilizer.ShouldSend(source, translated);
         Remember(request.Number, source, shouldSend ? translated : null);
-        var pack = PackName?.Invoke() is { } name ? "paket:" + name : "paket";
+        var pack = corrected ? "senin" : PackName?.Invoke() is { } name ? "paket:" + name : "paket";
         if (!shouldSend)
         {
             Write(request, $"{SubtitleLog.Excerpt(source)} → {pack}, zaten hedef dilde, gösterilmedi");
@@ -1035,9 +1052,9 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         Send(translated, source, 15000, request.Box, replaces: RevisesShown(source));
         LastPair = (source, translated);
         LastBox = request.Box;
-        LastOrigin = "paket";
+        LastOrigin = corrected ? "senin" : "paket";
         var read = request.Read;
-        var metrics = LineMetrics.Measure(read.CapturedAt, read.OcrMs, null, now(), read.Confidence, LineOrigin.Pack);
+        var metrics = LineMetrics.Measure(read.CapturedAt, read.OcrMs, null, now(), read.Confidence, corrected ? LineOrigin.Correction : LineOrigin.Pack);
         LastMetrics = metrics;
         var measured = MetricsReady;
         var shown = PairShown;
@@ -1296,6 +1313,10 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
             phoneLookedAt = null;
             loggedPhone = null;
             if (stabilizer.Reset() == StabilizerAction.Clear) ClearScreen();
+            stacked.Clear();
+            lastRows = [];
+            lastBlockTop = null;
+            ShownLeft();
             Own.Reset();
         }
     }
@@ -1303,15 +1324,159 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     /// <summary>Çeviri ekrana gider; kendi altyazısı süzgeci onu hatırlar.</summary>
     private void Send(string translation, string source, int durationMs, TextBox? box, bool replaces)
     {
-        lock (gate) silence.Sent();
+        lock (gate)
+        {
+            silence.Sent();
+            NoteShown(source, durationMs, replaces);
+        }
         Own.Record(translation, source, durationMs);
-        sender.SendSubtitle(translation, durationMs, box, replaces: replaces);
+        if (!MirrorsStack)
+        {
+            sender.SendSubtitle(translation, durationMs, box, replaces: replaces);
+            return;
+        }
+        List<string> above;
+        lock (gate) above = StackedAbove(source, translation);
+        sender.SendWithAbove(translation, durationMs, box, replaces, above);
     }
 
     private void ClearScreen()
     {
+        lock (gate)
+        {
+            stacked.Clear();
+            ShownLeft();
+        }
         Own.Cleared();
         sender.Clear();
+    }
+
+    // --- Çevirgen: yığılı altyazının Türkçesi İngilizceyle aynı düzende ---
+
+    /// <summary>
+    /// GTA 6'da eski replik ekranda kalırken yenisi altına gelir. Açıkken yeni satır, İngilizcesi hâlâ karede (yeni
+    /// satırın üstünde) okunan eski satırların Türkçesiyle birlikte gönderilir (<see cref="ISubtitleSender.SendWithAbove"/>;
+    /// TV'ye <c>subtitle.above</c>); eski İngilizce satır karede <see cref="AboveMissFrames"/> kare art arda okunmayınca
+    /// Türkçesi de kalkar (<see cref="ISubtitleSender.SendAbove"/>; TV'ye <c>above</c> olayı). TV'nin süreye bağlı
+    /// yığınının yerini alır.
+    /// </summary>
+    public bool MirrorsStack { get; set; } = true;
+    /// <summary>Üstte en çok bu kadar eski satır gösterilir (TV'deki iki üst yuva).</summary>
+    public const int MaxAbove = 2;
+    /// <summary>Üstteki satırın İngilizcesi bu kadar kare art arda okunmazsa kalkmış sayılır (tek karelik okuma kaçağı silmesin).</summary>
+    public const int AboveMissFrames = 2;
+
+    /// <summary>Son karenin satırları (sadeleştirilmiş metin ve kutusu) ve altyazı bloğunun üst kenarı.</summary>
+    private List<(string Text, TextBox? Box)> lastRows = [];
+    private double? lastBlockTop;
+    /// <summary>TV'de yeni satırın üstünde duran eski satırlar (yukarıdan aşağı) ve kaç karedir okunmadıkları.</summary>
+    private readonly List<(string Source, string Translation, int Misses)> stacked = [];
+
+    /// <summary>gate tutulurken çağrılır. Karenin satırlarını not eder; İngilizcesi kalkan üst satırın Türkçesi de kalkar.</summary>
+    private void NoteFrameRows(IReadOnlyList<TextLine> rows, double? blockTop)
+    {
+        lastRows = [.. rows.Select(row => (TextMatch.Normalize(row.Text), row.Box))];
+        lastBlockTop = blockTop;
+        if (stacked.Count == 0) return;
+        var changed = false;
+        for (var i = stacked.Count - 1; i >= 0; i--)
+        {
+            var (source, translation, misses) = stacked[i];
+            if (RowTop(source) is not null) { stacked[i] = (source, translation, 0); continue; }
+            if (misses + 1 < AboveMissFrames) { stacked[i] = (source, translation, misses + 1); continue; }
+            stacked.RemoveAt(i);
+            changed = true;
+            Write($"üstteki satır kalktı: {SubtitleLog.Excerpt(source)} artık ekranda değil, Türkçesi de kaldırıldı");
+        }
+        if (changed) sender.SendAbove([.. stacked.Select(entry => entry.Translation)]);
+    }
+
+    /// <summary>
+    /// gate tutulurken çağrılır. Yeni satırın üstünde gösterilecek eski satırlar: son çevrilenlerden İngilizcesi son
+    /// karede yeni satırın üstünde hâlâ okunanlar, ekrandaki sırayla (yukarıdan aşağı), en çok <see cref="MaxAbove"/>.
+    /// Yeni satırın kendisi, onun yeniden/uzamış okuması ya da satırları yeni okumanın içinde olan eski okuma alınmaz.
+    /// </summary>
+    private List<string> StackedAbove(string source, string translation)
+    {
+        stacked.Clear();
+        var found = new List<(string Source, string Translation, double Top)>();
+        foreach (var (_, old, oldTranslation) in Enumerable.Reverse(pairs))
+        {
+            if (found.Count >= MaxAbove) break;
+            if (oldTranslation is null || old == source || oldTranslation == translation) continue;
+            if (TextMatch.IsRevision(source, old) || TextMatch.IsRevision(old, source) || AllLinesCovered(old, source)) continue;
+            if (found.Any(f => f.Source == old || f.Translation == oldTranslation)) continue;
+            if (RowTop(old) is { } top) found.Add((old, oldTranslation, top));
+        }
+        foreach (var entry in found.OrderBy(entry => entry.Top)) stacked.Add((entry.Source, entry.Translation, 0));
+        if (stacked.Count > 0)
+            Write($"üstte kalan: {string.Join(" / ", stacked.Select(entry => SubtitleLog.Excerpt(entry.Source)))} Türkçesiyle yeni satırın üstünde");
+        return [.. stacked.Select(entry => entry.Translation)];
+    }
+
+    /// <summary>
+    /// Eski okumanın satırları son karede altyazı bloğunun üstünde okunuyorsa en üst satırın yeri (yoksa null). Satırların
+    /// en az yarısı (tek satırlıda kendisi) karede benzer bir satırla eşleşmelidir; OCR farkı kadar sapma kabul edilir.
+    /// </summary>
+    private double? RowTop(string source)
+    {
+        var lines = source.Split('\n').Select(TextMatch.Normalize).Where(line => line.Length > 0).ToList();
+        if (lines.Count == 0 || lastRows.Count == 0) return null;
+        double? top = null;
+        var matched = 0;
+        foreach (var line in lines)
+        {
+            foreach (var (row, box) in lastRows)
+            {
+                if (box is { } b && lastBlockTop is { } blockTop && b.Bottom > blockTop + (b.Bottom - b.Top) * 0.25) continue;
+                if (!SameRow(row, line)) continue;
+                matched++;
+                var rowTop = box?.Top ?? 0;
+                top = top is null ? rowTop : Math.Min(top.Value, rowTop);
+                break;
+            }
+        }
+        return matched > 0 && matched * 2 >= lines.Count ? top : null;
+    }
+
+    /// <summary>Karedeki satır eski satırın okunuşu mu (sadeleştirilmiş metinler).</summary>
+    private static bool SameRow(string row, string line)
+    {
+        if (row.Length == 0) return false;
+        if (row == line || TextMatch.IsSimilar(row, line, 0.8)) return true;
+        // İki satıra bölünmüş eski replik ya da yarım okunan satır.
+        var (shorter, longer) = row.Length <= line.Length ? (row, line) : (line, row);
+        return shorter.Length >= 8 && shorter.Length * 2 >= longer.Length && longer.Contains(shorter, StringComparison.Ordinal);
+    }
+
+    // --- Çevirgen: satırın ekranda kaldığı süre (okuma hızı, SRT) ---
+
+    /// <summary>
+    /// Gösterilen satır ekrandan kalktı (kaynak, Türkçesinin ekranda kaldığı süre ms). Yeni satır yerine geçince, bölge
+    /// boşalınca ya da hat sıfırlanınca çağrılır; geç gelen (kısa gösterilen) satırda süre gösterim süresini geçmez.
+    /// gate tutulurken çağrılır; işleyici hızlı dönmeli.
+    /// </summary>
+    public event Action<string, int>? PairLeft;
+    private (string Source, long At, int DurationMs)? shownLine;
+
+    private void NoteShown(string source, int durationMs, bool replaces)
+    {
+        if (shownLine is { } shown && (replaces || shown.Source == source))
+        {
+            // Aynı satırın düzelmiş okuması: süre ilk gösterimden sayılır.
+            shownLine = shown with { Source = source, DurationMs = durationMs };
+            return;
+        }
+        ShownLeft();
+        shownLine = (source, now(), durationMs);
+    }
+
+    private void ShownLeft()
+    {
+        if (shownLine is not { } shown) return;
+        shownLine = null;
+        var visible = (int)Math.Clamp(Math.Min(now() - shown.At, shown.DurationMs), 0, int.MaxValue);
+        PairLeft?.Invoke(shown.Source, visible);
     }
 }
 

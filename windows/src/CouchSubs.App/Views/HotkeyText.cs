@@ -40,6 +40,7 @@ internal static class HotkeyText
         HotkeyAction.ExtraRegion3 => "Translate area 3",
         HotkeyAction.PauseSubtitles => "Pause or resume subtitles",
         HotkeyAction.ClickThrough => "Clicks pass through on or off",
+        HotkeyAction.HideSubtitles => "Hide or show subtitles",
         _ => "Refresh the picture in Settings",
     }];
 
@@ -53,6 +54,7 @@ internal static class HotkeyText
         HotkeyAction.ExtraRegion3,
         HotkeyAction.PauseSubtitles,
         HotkeyAction.ClickThrough,
+        HotkeyAction.HideSubtitles,
         HotkeyAction.Snapshot,
     ];
 }

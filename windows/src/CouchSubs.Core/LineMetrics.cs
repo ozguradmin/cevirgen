@@ -9,6 +9,8 @@ public enum LineOrigin
     Pack,
     /// <summary>Çeviri motoru (ya da onun önbelleği).</summary>
     Engine,
+    /// <summary>Çevirgen: kullanıcının kendi düzeltmesi ("senin"; <see cref="UserCorrections"/>).</summary>
+    Correction,
 }
 
 /// <summary>
@@ -49,6 +51,7 @@ public sealed record LineMetrics(int? OcrMs, int? TranslationMs, int TotalMs, in
         var parts = new List<string>();
         if (OcrMs is { } ocr) parts.Add(l.Format("OCR %lld ms", ocr));
         if (Origin == LineOrigin.Pack) parts.Add(l["Ready pack"]);
+        else if (Origin == LineOrigin.Correction) parts.Add(l["Your correction"]);
         else if (TranslationMs is { } translation) parts.Add(l.Format("Translation %lld ms", translation));
         parts.Add(l.Format("Delay %lld ms", TotalMs));
         if (Confidence is { } confidence) parts.Add(l.Format("Confidence %lld%%", confidence));

@@ -15,8 +15,31 @@ namespace CouchSubs.Core;
 public sealed class SubtitleHistory
 {
     /// <param name="Date">Satırın çevrildiği an (UTC; ekranda yerel saatle gösterilir).</param>
-    /// <param name="Origin">Oyun paketinden mi, çeviri motorundan mı geldi.</param>
-    public sealed record Entry(int Id, DateTime Date, string Source, string Translation, LineOrigin Origin);
+    /// <param name="Origin">Oyun paketinden mi, çeviri motorundan mı, kullanıcının düzeltmesinden mi geldi.</param>
+    public sealed record Entry(int Id, DateTime Date, string Source, string Translation, LineOrigin Origin)
+    {
+        /// <summary>Çevirgen: Türkçesinin ekrana geldiği an (UTC, milisaniyeli); aynı satırın yeniden okuması değiştirmez.
+        /// Eski kayıtlarda null (<see cref="Date"/> kullanılır).</summary>
+        [JsonConverter(typeof(UtcMillis))]
+        public DateTime? ShownAt { get; init; }
+        /// <summary>Çevirgen: satırın ekrandan kalktığı an (UTC); henüz kalkmadıysa ya da bilinmiyorsa null.</summary>
+        [JsonConverter(typeof(UtcMillis))]
+        public DateTime? LeftAt { get; init; }
+        /// <summary>Çevirgen: okuma hızı, Türkçenin saniyedeki karakteri (ekranda kaldığı süreye göre; bkz. <see cref="ReadingSpeed"/>).</summary>
+        public double? Cps { get; init; }
+
+        /// <summary>Satır kullanıcının düzeltmesinden ("senin") geldi.</summary>
+        [JsonIgnore]
+        public bool IsCorrection => Origin == LineOrigin.Correction;
+
+        /// <summary>Okuma hızı profesyonel sınırın (<see cref="ReadingSpeed.MaxCps"/>) üstünde: arayüzde "hızlı".</summary>
+        [JsonIgnore]
+        public bool IsFast => Cps is { } cps && cps > ReadingSpeed.MaxCps;
+
+        /// <summary>Ekrana geldiği an (eski kayıtlarda çevrildiği an).</summary>
+        [JsonIgnore]
+        public DateTime Shown => ShownAt ?? Date;
+    }
 
     /// <summary>Varsayılan satır sayısı (dosya en çok ~200 KB olur).</summary>
     public const int DefaultLimit = 200;
@@ -46,12 +69,32 @@ public sealed class SubtitleHistory
         var when = (date ?? DateTime.UtcNow).ToUniversalTime();
         if (entries.Count > 0 && TextMatch.IsSimilar(TextMatch.Normalize(entries[0].Source), TextMatch.Normalize(source)))
         {
-            entries[0] = new Entry(entries[0].Id, when, source, text, origin);
+            // Aynı satırın yeniden okuması: ekrana ilk geldiği an korunur, yeniden ekranda sayılır.
+            entries[0] = new Entry(entries[0].Id, when, source, text, origin) { ShownAt = entries[0].ShownAt ?? when };
             return true;
         }
-        entries.Insert(0, new Entry(nextId++, when, source, text, origin));
+        entries.Insert(0, new Entry(nextId++, when, source, text, origin) { ShownAt = when });
         if (entries.Count > Limit) entries.RemoveRange(Limit, entries.Count - Limit);
         return true;
+    }
+
+    /// <summary>
+    /// Çevirgen: satır ekrandan kalktı. Bu kaynağın son kaydına (en yeni birkaç kayıt içinde, kalkışı yazılmamış olan)
+    /// kalkış anı ve okuma hızı yazılır. <paramref name="visibleMs"/>: Türkçenin ekranda kaldığı süre; kalkış anı
+    /// <see cref="Entry.Shown"/> + bu süredir. Kayıt bulunamazsa false.
+    /// </summary>
+    public bool MarkLeft(string source, int visibleMs)
+    {
+        var norm = TextMatch.Normalize(Clip(source));
+        for (var i = 0; i < Math.Min(entries.Count, 5); i++)
+        {
+            var entry = entries[i];
+            if (entry.LeftAt is not null || !TextMatch.IsSimilar(TextMatch.Normalize(entry.Source), norm)) continue;
+            var left = entry.Shown.AddMilliseconds(Math.Max(0, visibleMs));
+            entries[i] = entry with { LeftAt = left, Cps = ReadingSpeed.Cps(entry.Translation, visibleMs) };
+            return true;
+        }
+        return false;
     }
 
     /// <summary><paramref name="date"/> anından (ör. oturumun başından) sonra çevrilen satırlar.</summary>
@@ -90,6 +133,7 @@ public sealed class SubtitleHistory
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         // Türkçe harfler dosyada okunur kalsın (ı yerine ı).
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters = { new JsonStringEnumConverter<LineOrigin>(JsonNamingPolicy.CamelCase), new UtcSeconds() },
     };
 
@@ -119,6 +163,21 @@ public sealed class SubtitleHistory
     }
 
     private static string Clip(string text) => text.Length > MaxTextLength ? text[..MaxTextLength] : text;
+
+    /// <summary>Çevirgen: ekranda kalma anları milisaniyesiyle yazılır (SRT ve okuma hızı için); Mac bu alanları tanımaz.</summary>
+    private sealed class UtcMillis : JsonConverter<DateTime?>
+    {
+        public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType == JsonTokenType.Null ? null
+                : DateTime.Parse(reader.GetString() ?? throw new JsonException(), CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+
+        public override void Write(Utf8JsonWriter writer, DateTime? value, JsonSerializerOptions options)
+        {
+            if (value is not { } date) writer.WriteNullValue();
+            else writer.WriteStringValue(date.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
+        }
+    }
 
     /// <summary>
     /// Tarih saniyesine kadar ve UTC olarak yazılır ("2026-11-12T10:00:00Z"): Mac'in ISO 8601 okuyucusu kesirli saniyeyi

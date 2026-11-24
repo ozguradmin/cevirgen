@@ -945,6 +945,11 @@ public interface IAppServices
     PackUpdater? PackUpdates => null;
     /// <summary>Altyazı geçmişinin dosyası (%LOCALAPPDATA%\CouchSubs\history.json); testlerde null (diske yazılmaz).</summary>
     string? HistoryFile => null;
+    /// <summary>
+    /// Çevirgen: kullanıcı verisinin klasörü (%LOCALAPPDATA%\Cevirgen; düzeltmeler corrections.json, kullanıcı sözlüğü
+    /// glossary-user.json); testlerde null (yalnız bellekte tutulur).
+    /// </summary>
+    string? DataFolder => null;
 }
 
 /// <param name="Launched">false ise TV uygulaması açılamadı; büyük olasılıkla TV'de kurulu değil.</param>

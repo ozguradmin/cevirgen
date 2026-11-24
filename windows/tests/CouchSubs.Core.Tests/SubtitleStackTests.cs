@@ -172,4 +172,23 @@ public class SubtitleStackTests
         Assert.True(SubtitleStack.SameLine("Kapıyı a", "Kapıyı aç!"));
         Assert.False(SubtitleStack.SameLine("No!", "Not now!"));
     }
+
+    /// <summary>Çevirgen: bilgisayar üst satırları söylerse (İngilizcesi ekranda) süreyle solmaz, söylenince kalkar.</summary>
+    [Fact]
+    public void ExplicitAboveLinesStayUntilToldOtherwise()
+    {
+        var stack = new SubtitleStack { StackPrevious = false };
+        stack.Show("Bu tuvaleti kim yaptı?", 15000, false, 0, false, []);
+        stack.Show("Depo asla fazla olmaz.", 15000, false, 5, false, ["Bu tuvaleti kim yaptı?"]);
+        Assert.Equal(["Bu tuvaleti kim yaptı?", "Depo asla fazla olmaz."], Texts(stack, 9));
+        Assert.DoesNotContain(stack.Lines(9), line => line.Fading);
+        Assert.Equal(SubtitleStack.Role.Previous, stack.Lines(9)[0].Role);
+        stack.SetAbove([], 10);
+        Assert.Equal(["Depo asla fazla olmaz."], Texts(stack, 10));
+        // İki eski satır: en eskisi en üstte.
+        stack.Show("Haklısın.", 15000, false, 11, false, ["Bir.", "İki."]);
+        Assert.Equal(["Bir.", "İki.", "Haklısın."], Texts(stack, 12));
+        stack.Clear(30);
+        Assert.Empty(Texts(stack, 30));
+    }
 }

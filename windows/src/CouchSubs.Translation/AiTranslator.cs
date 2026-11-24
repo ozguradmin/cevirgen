@@ -47,8 +47,11 @@ public static class AiRequest
         "\"Donnie'nin Paketini Bul\"), never polite or plural forms such as \"Para Kazanın\". " +
         "Reply with only the translation, no explanations, notes or quotes.";
 
-    /// <summary>Kullanıcının ek talimatında en çok bu kadar karakter gider (fazlası kesilir).</summary>
-    public const int MaxInstructionLength = 1000;
+    /// <summary>
+    /// Kullanıcının ek talimatında en çok bu kadar karakter gider (fazlası kesilir). Çevirgen: 1000'den 4000'e çıktı; ek
+    /// talimatın sonuna kullanıcı sözlüğünün kuralları da eklenir (UserGlossary.CombinedInstruction).
+    /// </summary>
+    public const int MaxInstructionLength = 4000;
 
     /// <summary>Ayarlardaki "Ek talimat": baştaki/sondaki boşluk atılır, sınırdan uzunsa kesilir; boşsa null.</summary>
     public static string? Instruction(string? text)

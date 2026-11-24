@@ -56,6 +56,7 @@ public sealed class LiveServices : IAppServices
     public LinePool? Pool { get; } = new(Path.Combine(AppPaths.Data, "pool.json"),
         AppVersion.Current(System.Reflection.Assembly.GetEntryAssembly() ?? typeof(LiveServices).Assembly));
     public string? HistoryFile { get; } = Path.Combine(AppPaths.Data, "history.json");
+    public string? DataFolder => AppPaths.Data;
     // Kullanım verisi: ölçüm kimliği ve API sırrı derlemeden (CouchSubsGaMeasurementId, CouchSubsGaApiSecret); yoksa kapalı.
     public UsageStats? Usage { get; } = UsageStats.Config.FromBuild() is { } usage
         ? new UsageStats(usage, Path.Combine(AppPaths.Data, "usage-id"),
@@ -279,7 +280,7 @@ public sealed class LiveServices : IAppServices
         var pattern = brand switch { TvBrand.Samsung => "*.wgt", TvBrand.AndroidTv => "*.apk", _ => null };
         var folder = Path.Combine(AppContext.BaseDirectory, "tv-app");
         if (pattern is null || !Directory.Exists(folder)) return null;
-        var file = Directory.EnumerateFiles(folder, pattern).FirstOrDefault();
+        var file = TvInstall.Versions.Newest(Directory.EnumerateFiles(folder, pattern));
         return file is not null && TvInstall.Versions.OfBundledFile(file) is { } version ? new BundledTvApp(file, version) : null;
     }
 

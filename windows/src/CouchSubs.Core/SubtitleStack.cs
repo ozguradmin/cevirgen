@@ -34,10 +34,11 @@ public sealed class SubtitleStack
 
     private sealed record Current(int Id, string Text, bool Paragraphs, double ShownAt, double HideAt, double HoldUntil);
 
-    private sealed record Slot(int Id, string Text, double ShownAt)
+    /// <param name="Pinned">Çevirgen: bilgisayar söyledi (İngilizcesi hâlâ ekranda); süreyle solmaz, satır değişince kalkar.</param>
+    private sealed record Slot(int Id, string Text, double ShownAt, bool Pinned = false)
     {
-        public double FadeAt => ShownAt + PreviousHold;
-        public double HideAt => FadeAt + PreviousFade;
+        public double FadeAt => Pinned ? double.PositiveInfinity : ShownAt + PreviousHold;
+        public double HideAt => Pinned ? double.PositiveInfinity : FadeAt + PreviousFade;
     }
 
     /// <summary>Kapalıysa önceki satır üste çıkmaz, yeni satır eskisinin yerine geçer (ayarlardaki seçenek).</summary>
@@ -74,6 +75,31 @@ public sealed class SubtitleStack
         var reading = 2 + text.Length * 0.06;
         var visible = durationMs > 0 ? Math.Max(MinVisible, durationMs / 1000.0) : Math.Min(8, reading);
         current = new Current(NextId(), text, paragraphs, now, now + visible, now + Math.Min(HoldMax, reading));
+    }
+
+    /// <summary>
+    /// Çevirgen: yeni altyazı, üstündeki eski satırlarla (<paramref name="above"/>, yukarıdan aşağı; TV'deki <c>subtitle.above</c>).
+    /// Verilirse üst satırlar süreyle değil bu listeye göre durur; null ise <see cref="Show(string, int, bool, double, bool)"/>.
+    /// </summary>
+    public void Show(string text, int durationMs, bool paragraphs, double now, bool replaces, IReadOnlyList<string>? above)
+    {
+        Show(text, durationMs, paragraphs, now, replaces);
+        if (above is not null && !paragraphs) Pin(above, now);
+    }
+
+    /// <summary>Çevirgen: ekrandaki satırın üstündeki eski satırlar değişti (TV'deki <c>above</c> olayı).</summary>
+    public void SetAbove(IReadOnlyList<string> above, double now)
+    {
+        Prune(now);
+        if (current is null || current.Paragraphs) return;
+        Pin(above, now);
+    }
+
+    private void Pin(IReadOnlyList<string> above, double now)
+    {
+        var lines = above.Where(line => line.Length > 0).TakeLast(2).ToList();
+        previous = lines.Count > 0 ? new Slot(previous?.Text == lines[^1] ? previous.Id : NextId(), lines[^1], now, Pinned: true) : null;
+        older = lines.Count > 1 ? new Slot(older?.Text == lines[0] ? older.Id : NextId(), lines[0], now, Pinned: true) : null;
     }
 
     /// <summary>Bilgisayardan gelen "temizle": yazı okunacak kadar görünmediyse kalan süre dolunca kalkar.</summary>
