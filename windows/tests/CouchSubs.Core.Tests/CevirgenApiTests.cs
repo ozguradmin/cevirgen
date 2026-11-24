@@ -310,3 +310,103 @@ public sealed class UsageCounterTests : IDisposable
         Assert.Contains("5 dakikada bir", UsageCounter.Disclosure);
     }
 }
+
+/// <summary>
+/// Çevirgen sunucusunun asıl adresi (kendi alan adı) ve yedeği (workers.dev): asıl adrese ağ/TLS hatasıyla ulaşılamazsa
+/// yapılandırma ve anonim sayım yedeğe gider; çalışan adres hatırlanır.
+/// </summary>
+public sealed class CevirgenEndpointTests : IDisposable
+{
+    private const string Primary = "https://primary.test/";
+    private const string Fallback = "https://fallback.test/";
+    private readonly string folder = Path.Combine(Path.GetTempPath(), "cevirgen-endpoint-" + Guid.NewGuid().ToString("N"));
+
+    public void Dispose()
+    {
+        if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+    }
+
+    /// <summary>Asıl adres TLS/ağ hatası verir (sertifika henüz hazır değil); yedek çalışır.</summary>
+    private sealed class BrokenPrimary : HttpMessageHandler
+    {
+        public List<Uri> Requests { get; } = [];
+        public bool PrimaryBroken { get; set; } = true;
+        public HttpStatusCode? PrimaryStatus { get; set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+            lock (Requests) Requests.Add(request.RequestUri!);
+            if (request.RequestUri!.Host == "primary.test")
+            {
+                if (PrimaryStatus is { } status) return new HttpResponseMessage(status);
+                if (PrimaryBroken) throw new HttpRequestException("The SSL connection could not be established");
+            }
+            var body = request.RequestUri.AbsolutePath.EndsWith("config") ? """{"version":1,"ads":[],"popups":[]}""" : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+        }
+    }
+
+    [Fact]
+    public void PrimaryIsTheCustomDomainAndWorkersDevIsTheFallback()
+    {
+        Assert.Equal("https://cevirgen.ozgurguler.tech", CevirgenApi.DefaultUrl);
+        Assert.Equal("https://cevirgen-api.ozgurglr256.workers.dev", CevirgenApi.FallbackUrl);
+        var urls = CevirgenApi.BaseUrls(_ => null, typeof(CevirgenEndpointTests).Assembly);
+        Assert.Equal(["https://cevirgen.ozgurguler.tech/", "https://cevirgen-api.ozgurglr256.workers.dev/"], urls.Select(u => u.AbsoluteUri));
+        // Yerel deneme adresi verilince yedeğe kaçılmaz.
+        Assert.Equal(["http://127.0.0.1:8787/"], CevirgenApi.BaseUrls(_ => "http://127.0.0.1:8787", typeof(CevirgenEndpointTests).Assembly).Select(u => u.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task ConfigFallsBackOnTlsFailureAndRemembersTheWorkingAddress()
+    {
+        var server = new BrokenPrimary();
+        using var client = new RemoteConfigClient([new Uri(Primary), new Uri(Fallback)], folder, server);
+        Assert.NotNull(await client.FetchAsync());
+        Assert.Equal(["https://primary.test/v1/config", "https://fallback.test/v1/config"], server.Requests.Select(u => u.AbsoluteUri));
+        // İkinci istek doğrudan çalışan adrese gider.
+        server.Requests.Clear();
+        Assert.NotNull(await client.FetchAsync());
+        Assert.Equal(["https://fallback.test/v1/config"], server.Requests.Select(u => u.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task EdgeErrorsAlsoFallBackButTheLastAnswerIsReturned()
+    {
+        var server = new BrokenPrimary { PrimaryStatus = HttpStatusCode.BadGateway };
+        using var client = new RemoteConfigClient([new Uri(Primary), new Uri(Fallback)], folder, server);
+        Assert.NotNull(await client.FetchAsync());
+        Assert.Equal(2, server.Requests.Count);
+
+        // Tek adres varsa 5xx olduğu gibi döner (null; hata fırlatmaz).
+        var only = new BrokenPrimary { PrimaryStatus = HttpStatusCode.ServiceUnavailable };
+        using var single = new RemoteConfigClient(new Uri(Primary), folder, only);
+        Assert.Null(await single.FetchAsync());
+        Assert.Single(only.Requests);
+    }
+
+    [Fact]
+    public async Task PingFallsBackToo()
+    {
+        var server = new BrokenPrimary();
+        using var counter = new UsageCounter([new Uri(Primary), new Uri(Fallback)], Path.Combine(folder, "install-id"), "1.2.0", handler: server);
+        Assert.True(await counter.PingAsync("windows", playing: false));
+        Assert.Equal(["https://primary.test/v1/ping", "https://fallback.test/v1/ping"], server.Requests.Select(u => u.AbsoluteUri));
+
+        // Asıl adres düzelince yine de çalışan (yedek) adreste kalınır; o da bozulursa asıla dönülür.
+        server.PrimaryBroken = false;
+        server.Requests.Clear();
+        Assert.True(await counter.PingAsync("windows", playing: false));
+        Assert.Equal(["https://fallback.test/v1/ping"], server.Requests.Select(u => u.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task BothDownMeansNoCrash()
+    {
+        var server = new FakeCevirgenServer { Offline = true };
+        using var client = new RemoteConfigClient([new Uri(Primary), new Uri(Fallback)], folder, server);
+        Assert.Null(await client.FetchAsync());
+        Assert.Equal(2, server.Requests.Count);
+    }
+}

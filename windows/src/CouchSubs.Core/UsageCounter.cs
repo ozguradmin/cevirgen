@@ -33,7 +33,7 @@ public sealed partial class UsageCounter : IDisposable
     private static partial Regex VersionJunk();
 
     private readonly object gate = new();
-    private readonly Uri pingUrl;
+    private readonly CevirgenEndpoints endpoints;
     private readonly string idFile;
     private readonly string version;
     private readonly HttpClient http;
@@ -42,8 +42,12 @@ public sealed partial class UsageCounter : IDisposable
     /// <param name="idFile">Kurulum kimliğinin dosyası (%LOCALAPPDATA%\Cevirgen\install-id); ilk gönderimde oluşturulur.</param>
     /// <param name="handler">HTTP katmanı; testlerde sahtesi verilir. Verilmezse çerezsiz bir katman kurulur.</param>
     public UsageCounter(Uri baseUrl, string idFile, string appVersion, bool enabled = EnabledByDefault, HttpMessageHandler? handler = null)
+        : this([baseUrl], idFile, appVersion, enabled, handler) { }
+
+    /// <param name="baseUrls">Sunucunun adresleri, sırayla (asıl adres, yedek); bkz. <see cref="CevirgenEndpoints"/>.</param>
+    public UsageCounter(IReadOnlyList<Uri> baseUrls, string idFile, string appVersion, bool enabled = EnabledByDefault, HttpMessageHandler? handler = null)
     {
-        pingUrl = CevirgenApi.PingUrl(baseUrl);
+        endpoints = new CevirgenEndpoints(baseUrls);
         this.idFile = idFile;
         version = CleanVersion(appVersion);
         this.enabled = enabled;
@@ -83,8 +87,11 @@ public sealed partial class UsageCounter : IDisposable
         if (id is null) return false;
         try
         {
-            using var content = new StringContent(Body(id, version, platform, playing), Encoding.UTF8, "application/json");
-            using var response = await http.PostAsync(pingUrl, content, cancellationToken).ConfigureAwait(false);
+            var body = Body(id, version, platform, playing);
+            using var response = await endpoints.SendAsync(http, baseUrl => new HttpRequestMessage(HttpMethod.Post, CevirgenApi.PingUrl(baseUrl))
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            }, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode) return true;
             SubtitleLog.Write($"anonim sayım gönderilemedi: HTTP {(int)response.StatusCode}");
             return false;

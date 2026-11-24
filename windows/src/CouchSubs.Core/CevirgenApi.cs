@@ -8,12 +8,17 @@ namespace CouchSubs.Core;
 /// <summary>
 /// Çevirgen'in kendi sunucusu (server/cevirgen-api; Cloudflare Worker). Uygulama yalnız iki istek yapar:
 /// <c>GET /v1/config</c> (reklam, açılır reklam, duyuru; çerezsiz, kimliksiz düz istek) ve isteğe bağlı
-/// <c>POST /v1/ping</c> (anonim kullanım sayımı, bkz. <see cref="UsageCounter"/>). Adres tek yerde: bu sabit; derlemede
-/// <c>-p:CevirgenApiUrl=…</c> (AssemblyMetadata) ya da <c>CEVIRGEN_API_URL</c> ortam değişkeni (yerel deneme) onu ezer.
+/// <c>POST /v1/ping</c> (anonim kullanım sayımı, bkz. <see cref="UsageCounter"/>). Adres tek yerde: bu sabitler; derlemede
+/// <c>-p:CevirgenApiUrl=…</c> (AssemblyMetadata) ya da <c>CEVIRGEN_API_URL</c> ortam değişkeni (yerel deneme) onları ezer.
+/// Asıl adres kendi alan adıdır (<see cref="DefaultUrl"/>); ona ağ ya da TLS hatasıyla ulaşılamazsa (alan adının sertifikası
+/// henüz hazır değil, DNS yayılmadı) aynı Worker'ın workers.dev adresine (<see cref="FallbackUrl"/>) geçilir
+/// (<see cref="CevirgenEndpoints"/>).
 /// </summary>
 public static class CevirgenApi
 {
-    public const string DefaultUrl = "https://cevirgen-api.ozgurglr256.workers.dev";
+    public const string DefaultUrl = "https://cevirgen.ozgurguler.tech";
+    /// <summary>Aynı Worker'ın Cloudflare adresi: asıl adrese ulaşılamazsa kullanılır.</summary>
+    public const string FallbackUrl = "https://cevirgen-api.ozgurglr256.workers.dev";
     public const string EnvironmentVariable = "CEVIRGEN_API_URL";
     public const string MetadataKey = "CevirgenApiUrl";
     /// <summary>Sunucuya giden her istek kısa sürede biter; ağ yavaşsa uygulama beklemez.</summary>
@@ -42,8 +47,73 @@ public static class CevirgenApi
         return url.AbsoluteUri.EndsWith('/') ? url : new Uri(url.AbsoluteUri + "/");
     }
 
+    /// <summary>
+    /// Denenecek adresler, sırayla: ortam değişkeni ya da derlemedeki adres verildiyse yalnız o (yerel deneme yedeğe
+    /// kaçmasın); yoksa asıl adres ve yedeği.
+    /// </summary>
+    public static IReadOnlyList<Uri> BaseUrls(Func<string, string?>? environment = null, Assembly? assembly = null)
+    {
+        var chosen = BaseUrl(environment, assembly);
+        return chosen.AbsoluteUri == DefaultUrl + "/" ? [chosen, new Uri(FallbackUrl + "/")] : [chosen];
+    }
+
     public static Uri ConfigUrl(Uri baseUrl) => new(baseUrl, "v1/config");
     public static Uri PingUrl(Uri baseUrl) => new(baseUrl, "v1/ping");
+}
+
+/// <summary>
+/// Çevirgen sunucusunun adresleri ve sırayla deneme: istek önce son çalışan adrese gider; ağ hatası (DNS, bağlantı, TLS),
+/// zaman aşımı ya da kenar hatası (5xx; Cloudflare 52x) olursa sıradaki adres denenir. Çalışan adres hatırlanır (sonraki
+/// istekler beklemeden ona gider). Son adres de olmazsa onun hatası ya da yanıtı olduğu gibi döner.
+/// </summary>
+public sealed class CevirgenEndpoints
+{
+    private readonly IReadOnlyList<Uri> bases;
+    private int preferred;
+
+    public CevirgenEndpoints(IReadOnlyList<Uri> bases)
+    {
+        if (bases.Count == 0) throw new ArgumentException("En az bir adres gerekir.", nameof(bases));
+        this.bases = bases;
+    }
+
+    public IReadOnlyList<Uri> Bases => bases;
+
+    /// <summary>Şu an önce denenen adres.</summary>
+    public Uri Current => bases[Volatile.Read(ref preferred)];
+
+    /// <param name="request">Adres için yeni istek (her denemede yenisi; gövde yeniden gönderilebilsin).</param>
+    public async Task<HttpResponseMessage> SendAsync(HttpClient http, Func<Uri, HttpRequestMessage> request,
+                                                     HttpCompletionOption option = HttpCompletionOption.ResponseContentRead,
+                                                     CancellationToken cancellationToken = default)
+    {
+        var start = Volatile.Read(ref preferred);
+        for (var attempt = 0; ; attempt++)
+        {
+            var index = (start + attempt) % bases.Count;
+            var last = attempt == bases.Count - 1;
+            try
+            {
+                var response = await http.SendAsync(request(bases[index]), option, cancellationToken).ConfigureAwait(false);
+                if (!last && IsEdgeFailure(response.StatusCode))
+                {
+                    SubtitleLog.Write($"Çevirgen sunucusu {bases[index].Host} HTTP {(int)response.StatusCode}; yedek adres deneniyor");
+                    response.Dispose();
+                    continue;
+                }
+                Volatile.Write(ref preferred, index);
+                return response;
+            }
+            catch (Exception error) when (!last && (error is HttpRequestException
+                                                    || error is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+            {
+                SubtitleLog.Write($"Çevirgen sunucusuna ulaşılamadı ({bases[index].Host}: {error.GetType().Name}); yedek adres deneniyor");
+            }
+        }
+    }
+
+    /// <summary>Sunucunun değil araya giren kenarın (Cloudflare 52x, ağ geçidi) hatası: başka adres denenmeye değer.</summary>
+    public static bool IsEdgeFailure(System.Net.HttpStatusCode status) => (int)status is >= 500 and <= 599;
 }
 
 /// <summary>Alt reklam bandının bir reklamı (sunucudaki <c>ads</c>): simge ve bağlantı yalnız https.</summary>

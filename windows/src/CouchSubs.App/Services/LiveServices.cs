@@ -59,9 +59,9 @@ public sealed class LiveServices : IAppServices
     public string? DataFolder => AppPaths.Data;
     // Çevirgen sunucusu (CevirgenApi: sabit adres; derlemede CevirgenApiUrl ya da CEVIRGEN_API_URL ile değişir).
     // Uzaktan ayarlar: reklam, açılır reklam ve duyuru; son geçerli yanıt ve görseller veri klasöründe.
-    public RemoteConfigClient? RemoteConfig { get; } = new(CevirgenApi.BaseUrl(), AppPaths.Data);
+    public RemoteConfigClient? RemoteConfig { get; } = new(CevirgenApi.BaseUrls(), AppPaths.Data);
     // Anonim kullanım sayımı: kimlik %LOCALAPPDATA%\Cevirgen\install-id; ayar kapalıysa denetleyici kapatır ve kimliği siler.
-    public UsageCounter? Counter { get; } = new(CevirgenApi.BaseUrl(), Path.Combine(AppPaths.Data, UsageCounter.IdFileName),
+    public UsageCounter? Counter { get; } = new(CevirgenApi.BaseUrls(), Path.Combine(AppPaths.Data, UsageCounter.IdFileName),
         AppVersion.Current(System.Reflection.Assembly.GetEntryAssembly() ?? typeof(LiveServices).Assembly));
     // Kullanım verisi: ölçüm kimliği ve API sırrı derlemeden (CouchSubsGaMeasurementId, CouchSubsGaApiSecret); yoksa kapalı.
     public UsageStats? Usage { get; } = UsageStats.Config.FromBuild() is { } usage
@@ -571,6 +571,8 @@ public sealed class LiveServices : IAppServices
         public bool IsSupported(string source, string target) => source == "en" && target == "tr";
 
         public bool IsInstalled(string source, string target) => IsSupported(source, target) && englishTurkish.IsInstalled;
+
+        public long DownloadBytes => Ct2ModelStore.ArchiveSize;
 
         public async Task DownloadAsync(string source, string target, IProgress<double> progress, CancellationToken cancellationToken)
         {

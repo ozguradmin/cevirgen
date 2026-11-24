@@ -40,15 +40,18 @@ public sealed class RemoteConfigClient : IDisposable
     /// <summary>Yapılandırma yanıtı için üst sınır (yönetim panelinin yazdığı JSON küçüktür).</summary>
     public const long MaxConfigBytes = 256 * 1024;
 
-    private readonly Uri baseUrl;
+    private readonly CevirgenEndpoints endpoints;
     private readonly string folder;
     private readonly HttpClient http;
 
     /// <param name="folder">Veri klasörü (%LOCALAPPDATA%\Cevirgen); önbellek dosyası ve görseller buraya yazılır.</param>
     /// <param name="handler">HTTP katmanı; testlerde sahtesi verilir. Verilmezse çerezsiz bir katman kurulur.</param>
-    public RemoteConfigClient(Uri baseUrl, string folder, HttpMessageHandler? handler = null)
+    public RemoteConfigClient(Uri baseUrl, string folder, HttpMessageHandler? handler = null) : this([baseUrl], folder, handler) { }
+
+    /// <param name="baseUrls">Sunucunun adresleri, sırayla (asıl adres, yedek); bkz. <see cref="CevirgenEndpoints"/>.</param>
+    public RemoteConfigClient(IReadOnlyList<Uri> baseUrls, string folder, HttpMessageHandler? handler = null)
     {
-        this.baseUrl = baseUrl;
+        endpoints = new CevirgenEndpoints(baseUrls);
         this.folder = folder;
         http = new HttpClient(handler ?? new SocketsHttpHandler { UseCookies = false, AutomaticDecompression = DecompressionMethods.All })
         {
@@ -78,9 +81,12 @@ public sealed class RemoteConfigClient : IDisposable
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, CevirgenApi.ConfigUrl(baseUrl));
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await endpoints.SendAsync(http, baseUrl =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, CevirgenApi.ConfigUrl(baseUrl));
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                return request;
+            }, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 SubtitleLog.Write($"uzaktan ayarlar alınamadı: HTTP {(int)response.StatusCode}");
