@@ -193,8 +193,130 @@ public static class ScreenRenderer
                 Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, SettingsGroup.Devices)), w, h, Path.Combine(folder, $"boy-{w}-ayarlar-{suffix}.png"));
                 Save(() => new OnboardingView(Demo(OnboardingStep.PsnLogin)), w, h, Path.Combine(folder, $"boy-{w}-kurulum-{suffix}.png"));
             }
+            RenderV14(folder, suffix);
         }
         app.Shutdown();
+    }
+
+    /// <summary>
+    /// Çevirgen 1.4: Canlı'nın bildirim şeridi (0, 1 ve 3 bildirim; diğerleri açık), destek alanı (varsayılan ve sunucudan simgeli),
+    /// Ayarlar'ın sabit alt bilgisi, oyun seçicisi (kapaksız ve kapaklı) ve anahtarsız platform sorusu; 1280 × 800 ve 1920 × 1080.
+    /// </summary>
+    private static void RenderV14(string folder, string suffix)
+    {
+        var art = Path.Combine(Path.GetTempPath(), "cevirgen-render-art");
+        foreach (var (w, h) in new[] { (1280, 800), (1920, 1080) })
+        {
+            Save(() => Detach(Live(Running())), w, h, Path.Combine(folder, $"v14-canli-0-{w}-{suffix}.png"));
+            Save(() =>
+            {
+                var controller = Running();
+                SetPrivate(controller, nameof(AppController.TvClients), 0);
+                return Detach(Live(controller));
+            }, w, h, Path.Combine(folder, $"v14-canli-1-{w}-{suffix}.png"));
+            foreach (var open in new[] { false, true })
+                Save(() =>
+                {
+                    var controller = Running();
+                    SetPrivate(controller, nameof(AppController.TvClients), 0);
+                    SetPrivate(controller, nameof(AppController.OcrMissing), true);
+                    SetPrivate(controller, nameof(AppController.GpuFallbackWarning), true);
+                    NoticeStrip.PreviewShowAll = open;
+                    return Detach(Live(controller));
+                }, w, h, Path.Combine(folder, $"v14-canli-3{(open ? "-acik" : "")}-{w}-{suffix}.png"));
+            NoticeStrip.PreviewShowAll = false;
+            Save(() => Detach(Live(WithSupport(Running(), null))), w, h, Path.Combine(folder, $"v14-canli-destek-{w}-{suffix}.png"));
+            Save(() =>
+            {
+                var icon = FakeArt(art, "destek-simge", 64, 64, Color.FromRgb(0xFF, 0xD2, 0x3F), "★");
+                var support = new ResolvedSupport(new RemoteSupport("kasim", "Çevirgen'i beğendiysen bir arkadaşına da anlat; TV uygulaması da hazır.",
+                    "Tanıtım sayfası", new Uri("https://cevirgen.ozgurguler.tech/"), new Uri("https://cevirgen.ozgurguler.tech/v1/assets/destek.png")), icon);
+                return Detach(Live(WithSupport(Running(), support)));
+            }, w, h, Path.Combine(folder, $"v14-canli-destek-simge-{w}-{suffix}.png"));
+            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, SettingsGroup.Devices)), w, h, Path.Combine(folder, $"v14-ayarlar-{w}-{suffix}.png"));
+            foreach (var covers in new[] { false, true })
+                Save(() =>
+                {
+                    var controller = Running();
+                    DemoStore.Recent = ["Grand Theft Auto VI", "Red Dead Redemption 2", "Ghost of Yōtei"];
+                    controller.UserCover = _ => null;
+                    if (covers) WithRemoteGames(controller, art);
+                    var window = Live(controller);
+                    controller.AskGame();
+                    return Detach(window);
+                }, w, h, Path.Combine(folder, $"v14-oyun-{(covers ? "kapakli" : "kapaksiz")}-{w}-{suffix}.png"));
+            DemoStore.Recent = null;
+        }
+        Save(() =>
+        {
+            var controller = Demo(OnboardingStep.Welcome);
+            controller.ChoosePlatform(SetupPlatform.Ps5);
+            return new OnboardingView(controller);
+        }, Width, Height, Path.Combine(folder, $"v14-kurulum-platform-{suffix}.png"));
+    }
+
+    /// <summary>Destek alanı açık (20 satır çevrilmiş); <paramref name="support"/> verilirse sunucudan gelmiş gibi.</summary>
+    private static AppController WithSupport(AppController controller, ResolvedSupport? support)
+    {
+        typeof(AppController).GetField("supportLines", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(controller, (int?)SupportSlot.LinesBeforeShowing);
+        if (support is not null) SetRemote(controller, RemoteContent.Empty with { Support = support });
+        return controller;
+    }
+
+    /// <summary>
+    /// Sunucudan oyun listesi gelmiş gibi; kapaklar yalnız bu araçta çizilen soyut yer tutucular (gerçek kapak indirilmez ya da
+    /// gömülmez). Birinin kapağı yok (yazı karosu).
+    /// </summary>
+    private static void WithRemoteGames(AppController controller, string art)
+    {
+        (string Id, string Title, Color Tone, string[] Aliases, bool Cover)[] games =
+        [
+            ("gta-6", "Grand Theft Auto VI", Color.FromRgb(0xC8, 0x4B, 0x8C), ["GTA 6", "GTA VI"], true),
+            ("rdr-2", "Red Dead Redemption 2", Color.FromRgb(0xA8, 0x3A, 0x2A), ["RDR2"], true),
+            ("ghost-of-yotei", "Ghost of Yōtei", Color.FromRgb(0x2E, 0x5A, 0x7A), [], true),
+            ("spider-man-2", "Marvel's Spider-Man 2", Color.FromRgb(0x8A, 0x1E, 0x24), [], true),
+            ("death-stranding-2", "Death Stranding 2: On the Beach", Color.FromRgb(0x56, 0x6B, 0x74), ["DS2"], false),
+            ("elden-ring", "Elden Ring", Color.FromRgb(0x8C, 0x74, 0x3A), [], true),
+        ];
+        var resolved = games.Select(g => new ResolvedGame(
+            new RemoteGame(g.Id, g.Title, g.Cover ? new Uri($"https://cevirgen.ozgurguler.tech/v1/assets/{g.Id}.jpg") : null, g.Aliases),
+            g.Cover ? FakeArt(art, g.Id, 248, 372, g.Tone, null) : null)).ToList();
+        SetRemote(controller, RemoteContent.Empty with { Games = resolved });
+    }
+
+    private static void SetRemote(AppController controller, RemoteContent content) =>
+        typeof(AppController).GetField("remoteContent", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(controller, content);
+
+    /// <summary>Soyut yer tutucu görsel (düz renk alanları ve ufuk çizgisi): kapak ve simge düzenini denemek için.</summary>
+    private static string FakeArt(string folder, string name, int width, int height, Color tone, string? glyph)
+    {
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, name + ".png");
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            Color Shade(double k) => Color.FromRgb((byte)(tone.R * k), (byte)(tone.G * k), (byte)(tone.B * k));
+            context.DrawRectangle(new SolidColorBrush(Shade(0.25)), null, new Rect(0, 0, width, height));
+            context.DrawRectangle(new SolidColorBrush(tone), null, new Rect(0, 0, width, height * 0.58));
+            context.DrawEllipse(new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xE8, 0xB0)), null, new Point(width * 0.68, height * 0.36), width * 0.16, width * 0.16);
+            context.DrawRectangle(new SolidColorBrush(Shade(0.45)), null, new Rect(0, height * 0.5, width, height * 0.12));
+            for (var i = 0; i < 7; i++)
+                context.DrawRectangle(new SolidColorBrush(Color.FromArgb(0xE6, 0x10, 0x12, 0x18)), null,
+                    new Rect(width * (0.04 + i * 0.14), height * (0.38 + (i % 3) * 0.05), width * 0.1, height * 0.3));
+            if (glyph is not null)
+            {
+                var text = new FormattedText(glyph, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI Symbol"),
+                    width * 0.7, Brushes.Black, 1);
+                context.DrawRectangle(new SolidColorBrush(tone), null, new Rect(0, 0, width, height));
+                context.DrawText(text, new Point((width - text.Width) / 2, (height - text.Height) / 2));
+            }
+        }
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var file = File.Create(path)) encoder.Save(file);
+        return path;
     }
 
     /// <summary>Ayarlar'ın bölümleri ve dosya adları.</summary>
@@ -205,7 +327,7 @@ public static class ScreenRenderer
     ];
 
     /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme en az bu kadarını bekler.</summary>
-    public const int ExpectedCount = 140;
+    public const int ExpectedCount = 178;
 
     /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar bölümü) açık.</summary>
     private static ShellWindow Shell(AppController controller, ShellTab tab, SettingsGroup? group = null)
@@ -473,8 +595,11 @@ public static class ScreenRenderer
 
     private sealed class DemoStore(bool ready, LgTv? pairedTv = null, bool keys = false) : IAppStore
     {
+        /// <summary>Oyun seçicisinin "son oynanan" karoları (yalnız istenen görüntülerde).</summary>
+        public static List<string>? Recent { get; set; }
+
         public void Save<T>(string key, T value) { }
-        public T? Load<T>(string key) => keys && key is StoreKeys.GeminiKey or StoreKeys.DeepLKey ? (T)(object)"demo-key"
+        public T? Load<T>(string key) => key == StoreKeys.RecentGames && Recent is { } recent ? (T)(object)recent : keys && key is StoreKeys.GeminiKey or StoreKeys.DeepLKey ? (T)(object)"demo-key"
             : pairedTv is not null && key is StoreKeys.Tv or StoreKeys.TvKey
             ? (T)(key == StoreKeys.Tv ? pairedTv : (object)"key")
             : !ready ? default : key switch
