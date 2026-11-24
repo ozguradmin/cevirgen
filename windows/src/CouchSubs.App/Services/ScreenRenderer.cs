@@ -31,6 +31,8 @@ public static class ScreenRenderer
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         // Görüntüler durağan karelerle alınır (ortam ışığı, nabız, arama halkası; hareket kapısı kapalı).
         MotionGate.Forced = false;
+        // Kullanıcının gerçek son karesi okunmaz/yazılmaz (görüntüler her makinede aynı çıksın).
+        LastFrameStore.Disabled = true;
         var log = Path.Combine(folder, "errors.txt");
         // Bir ekranın hatası diğerlerini durdurmasın; hatalar dosyaya yazılır.
         app.DispatcherUnhandledException += (_, e) =>
@@ -107,16 +109,19 @@ public static class ScreenRenderer
             Save(() => Detach(Shell(WithStyle(Demo(OnboardingStep.Done), style => AppearancePresets.Apply(AppearancePreset.Readable, style) with
                 { Placement = SubtitlePlacement.Fixed, BottomPercent = 12, TextHex = "#FFE135", TextColor = SubtitleTextColor.Yellow }), ShellTab.Appearance)),
                 Width, Height, Path.Combine(folder, $"pencere-gorunum-okunakli-{suffix}.png"));
-            foreach (var (name, state) in TranslationStates())
+            foreach (var (name, state, setup) in TranslationStates())
+            {
                 Save(() =>
                 {
                     TranslationPage.Preview = state;
-                    return Detach(Shell(Demo(OnboardingStep.Done, keys: state.Columns.Count(column => column.Ready) > 1), ShellTab.Translation));
+                    return Detach(Shell(setup(Demo(OnboardingStep.Done, keys: state.Columns.Count > 1)), ShellTab.Translation));
                 }, Width, Height, Path.Combine(folder, $"pencere-ceviri{name}-{suffix}.png"));
+                DemoTranslation.Installed = true;
+            }
             // Uzun pencere: sayfanın altı (motor seçimi, kurulum, ileri ayarlar; Görünüm'ün "Diğer" ayarları) da görünsün.
             Save(() =>
             {
-                TranslationPage.Preview = TranslationStates().Last().State;
+                TranslationPage.Preview = TranslationStates().ElementAt(2).State;
                 return Detach(Shell(Demo(OnboardingStep.Done, keys: true), ShellTab.Translation));
             }, Width, 1900, Path.Combine(folder, $"pencere-ceviri-uzun-{suffix}.png"));
             TranslationPage.Preview = null;
@@ -260,6 +265,9 @@ public static class ScreenRenderer
         controller.SaveGlossaryTerm("cop", GlossaryRule.Always, "aynasız");
         controller.SaveGlossaryTerm("safehouse", GlossaryRule.Always, "güvenli ev");
         typeof(AppController).GetProperty(nameof(AppController.IsRunning))!.GetSetMethod(nonPublic: true)!.Invoke(controller, [true]);
+        // Görüntü geliyor ve TV uygulaması bağlı (durum noktaları yeşil).
+        SetPrivate(controller, nameof(AppController.SessionState), SessionState.Streaming);
+        SetPrivate(controller, nameof(AppController.TvClients), 1);
         SetPrivate(controller, nameof(AppController.LastTranslation), "Hâlâ burada mı?");
         SetPrivate(controller, nameof(AppController.PlayedGame), "Grand Theft Auto VI");
         SetPrivate(controller, nameof(AppController.LastFrame),
@@ -286,10 +294,11 @@ public static class ScreenRenderer
     }
 
     /// <summary>
-    /// Kör testin durumları (taslak Translation.dc.html'deki çeviriler; gerçek motor çağrılmaz): yalnız ücretsiz model hazır
-    /// ("anahtar gerekli" sütunları), üç motor hazır ve oylar verilmiş, motorlar açık (kazanan, ileri ayarlar, bağlantı sonucu).
+    /// Çeviri sekmesinin durumları (taslak Translation.dc.html'deki çeviriler; gerçek motor çağrılmaz): yalnız ücretsiz model
+    /// hazır (karşılaştırma için ikinci motor yok), üç motor karşılaştırılmış ve oylar verilmiş, motorlar açık (ileri ayarlar,
+    /// bağlantı sonucu), özel OpenAI uyumlu uç noktanın kurulumu ve ücretsiz modelin indirilmesi gereken hâl.
     /// </summary>
-    private static IEnumerable<(string Name, TranslationPage.PreviewState State)> TranslationStates()
+    private static IEnumerable<(string Name, TranslationPage.PreviewState State, Func<AppController, AppController> Setup)> TranslationStates()
     {
         string?[] free = ["Her zaman sevilen pisliği ondan çıkar!", "Hepiniz oradaki karavanı mı satıyorsunuz?", "Sıkı tutun, neredeyse oradayız.", "Bu çok fazla hayır.", "Vice City'ye tekrar hoş geldin, kardeşim."];
         string?[] gemini = ["Ağzını burnunu kır şunun!", "Şuradaki karavanı satıyor musunuz?", "Dayan biraz, az kaldı.", "Yok artık, hiç olmaz.", "Vice City'ye hoş geldin, kanka."];
@@ -298,13 +307,26 @@ public static class ScreenRenderer
         {
             [TranslationEngine.Free] = new(free, 62), [TranslationEngine.Gemini] = new(gemini, 248), [TranslationEngine.DeepL] = new(deepl, 305),
         };
-        BlindTestColumn[] all = [new(TranslationEngine.Free, true), new(TranslationEngine.Gemini, true), new(TranslationEngine.DeepL, true)];
-        BlindTestColumn[] keyless = [new(TranslationEngine.Free, true), new(TranslationEngine.Gemini, false), new(TranslationEngine.DeepL, false)];
-        yield return ("-anahtarsiz", new TranslationPage.PreviewState(keyless, new Dictionary<TranslationEngine, BlindTestResult> { [TranslationEngine.Free] = results[TranslationEngine.Free] },
-            new Dictionary<int, int>(), Revealed: false));
-        yield return ("", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 1, [1] = 1, [3] = 1, [2] = 2 }, Revealed: false));
-        yield return ("-motorlar", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 1, [1] = 1, [3] = 1, [2] = 2, [4] = 1 }, Revealed: true,
-            AdvancedOpen: true, TestResult: "Çalışıyor · 240 ms", Setup: TranslationEngine.Gemini));
+        var none = new Dictionary<TranslationEngine, BlindTestResult>();
+        BlindTestColumn[] all = [new(TranslationEngine.Gemini, true), new(TranslationEngine.Free, true), new(TranslationEngine.DeepL, true)];
+        BlindTestColumn[] keyless = [new(TranslationEngine.Free, true)];
+        BlindTestColumn[] online = [new(TranslationEngine.DeepL, true), new(TranslationEngine.Gemini, true)];
+        Func<AppController, AppController> same = controller => controller;
+        yield return ("-anahtarsiz", new TranslationPage.PreviewState(keyless, none, new Dictionary<int, int>(), Revealed: false), same);
+        yield return ("", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 0, [1] = 0, [3] = 0, [2] = 2 }, Revealed: false), same);
+        yield return ("-motorlar", new TranslationPage.PreviewState(all, results, new Dictionary<int, int> { [0] = 0, [1] = 0, [3] = 0, [2] = 2, [4] = 0 }, Revealed: true,
+            AdvancedOpen: true, TestResult: "Çalışıyor · 240 ms", Setup: TranslationEngine.Gemini), same);
+        yield return ("-ozel", new TranslationPage.PreviewState(all, none, new Dictionary<int, int>(), Revealed: false,
+            TestResult: "Çalışıyor · 412 ms", Setup: TranslationEngine.Custom), controller =>
+        {
+            controller.Settings = controller.Settings with { CustomAiBaseUrl = "https://openrouter.ai/api/v1", CustomAiModel = "google/gemma-3-27b-it" };
+            return controller;
+        });
+        yield return ("-indir", new TranslationPage.PreviewState(online, none, new Dictionary<int, int>(), Revealed: false, Setup: TranslationEngine.Free), controller =>
+        {
+            DemoTranslation.Installed = false;
+            return controller;
+        });
     }
 
     private static void SetPrivate(AppController controller, string property, object? value) =>
@@ -424,8 +446,11 @@ public static class ScreenRenderer
 
     private sealed class DemoTranslation : ITranslationModel
     {
+        /// <summary>Ücretsiz model inmiş gibi (Çeviri sekmesinin "Modeli indir" hâli için false).</summary>
+        public static bool Installed { get; set; } = true;
         public bool IsSupported(string source, string target) => source == "en";
-        public bool IsInstalled(string source, string target) => true;
+        public bool IsInstalled(string source, string target) => Installed;
+        public long DownloadBytes => 474_595_937;
         public Task DownloadAsync(string source, string target, IProgress<double> progress, CancellationToken cancellationToken) => Task.CompletedTask;
         public ITextTranslator Create(string source, string target) => throw new NotSupportedException();
     }

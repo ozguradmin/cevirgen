@@ -17,44 +17,49 @@ using CouchSubs.Shell;
 namespace CouchSubs.App.Views;
 
 /// <summary>
-/// Çeviri sekmesi (taslak: design/cevirgen/arayuz-taslagi/Translation.dc.html). Üstte "Kör test": beş zor replik en çok üç
-/// motora (ücretsiz yerel model hep; anahtarı kayıtlı motorlar; yoksa "anahtar gerekli" sütunu) gerçekten çevrilir, motorların
-/// adı "Motor A/B/C" olarak gizlidir ve sütun sırası karışıktır; her satırda bir çeviri seçilir, seçimler sayılır,
-/// "Motorları göster" adları ve ücret/hız bilgisini açar, "Bu motoru kullan" kazananı uygular. Altta motor seçimi ve seçili
-/// motorun üç adımlı kurulumu (anahtar sayfasını aç → anahtarı yapıştır, şifreli depoya → "Bağlantıyı dene", gecikmesiyle);
-/// "İleri"de model, hız, oyun dili, yerel sunucu ve ek talimat. Anahtarsız da çalışır: ücretsiz yerel model.
+/// Çeviri sekmesi. Önce şu anki motor ve kurulumu: tek sütunlu motor listesi (kıl çizgili satırlar; durum noktası tek renk
+/// modelinden), seçilen satırın altında kurulumu (anahtar sayfası → anahtar → "Bağlantıyı dene"; yerel sunucu ve "Özel
+/// (OpenAI uyumlu)" uç noktada adres ve model). Sonra "İleri ayarlar" ve en altta isteğe bağlı "Motorları karşılaştır" (kör
+/// test): yalnız hazır motorlar karşılaştırılır ve yalnız "Karşılaştır"a basınca çeviri istenir (sekmeyi açmak istek
+/// göndermez). İndirilmesi gereken ücretsiz model sütun olmaz; "Modeli indir · 475 MB" düğmesiyle gösterilir. Kullanıcıya
+/// ham hata metni gösterilmez (günlüğe yazılır).
 /// </summary>
 public sealed class TranslationPage : UserControl
 {
     /// <summary>Ekran görüntüsü aracı için hazır durum (gerçek motor çağrılmaz).</summary>
     internal sealed record PreviewState(IReadOnlyList<BlindTestColumn> Columns, IReadOnlyDictionary<TranslationEngine, BlindTestResult> Results,
-        IReadOnlyDictionary<int, int> Picks, bool Revealed, bool AdvancedOpen = false, string? TestResult = null, TranslationEngine? Setup = null);
+        IReadOnlyDictionary<int, int> Picks, bool Revealed, bool AdvancedOpen = false, string? TestResult = null, TranslationEngine? Setup = null,
+        bool TestOk = true);
 
     internal static PreviewState? Preview { get; set; }
 
-    /// <summary>Bu çalışmadaki son test (sekme yeniden açılınca çeviriler yeniden istenmez).</summary>
+    /// <summary>Bu çalışmadaki son karşılaştırma (sekme yeniden açılınca çeviriler yeniden istenmez).</summary>
     private static IReadOnlyList<BlindTestColumn>? lastColumns;
     private static readonly Dictionary<TranslationEngine, BlindTestResult> LastResults = [];
 
     private static readonly TranslationEngine[] Engines =
-        [TranslationEngine.Free, TranslationEngine.Gemini, TranslationEngine.DeepL, TranslationEngine.OpenAi, TranslationEngine.Claude, TranslationEngine.Local];
+    [
+        TranslationEngine.Free, TranslationEngine.Gemini, TranslationEngine.DeepL, TranslationEngine.OpenAi, TranslationEngine.Claude,
+        TranslationEngine.Custom, TranslationEngine.Local,
+    ];
+
+    /// <summary>Metin ağırlıklı içeriğin en geniş satırı (okunur genişlik).</summary>
+    private const double ReadableWidth = 760;
+    /// <summary>Adres, model ve anahtar alanlarının genişliği.</summary>
+    private const double FieldWidth = 480;
 
     private readonly AppController controller;
     private readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false };
-    private readonly Grid table = new();
-    private readonly StackPanel winnerBar = new() { Orientation = Orientation.Horizontal };
-    private readonly Button revealButton;
-    private readonly Button runButton;
-    private readonly UniformGrid engineGrid = new() { Columns = 3 };
-    private readonly ContentControl setupHost = new() { Focusable = false };
-    private readonly StackPanel advanced = new();
+    private readonly StackPanel engineList = new() { Width = ReadableWidth, HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly StackPanel compare = new();
+    private readonly StackPanel advanced = new() { Width = ReadableWidth, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Button advancedToggle;
     private readonly BlindTestVotes votes = new();
     private readonly Dictionary<TranslationEngine, BlindTestResult> results = [];
     private readonly HashSet<TranslationEngine> running = [];
     private IReadOnlyList<BlindTestColumn> columns;
     private bool revealed;
-    /// <summary>Kurulumu gösterilen motor (seçili motor; "anahtar gerekli" bağlantısı da değiştirir).</summary>
+    /// <summary>Kurulumu açık motor (seçili motor; listede tıklanan).</summary>
     private TranslationEngine setupEngine;
     private FrameworkElement? setupAnchor;
     private bool advancedOpen;
@@ -68,11 +73,7 @@ public sealed class TranslationPage : UserControl
         DataContext = controller;
         controller.NoteScreen("translation");
         setupEngine = controller.Settings.Engine;
-        revealButton = ScreenKit.Button("Motorları göster", "SecondaryButton", (_, _) => { revealed = !revealed; ShowTable(); });
-        revealButton.MinHeight = 40;
-        runButton = ScreenKit.Button("Testi çalıştır", "OutlineButton", async (_, _) => await RunAsync(force: true));
-        runButton.MinHeight = 40;
-        advancedToggle = ScreenKit.Button("İleri ayarlar ▾", "TextLink", (_, _) => { advancedOpen = !advancedOpen; ShowAdvanced(); });
+        advancedToggle = ScreenKit.Button("İleri ayarlar", "TextLink", (_, _) => { advancedOpen = !advancedOpen; ShowAdvanced(); });
 
         if (Preview is { } preview)
         {
@@ -82,12 +83,12 @@ public sealed class TranslationPage : UserControl
             revealed = preview.Revealed;
             advancedOpen = preview.AdvancedOpen;
             testResult = preview.TestResult;
-            testOk = true;
+            testOk = preview.TestOk;
             setupEngine = preview.Setup ?? setupEngine;
         }
         else
         {
-            // Sütunlar aynı motorlarsa son testin sırası ve çevirileri korunur.
+            // Sütunlar aynı motorlarsa son karşılaştırmanın sırası ve çevirileri korunur (yeni istek gönderilmez).
             var wanted = controller.BlindTestColumns();
             columns = lastColumns is { } last && last.OrderBy(c => c.Engine).SequenceEqual(wanted.OrderBy(c => c.Engine))
                 ? last : BlindTest.Shuffle(wanted, new Random());
@@ -97,353 +98,181 @@ public sealed class TranslationPage : UserControl
         }
 
         var stack = new StackPanel { Margin = Sp.T("edge", "l", "edge", "xl") };
-        stack.Children.Add(BuildHeader());
-        var tableFrame = new Border { BorderThickness = new Thickness(1), Child = table, Margin = Sp.T("0", "m", "0", "0") };
-        tableFrame.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
-        AutomationProperties.SetName(tableFrame, "Örnek çeviriler");
-        stack.Children.Add(tableFrame);
-        var note = ScreenKit.Mono("Çeviriler bu bilgisayardan gerçek motorlarla istenir; süreler satır başına ortalamadır. Hücreye tıklayarak seç.", 12);
-        note.TextWrapping = TextWrapping.Wrap;
-        note.Margin = Sp.T("0", "s", "0", "0");
-        stack.Children.Add(note);
-        winnerBar.Margin = Sp.T("0", "m", "0", "0");
-        stack.Children.Add(winnerBar);
+        stack.Children.Add(ScreenKit.Title("Çeviri"));
+        var lead = ScreenKit.Muted("Altyazılar seçtiğin motorla çevrilir. Anahtarsız da çalışır: ücretsiz model bu bilgisayarda çevirir, yazılar dışarı çıkmaz. Daha doğal çeviri için kendi anahtarınla bir motor kur; anahtar yalnız bu bilgisayarda, şifreli saklanır.", 15);
+        lead.MaxWidth = ReadableWidth;
+        lead.HorizontalAlignment = HorizontalAlignment.Left;
+        lead.Margin = Sp.T("0", "xs", "0", "l");
+        stack.Children.Add(lead);
 
-        stack.Children.Add(BuildEngineSection());
-        stack.Children.Add(setupHost);
+        stack.Children.Add(SectionTitle("Çeviri motoru"));
+        AutomationProperties.SetName(engineList, "Çeviri motorları");
+        stack.Children.Add(engineList);
+
         advancedToggle.Margin = Sp.T("0", "l", "0", "0");
         advancedToggle.HorizontalAlignment = HorizontalAlignment.Left;
         stack.Children.Add(advancedToggle);
         advanced.Margin = Sp.T("0", "s", "0", "0");
         stack.Children.Add(advanced);
+
+        compare.Margin = Sp.T("0", "xl", "0", "0");
+        stack.Children.Add(compare);
         scroll.Content = stack;
         Content = scroll;
 
         controller.PropertyChanged += OnChanged;
         Unloaded += (_, _) => controller.PropertyChanged -= OnChanged;
-        Loaded += async (_, _) =>
+        Loaded += (_, _) =>
         {
             controller.PropertyChanged -= OnChanged;
             controller.PropertyChanged += OnChanged;
-            if (Preview is null) await RunAsync(force: false);
         };
-        ShowTable();
         ShowEngines();
-        ShowSetup();
         ShowAdvanced();
+        ShowCompare();
     }
 
     private void OnChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is not (nameof(AppController.Settings) or nameof(AppController.HasDeepLKey) or nameof(AppController.UsesFreeGemini))) return;
+        if (e.PropertyName is not (nameof(AppController.Settings) or nameof(AppController.HasDeepLKey) or nameof(AppController.UsesFreeGemini)
+            or nameof(AppController.ModelInstalled) or nameof(AppController.ModelDownloading) or nameof(AppController.ModelProgress)
+            or nameof(AppController.ModelError))) return;
         Dispatcher.BeginInvoke(() =>
         {
-            ShowEngines();
-            ShowWinner();
-            if (!IsKeyboardFocusWithin || keyBox?.IsKeyboardFocusWithin != true) ShowSetup();
+            // Yazı yazılırken satırlar yeniden kurulmaz (odak ve yazılan anahtar kaybolmasın).
+            if (!IsKeyboardFocusWithin || keyBox?.IsKeyboardFocusWithin != true && !(System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox)) ShowEngines();
+            if (e.PropertyName is nameof(AppController.ModelInstalled) or nameof(AppController.ModelDownloading) or nameof(AppController.ModelError))
+                RefreshColumns();
+            ShowCompare();
         });
     }
 
-    // ───── Kör test ─────
-
-    private FrameworkElement BuildHeader()
+    private static TextBlock SectionTitle(string text)
     {
-        var head = new DockPanel { LastChildFill = true };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
-        runButton.Margin = Sp.T("0", "0", "xs", "0");
-        buttons.Children.Add(runButton);
-        buttons.Children.Add(revealButton);
-        DockPanel.SetDock(buttons, Dock.Right);
-        head.Children.Add(buttons);
-        var texts = new StackPanel { Margin = Sp.T("0", "0", "l", "0") };
-        texts.Children.Add(ScreenKit.Title("Kör test"));
-        var lead = ScreenKit.Muted("Beş zor repliği en çok üç motora çevirtip adlarını gizledik. Her satırda kulağına doğru gelen çeviriyi seç; sonra hangi motorun kazandığını gör.", 15);
-        lead.MaxWidth = 760;
-        lead.HorizontalAlignment = HorizontalAlignment.Left;
-        lead.Margin = Sp.T("0", "titleBody", "0", "0");
-        texts.Children.Add(lead);
-        head.Children.Add(texts);
-        return head;
+        var title = new TextBlock { Text = text, FontSize = 20, FontWeight = FontWeights.SemiBold, Margin = Sp.T("0", "0", "0", "s") };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "textBrush");
+        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
+        return title;
     }
 
-    /// <summary>Kullanılabilen motorların çevirileri istenir (sırayla değil, aynı anda); <paramref name="force"/> yoksa yalnız eksikler.</summary>
-    private async Task RunAsync(bool force)
+    // ───── Motor listesi ve kurulum ─────
+
+    /// <summary>Motorun listedeki durumu (tek renk modeli) ve kısa adı.</summary>
+    private (DeviceState State, string Word) EngineStatus(TranslationEngine engine)
     {
-        if (Preview is not null) return;
-        if (force)
+        var active = engine == controller.Settings.Engine;
+        if (engine == TranslationEngine.Free)
         {
-            foreach (var column in columns) LastResults.Remove(column.Engine);
-            results.Clear();
-            votes.Clear();
+            if (controller.ModelDownloading) return (DeviceState.Waiting, "iniyor");
+            if (!controller.ModelInstalled) return (DeviceState.Waiting, "indirilmesi gerekiyor");
+            return (DeviceState.Ready, active ? "kullanılıyor" : "hazır");
         }
-        var pending = columns.Where(column => column.Ready && !results.ContainsKey(column.Engine) && !running.Contains(column.Engine)).ToList();
-        if (pending.Count == 0)
+        if (engine.UsesServer())
         {
-            ShowTable();
-            return;
+            var configured = engine == TranslationEngine.Local ? controller.IsComparable(engine) : controller.IsReady(engine);
+            return configured ? (DeviceState.Ready, active ? "kullanılıyor" : "ayarlı") : (DeviceState.Off, "kurulmadı");
         }
-        foreach (var column in pending) running.Add(column.Engine);
-        ShowTable();
-        await Task.WhenAll(pending.Select(async column =>
-        {
-            BlindTestResult result;
-            try { result = await controller.TranslateSamplesAsync(column.Engine, BlindTest.Lines); }
-            catch (Exception error) { result = new BlindTestResult([.. BlindTest.Lines.Select(_ => (string?)null)], null, error.Message); }
-            results[column.Engine] = result;
-            LastResults[column.Engine] = result;
-            running.Remove(column.Engine);
-            ShowTable();
-        }));
+        if (!controller.HasKey(engine)) return active ? (DeviceState.Waiting, "anahtar gerekli") : (DeviceState.Off, "anahtar gerekli");
+        return (DeviceState.Ready, active ? "kullanılıyor" : "hazır");
     }
 
-    /// <summary>Tablo: Replik sütunu ve motor sütunları; başlıkta ad (gizliyse Motor A/B/C) ve seçim sayısı, en altta ücret · hız.</summary>
-    private void ShowTable()
+    /// <summary>Tek sütunlu liste: her motor bir satır (seçim göstergesi, ad, kısa bilgi, durum); kurulumu açık motorun ayarları altında.</summary>
+    private void ShowEngines()
     {
-        table.Children.Clear();
-        table.ColumnDefinitions.Clear();
-        table.RowDefinitions.Clear();
-        table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star), MinWidth = 200 });
-        foreach (var _ in columns) table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var r = 0; r < BlindTest.Lines.Count + 2; r++) table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        // Başlık satırı.
-        Place(HeadCell(ScreenKit.Label("Replik"), shaded: true), 0, 0);
-        for (var c = 0; c < columns.Count; c++)
+        engineList.Children.Clear();
+        var current = controller.Settings.Engine;
+        foreach (var engine in Engines)
         {
-            var column = columns[c];
-            var name = ScreenKit.Text(revealed ? BlindTest.EngineName(column.Engine) : BlindTest.HiddenName(c), 14, FontWeights.SemiBold, wrap: false);
-            var count = ScreenKit.Mono(votes.VotesText(c), 13, "amberTextBrush");
-            var line = new DockPanel();
-            DockPanel.SetDock(count, Dock.Right);
-            count.Margin = Sp.T("xs", "0", "0", "0");
-            line.Children.Add(count);
-            line.Children.Add(name);
-            Place(HeadCell(line, shaded: true, divider: true), 0, c + 1);
-        }
+            var active = engine == current;
+            var open = engine == setupEngine;
+            var (state, word) = EngineStatus(engine);
 
-        for (var r = 0; r < BlindTest.Lines.Count; r++)
-        {
-            var english = ScreenKit.Muted(BlindTest.Lines[r], 14);
-            english.LineHeight = 20;
-            Place(Cell(english, top: true), r + 1, 0);
-            for (var c = 0; c < columns.Count; c++) Place(Choice(r, c), r + 1, c + 1);
-        }
-
-        var last = BlindTest.Lines.Count + 1;
-        Place(HeadCell(ScreenKit.Label("Ücret · hız"), shaded: true, top: true), last, 0);
-        for (var c = 0; c < columns.Count; c++)
-        {
-            var column = columns[c];
-            var result = results.GetValueOrDefault(column.Engine);
-            var facts = !column.Ready ? "anahtar gerekli"
-                : result?.Error is { } error && result.Failed ? "hata: " + error
-                : revealed ? BlindTest.FactsWithSpeed(column.Engine, result?.AverageMs) : "gizli";
-            var text = ScreenKit.Mono(facts, 12);
-            text.TextWrapping = TextWrapping.Wrap;
-            text.LineHeight = 18;
-            Place(HeadCell(text, shaded: true, top: true, divider: true), last, c + 1);
-        }
-        revealButton.Content = revealed ? "Motorları gizle" : "Motorları göster";
-        runButton.Content = running.Count > 0 ? "Çevriliyor…" : results.Count > 0 ? "Yeniden çevir" : "Testi çalıştır";
-        runButton.IsEnabled = running.Count == 0;
-        ShowWinner();
-    }
-
-    private void Place(UIElement element, int row, int column)
-    {
-        Grid.SetRow(element, row);
-        Grid.SetColumn(element, column);
-        table.Children.Add(element);
-    }
-
-    private static Border HeadCell(UIElement child, bool shaded, bool divider = false, bool top = false)
-    {
-        var cell = new Border { Child = child, Padding = Sp.T("m", "s", "m", "s"), BorderThickness = new Thickness(divider ? 1 : 0, top ? 1 : 0, 0, 0) };
-        cell.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
-        if (shaded) cell.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
-        return cell;
-    }
-
-    private static Border Cell(UIElement child, bool top) => Pad(HeadCell(child, shaded: false, top: top));
-
-    private static Border Pad(Border cell)
-    {
-        cell.Padding = Sp.T("m", "item", "m", "item");
-        return cell;
-    }
-
-    /// <summary>Bir satırın bir motordaki çevirisi: seçilebilir hücre (seçiliyse sarı). Motor hazır değilse anahtar bağlantısı.</summary>
-    private FrameworkElement Choice(int row, int column)
-    {
-        var engine = columns[column].Engine;
-        if (!columns[column].Ready)
-        {
-            var empty = new StackPanel();
-            if (row == 0)
+            var indicator = new Grid { Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Top, Margin = Sp.T("0", "xxs", "s", "0") };
+            var ring = new Ellipse { StrokeThickness = active ? 2 : 1.5 };
+            ring.SetResourceReference(Shape.StrokeProperty, active ? "amberBrush" : "controlBorderBrush");
+            indicator.Children.Add(ring);
+            if (active)
             {
-                empty.Children.Add(ScreenKit.Muted("anahtar gerekli", 14));
-                var link = ScreenKit.Button($"{BlindTest.EngineName(engine)} anahtarını ekle → 1. adım", "TextLink", (_, _) => GoToSetup(engine));
-                link.HorizontalAlignment = HorizontalAlignment.Left;
-                link.Margin = Sp.T("0", "xxs", "0", "0");
-                empty.Children.Add(link);
+                var fill = new Ellipse { Width = 8, Height = 8 };
+                fill.SetResourceReference(Shape.FillProperty, "amberBrush");
+                indicator.Children.Add(fill);
             }
-            var cell = Pad(HeadCell(empty, shaded: false, divider: true, top: true));
-            return cell;
+
+            var texts = new StackPanel();
+            texts.Children.Add(ScreenKit.Text(BlindTest.EngineName(engine), 15, FontWeights.Medium, wrap: false));
+            var facts = ScreenKit.Small(BlindTest.Facts(engine), 13);
+            facts.Margin = Sp.T("0", "line", "0", "0");
+            texts.Children.Add(facts);
+
+            var status = DeviceStatus.Line(state, word, active && state == DeviceState.Ready ? "textBrush" : "mutedBrush");
+            status.VerticalAlignment = VerticalAlignment.Top;
+            status.Margin = Sp.T("s", "xxs", "0", "0");
+
+            var row = new DockPanel();
+            DockPanel.SetDock(indicator, Dock.Left);
+            DockPanel.SetDock(status, Dock.Right);
+            row.Children.Add(indicator);
+            row.Children.Add(status);
+            row.Children.Add(texts);
+
+            var button = new Button
+            {
+                Content = row, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top,
+                Padding = Sp.T("s", "s", "s", "s"), Cursor = System.Windows.Input.Cursors.Hand, Template = RowTemplate(),
+                HorizontalAlignment = HorizontalAlignment.Stretch, Background = Brushes.Transparent,
+            };
+            button.SetResourceReference(FocusVisualStyleProperty, "FocusRing");
+            AutomationProperties.SetName(button, $"{BlindTest.EngineName(engine)}: {word}{(active ? ", seçili" : "")}");
+            var chosen = engine;
+            button.Click += (_, _) =>
+            {
+                var reopen = setupEngine != chosen;
+                setupEngine = chosen;
+                if (reopen) testResult = null;
+                // Hazır motor hemen kullanılır; kurulmamış motorda önce kurulum (çalışınca seçilir).
+                // Yerel sunucu varsayılan adresle hep "geçerli" görünür; çalıştığı "Bağlantıyı dene" ile görülünce seçilir.
+                if (chosen == TranslationEngine.Free ? controller.ModelInstalled
+                    : chosen != TranslationEngine.Local && controller.IsReady(chosen)) controller.UseEngine(chosen);
+                ShowEngines();
+                ShowAdvanced();
+            };
+
+            var item = new StackPanel();
+            item.Children.Add(button);
+            if (open)
+            {
+                var setup = Setup(engine);
+                // Kurulum adın hizasında başlar (gösterge 18 + iki pay).
+                setup.Margin = new Thickness(Sp.V("s") * 2 + 18, 0, Sp.V("s"), Sp.V("m"));
+                item.Children.Add(setup);
+                setupAnchor = item;
+            }
+            var frame = new Border { Child = item, BorderThickness = new Thickness(0, 1, 0, 0) };
+            frame.SetResourceReference(Border.BorderBrushProperty, "hairlineBrush");
+            if (open) frame.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
+            engineList.Children.Add(frame);
         }
-        var result = results.GetValueOrDefault(engine);
-        var text = running.Contains(engine) ? "çevriliyor…" : result is null ? "—" : result.Lines.ElementAtOrDefault(row) ?? "çevrilemedi";
-        var picked = votes.Picked(row) == column;
-        var content = new TextBlock { Text = text, FontSize = 15, TextWrapping = TextWrapping.Wrap, LineHeight = 22, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            FontWeight = picked ? FontWeights.SemiBold : FontWeights.Normal };
-        content.SetResourceReference(TextBlock.ForegroundProperty, picked ? "onAmberBrush" : result?.Lines.ElementAtOrDefault(row) is null ? "mutedBrush" : "textBrush");
-        var button = new Button
-        {
-            Content = content, HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top,
-            Padding = Sp.T("m", "item", "m", "item"), BorderThickness = new Thickness(1, 1, 0, 0), Cursor = System.Windows.Input.Cursors.Hand,
-            Template = CellTemplate(), IsEnabled = result?.Lines.ElementAtOrDefault(row) is not null,
-            HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, MinHeight = 0,
-        };
-        button.SetResourceReference(BorderBrushProperty, "borderBrush");
-        // Seçili hücre sarı kalır (üzerine gelince alan rengine dönmez; şablondaki tetik Tag'e bakar).
-        if (picked)
-        {
-            button.SetResourceReference(BackgroundProperty, "amberBrush");
-            button.Tag = "picked";
-        }
-        else button.Background = Brushes.Transparent;
-        button.SetResourceReference(FocusVisualStyleProperty, "FocusRing");
-        AutomationProperties.SetName(button, $"{BlindTest.HiddenName(column)}: {text}{(picked ? ", seçili" : "")}");
-        button.Click += (_, _) =>
-        {
-            votes.Pick(row, column);
-            ShowTable();
-        };
-        return button;
+        var bottom = ScreenKit.Rule();
+        bottom.SetResourceReference(Border.BackgroundProperty, "hairlineBrush");
+        engineList.Children.Add(bottom);
     }
 
-    private static ControlTemplate CellTemplate()
+    /// <summary>Satır düğmesinin şablonu: zemin ve pay; üzerine gelince alan rengi.</summary>
+    private static ControlTemplate RowTemplate()
     {
         var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border), "Cell");
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(BackgroundProperty));
-        border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(BorderBrushProperty));
-        border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(BorderThicknessProperty));
         border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(PaddingProperty));
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
         presenter.SetValue(HorizontalAlignmentProperty, new TemplateBindingExtension(HorizontalContentAlignmentProperty));
         presenter.SetValue(VerticalAlignmentProperty, new TemplateBindingExtension(VerticalContentAlignmentProperty));
         border.AppendChild(presenter);
         template.VisualTree = border;
-        var hover = new MultiTrigger();
-        hover.Conditions.Add(new System.Windows.Condition(IsMouseOverProperty, true));
-        hover.Conditions.Add(new System.Windows.Condition(TagProperty, null));
+        var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
         hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("fieldBrush"), "Cell"));
         template.Triggers.Add(hover);
         return template;
-    }
-
-    /// <summary>Kazanan: "Motor B önde · 3 seçim" ve "Bu motoru kullan" (seçili motorsa "Zaten bu motoru kullanıyorsun").</summary>
-    private void ShowWinner()
-    {
-        winnerBar.Children.Clear();
-        if (votes.Winner is not { } winner || winner >= columns.Count)
-        {
-            if (votes.Count > 0)
-                winnerBar.Children.Add(ScreenKit.Muted("Berabere. Birkaç satır daha seç.", 14));
-            return;
-        }
-        var column = columns[winner];
-        var name = revealed ? BlindTest.EngineName(column.Engine) : BlindTest.HiddenName(winner);
-        var label = ScreenKit.Text($"{name} önde · {votes.VotesText(winner)}", 15, FontWeights.SemiBold);
-        label.VerticalAlignment = VerticalAlignment.Center;
-        label.Margin = Sp.T("0", "0", "m", "0");
-        winnerBar.Children.Add(label);
-        if (controller.Settings.Engine == column.Engine)
-        {
-            winnerBar.Children.Add(ScreenKit.Muted("Zaten bu motoru kullanıyorsun.", 14));
-            return;
-        }
-        var use = ScreenKit.Button("Bu motoru kullan", "PrimaryButton", (_, _) =>
-        {
-            controller.UseEngine(column.Engine);
-            setupEngine = column.Engine;
-            revealed = true;
-            ShowTable();
-            ShowEngines();
-            ShowSetup();
-        });
-        use.MinHeight = 40;
-        winnerBar.Children.Add(use);
-    }
-
-    // ───── Motor seçimi ve kurulum ─────
-
-    private FrameworkElement BuildEngineSection()
-    {
-        var section = new StackPanel { Margin = Sp.T("0", "xl", "0", "0") };
-        section.Children.Add(ScreenKit.Title("Çeviri motoru", 24));
-        var lead = ScreenKit.Muted("Anahtarsız da çalışır: ücretsiz yerel model bu bilgisayarda çevirir, yazılar dışarı çıkmaz. Daha doğal çeviri için kendi anahtarınla bir motor seç; anahtar yalnız bu bilgisayarda, şifreli saklanır.", 15);
-        lead.MaxWidth = 820;
-        lead.HorizontalAlignment = HorizontalAlignment.Left;
-        lead.Margin = Sp.T("0", "titleBody", "0", "m");
-        section.Children.Add(lead);
-        AutomationProperties.SetName(engineGrid, "Çeviri motorları");
-        // Kartların sağ payı ızgaranın dışına taşar: kenarlar tablo ve kurulum kutusuyla hizalı.
-        engineGrid.Margin = Sp.T("0", "0", "-xs", "0");
-        section.Children.Add(engineGrid);
-        return section;
-    }
-
-    /// <summary>Altı motor: ad, ücret, durum (kullanılıyor / anahtar kayıtlı / anahtar gerekli); seçilen motorun kurulumu altta.</summary>
-    private void ShowEngines()
-    {
-        engineGrid.Children.Clear();
-        var current = controller.Settings.Engine;
-        foreach (var engine in Engines)
-        {
-            var active = engine == current;
-            var shown = engine == setupEngine;
-            var ready = engine == TranslationEngine.Free || controller.IsReady(engine);
-            // Yerel sunucu adres geçerliyse "ayarlı" (çalışıp çalışmadığı 3. adımda denenir).
-            var status = active ? "kullanılıyor" : engine == TranslationEngine.Free ? "anahtarsız"
-                : ready ? engine == TranslationEngine.Local ? "ayarlı" : "hazır" : "anahtar gerekli";
-            var texts = new StackPanel();
-            var top = new DockPanel();
-            var state = ScreenKit.Mono(status, 12, active ? "amberTextBrush" : ready ? "successBrush" : "mutedBrush");
-            DockPanel.SetDock(state, Dock.Right);
-            state.Margin = Sp.T("xs", "0", "0", "0");
-            top.Children.Add(state);
-            top.Children.Add(ScreenKit.Text(BlindTest.EngineName(engine), 15, FontWeights.SemiBold, wrap: false));
-            texts.Children.Add(top);
-            var facts = ScreenKit.Muted(BlindTest.Facts(engine), 13);
-            facts.Margin = Sp.T("0", "xxs", "0", "0");
-            texts.Children.Add(facts);
-            var button = new Button
-            {
-                Content = texts, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top,
-                Padding = Sp.T("m", "s", "m", "s"), Margin = Sp.T("0", "0", "xs", "xs"), BorderThickness = new Thickness(shown ? 2 : 1),
-                Cursor = System.Windows.Input.Cursors.Hand, Template = CellTemplate(), MinHeight = 64,
-                HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
-            };
-            button.SetResourceReference(BorderBrushProperty, shown ? "amberBrush" : "borderBrush");
-            if (shown) button.SetResourceReference(BackgroundProperty, "surfaceBrush");
-            else button.Background = Brushes.Transparent;
-            if (shown) button.Tag = "shown";
-            button.SetResourceReference(FocusVisualStyleProperty, "FocusRing");
-            AutomationProperties.SetName(button, $"{BlindTest.EngineName(engine)}: {status}");
-            var chosen = engine;
-            button.Click += (_, _) =>
-            {
-                setupEngine = chosen;
-                testResult = null;
-                // Hazır motor hemen kullanılır; anahtarı olmayan motorda önce kurulum (anahtar kaydedilince seçilir).
-                if (chosen == TranslationEngine.Free || controller.IsReady(chosen)) controller.UseEngine(chosen);
-                ShowEngines();
-                ShowSetup();
-                ShowAdvanced();
-            };
-            engineGrid.Children.Add(button);
-        }
     }
 
     private void GoToSetup(TranslationEngine engine)
@@ -451,158 +280,177 @@ public sealed class TranslationPage : UserControl
         setupEngine = engine;
         testResult = null;
         ShowEngines();
-        ShowSetup();
         ShowAdvanced();
         Dispatcher.BeginInvoke(() => setupAnchor?.BringIntoView(), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
-    /// <summary>Seçilen motorun kurulumu: ücretsiz modelde bilgi; bulut motorlarında ve yerel sunucuda üç adım.</summary>
-    private void ShowSetup()
+    /// <summary>Kurulumu açık motorun ayarları: numaralı kısa adımlar, tek sarı düğme ("Bağlantıyı dene" ya da "Modeli indir").</summary>
+    private FrameworkElement Setup(TranslationEngine engine)
     {
-        var engine = setupEngine;
-        var frame = new Border { BorderThickness = new Thickness(1), Margin = Sp.T("0", "xs", "0", "0") };
-        frame.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
-        setupAnchor = frame;
-        AutomationProperties.SetName(frame, $"{BlindTest.EngineName(engine)} kurulumu");
+        var panel = new StackPanel();
+        AutomationProperties.SetName(panel, $"{BlindTest.EngineName(engine)} kurulumu");
         if (engine == TranslationEngine.Free)
         {
-            var info = new StackPanel { Margin = Sp.T("l", "m", "l", "m") };
-            info.Children.Add(ScreenKit.Text("Anahtarsız da çalışır: ücretsiz yerel model", 15, FontWeights.SemiBold));
-            var body = ScreenKit.Muted(controller.ModelInstalled
-                ? "Model bu bilgisayarda kurulu. Çeviri çevrimdışı yapılır, altyazı yazıları hiçbir yere gönderilmez."
-                : "Model henüz inmedi; çeviri ilk başlatılışta indirilir. Çeviri çevrimdışı yapılır.", 14);
-            body.Margin = Sp.T("0", "xxs", "0", "0");
-            info.Children.Add(body);
-            frame.Child = info;
-            setupHost.Content = frame;
-            return;
+            panel.Children.Add(FreeModelState(primary: true));
+            return panel;
         }
-        var grid = new Grid();
-        for (var i = 0; i < 3; i++) grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.Children.Add(Step(0, "Adım 1", Step1(engine)));
-        grid.Children.Add(Step(1, "Adım 2", Step2(engine)));
-        grid.Children.Add(Step(2, "Adım 3", Step3(engine)));
-        frame.Child = grid;
-        setupHost.Content = frame;
-    }
-
-    private static Border Step(int index, string label, IEnumerable<UIElement> items)
-    {
-        var stack = new StackPanel();
-        var title = ScreenKit.Label(label);
-        title.Margin = Sp.T("0", "0", "0", "xs");
-        stack.Children.Add(title);
-        foreach (var item in items) stack.Children.Add(item);
-        var cell = new Border { Child = stack, Padding = Sp.T("l", "m", "l", "m"), BorderThickness = new Thickness(index == 0 ? 0 : 1, 0, 0, 0) };
-        cell.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
-        Grid.SetColumn(cell, index);
-        return cell;
-    }
-
-    private IEnumerable<UIElement> Step1(TranslationEngine engine)
-    {
-        var (title, link, how) = engine switch
+        if (engine.UsesServer())
         {
-            TranslationEngine.Gemini => ("Ücretsiz anahtarı al", "Google AI Studio'yu aç ↗", "Google hesabınla gir, “Create API key”e bas."),
-            TranslationEngine.DeepL => ("Ücretsiz anahtarı al", "DeepL API sayfasını aç ↗", "Ücretsiz DeepL API hesabı aç, hesap sayfasından anahtarı kopyala."),
-            TranslationEngine.OpenAi => ("Anahtarı al", "OpenAI anahtar sayfasını aç ↗", "Hesabınla gir, “Create new secret key”e bas. Kullanım ücretlidir."),
-            TranslationEngine.Claude => ("Anahtarı al", "Anthropic Console'u aç ↗", "Hesabınla gir, “Create Key”e bas. Kullanım ücretlidir."),
-            _ => ("Yerel sunucuyu kur", "Ollama'yı indir ↗", "Ollama'yı kur ve bir model indir: ollama pull qwen2.5:7b. LM Studio da olur."),
+            ServerSetup(panel, engine);
+            return panel;
+        }
+        var (link, how) = engine switch
+        {
+            TranslationEngine.Gemini => ("Google AI Studio'yu aç ↗", "Google hesabınla gir, “Create API key”e bas, anahtarı kopyala. Ücretsiz."),
+            TranslationEngine.DeepL => ("DeepL API sayfasını aç ↗", "Ücretsiz DeepL API hesabı aç, hesap sayfasından anahtarı kopyala."),
+            TranslationEngine.OpenAi => ("OpenAI anahtar sayfasını aç ↗", "Hesabınla gir, “Create new secret key”e bas. Kullanım ücretlidir."),
+            _ => ("Anthropic Console'u aç ↗", "Hesabınla gir, “Create Key”e bas. Kullanım ücretlidir."),
         };
-        yield return ScreenKit.Text(title, 15, FontWeights.SemiBold);
         var uri = engine.Provider()?.KeyPage() ?? new Uri("https://www.deepl.com/pro-api");
-        var open = ScreenKit.Button(link, "TextLink", (_, _) => controller.OpenInBrowser(uri));
-        open.SetResourceReference(ForegroundProperty, "amberTextBrush");
-        open.FontSize = 14;
-        open.HorizontalAlignment = HorizontalAlignment.Left;
-        open.Margin = Sp.T("0", "xxs", "0", "xxs");
-        yield return open;
-        var hint = ScreenKit.Muted(how, 13);
-        hint.LineHeight = 19;
-        yield return hint;
-    }
+        panel.Children.Add(Numbered(1, "Anahtarı al", LinkWithHint(link, how, uri)));
 
-    private IEnumerable<UIElement> Step2(TranslationEngine engine)
-    {
-        var settings = controller.Settings;
         var saved = controller.HasKey(engine);
-        if (engine == TranslationEngine.Local)
-        {
-            yield return ScreenKit.Text("Sunucu adresi ve model", 15, FontWeights.SemiBold);
-            var address = new System.Windows.Controls.TextBox { Text = settings.LocalAiBaseUrl, Margin = Sp.T("0", "xs", "0", "0") };
-            var model = new System.Windows.Controls.TextBox { Text = settings.LocalAiModel, Margin = Sp.T("0", "xs", "0", "0") };
-            AutomationProperties.SetName(address, "Sunucu adresi");
-            AutomationProperties.SetName(model, "Model adı");
-            void Commit()
-            {
-                var (a, m) = (address.Text.Trim(), model.Text.Trim());
-                if (a != controller.Settings.LocalAiBaseUrl || m != controller.Settings.LocalAiModel)
-                    controller.Settings = controller.Settings with { LocalAiBaseUrl = a, LocalAiModel = m };
-            }
-            address.LostFocus += (_, _) => Commit();
-            model.LostFocus += (_, _) => Commit();
-            yield return ScreenKit.Field(address, LocalAiServer.OllamaUrl);
-            yield return ScreenKit.Field(model, LocalAiServer.DefaultModel);
-            var presets = new WrapPanel { Margin = Sp.T("0", "xs", "0", "0") };
-            presets.Children.Add(ScreenKit.Button("Ollama", "CompactButton", (_, _) => { address.Text = LocalAiServer.OllamaUrl; Commit(); }));
-            var lm = ScreenKit.Button("LM Studio", "CompactButton", (_, _) => { address.Text = LocalAiServer.LmStudioUrl; Commit(); });
-            lm.Margin = Sp.T("xs", "0", "0", "0");
-            presets.Children.Add(lm);
-            yield return presets;
-            var note = ScreenKit.Muted(saved ? "Anahtar kayıtlı (isteğe bağlı)." : "Anahtar gerekmez; sunucu istiyorsa 3. adımda yaz.", 13);
-            note.Margin = Sp.T("0", "xs", "0", "0");
-            yield return note;
-            keyBox = new PasswordBox { Margin = Sp.T("0", "xs", "0", "0") };
-            AutomationProperties.SetName(keyBox, "Sunucu anahtarı (isteğe bağlı)");
-            yield return keyBox;
-            yield break;
-        }
-        yield return ScreenKit.Text("Anahtarı yapıştır", 15, FontWeights.SemiBold);
+        var keyArea = new StackPanel();
         if (saved)
         {
-            var row = new DockPanel { Margin = Sp.T("0", "xs", "0", "0") };
-            var remove = ScreenKit.Button("Kaldır", "CompactButton", (_, _) =>
+            var row = new DockPanel { Margin = Sp.T("0", "0", "0", "xs") };
+            var remove = ScreenKit.Button("Kaldır", "TextLink", (_, _) =>
             {
                 controller.RemoveKey(engine);
                 testResult = null;
                 ShowEngines();
-                ShowSetup();
             }, $"{BlindTest.EngineName(engine)} anahtarını kaldır");
             DockPanel.SetDock(remove, Dock.Right);
             row.Children.Add(remove);
-            var ok = ScreenKit.Mono("anahtar kayıtlı ●●●●●●", 13, "successBrush");
-            ok.VerticalAlignment = VerticalAlignment.Center;
-            row.Children.Add(ok);
-            yield return row;
+            row.Children.Add(DeviceStatus.Line(DeviceState.Ready, "Anahtar kayıtlı · yenisini yazarsan eskisinin yerine geçer"));
+            keyArea.Children.Add(row);
         }
-        keyBox = new PasswordBox { Margin = Sp.T("0", "xs", "0", "0"), MinHeight = 40 };
-        keyBox.SetResourceReference(FontFamilyProperty, "MonoFont");
+        keyBox = new PasswordBox { MinHeight = 36, Width = FieldWidth, HorizontalAlignment = HorizontalAlignment.Left };
         AutomationProperties.SetName(keyBox, $"{BlindTest.EngineName(engine)} anahtarı");
-        yield return keyBox;
-        var stored = ScreenKit.Muted(saved ? "Yeni anahtar yazarsan eskisinin yerine geçer. Yalnız bu bilgisayarda, şifreli saklanır." : "Yalnız bu bilgisayarda, şifreli saklanır.", 13);
-        stored.Margin = Sp.T("0", "xs", "0", "0");
-        yield return stored;
+        keyArea.Children.Add(keyBox);
+        panel.Children.Add(Numbered(2, "Anahtarı yapıştır", keyArea));
+        panel.Children.Add(Numbered(3, "Dene", TestArea(engine, "Örnek bir satır çevrilir; anahtar kabul edilirse kaydedilir ve motor seçilir.")));
+        return panel;
     }
 
-    private IEnumerable<UIElement> Step3(TranslationEngine engine)
+    /// <summary>Yerel sunucu (Ollama, LM Studio) ya da özel OpenAI uyumlu uç nokta: adres, model, isteğe bağlı anahtar, dene.</summary>
+    private void ServerSetup(StackPanel panel, TranslationEngine engine)
     {
-        yield return ScreenKit.Text("Dene", 15, FontWeights.SemiBold);
-        var test = ScreenKit.Button("Bağlantıyı dene", "PrimaryButton", async (sender, _) => await TestAsync((Button)sender, engine));
-        test.MinHeight = 40;
-        test.Margin = Sp.T("0", "xs", "0", "xs");
-        yield return test;
-        if (testResult is { } result)
-        {
-            var line = ScreenKit.Mono(result, 13, testOk ? "successBrush" : "liveTextBrush");
-            line.TextWrapping = TextWrapping.Wrap;
-            line.LineHeight = 19;
-            AutomationProperties.SetLiveSetting(line, AutomationLiveSetting.Polite);
-            yield return line;
-        }
+        var settings = controller.Settings;
+        var custom = engine == TranslationEngine.Custom;
+        if (custom)
+            panel.Children.Add(ScreenKit.Small("OpenAI uyumlu /v1/chat/completions sunan her hizmet olur: OpenRouter, Groq, Together, DeepInfra, LM Studio, Ollama. Adresi, model adını ve (gerekiyorsa) anahtarı yaz.", 13));
         else
+            panel.Children.Add(Numbered(1, "Sunucuyu kur", LinkWithHint("Ollama'yı indir ↗", "Ollama'yı kur ve bir model indir: ollama pull qwen2.5:7b. LM Studio da olur.", AiProvider.Local.KeyPage())));
+
+        var address = new System.Windows.Controls.TextBox { Text = custom ? settings.CustomAiBaseUrl : settings.LocalAiBaseUrl, MinHeight = 36 };
+        var model = new System.Windows.Controls.TextBox { Text = custom ? settings.CustomAiModel : settings.LocalAiModel, MinHeight = 36, Margin = Sp.T("0", "xs", "0", "0") };
+        AutomationProperties.SetName(address, "Sunucu adresi");
+        AutomationProperties.SetName(model, "Model adı");
+        void Commit()
         {
-            yield return ScreenKit.Muted(engine == TranslationEngine.Local ? "Sunucuya örnek bir satır gönderilir." : "Örnek bir satır çevrilir; anahtar kabul edilirse kaydedilir ve motor seçilir.", 13);
+            var (a, m) = (address.Text.Trim(), model.Text.Trim());
+            var now = controller.Settings;
+            if (custom && (a != now.CustomAiBaseUrl || m != now.CustomAiModel))
+                controller.Settings = now with { CustomAiBaseUrl = a, CustomAiModel = m };
+            else if (!custom && (a != now.LocalAiBaseUrl || m != now.LocalAiModel))
+                controller.Settings = now with { LocalAiBaseUrl = a, LocalAiModel = m };
         }
+        address.LostFocus += (_, _) => Commit();
+        model.LostFocus += (_, _) => Commit();
+        var fields = new StackPanel { Width = FieldWidth, HorizontalAlignment = HorizontalAlignment.Left };
+        fields.Children.Add(ScreenKit.Field(address, custom ? "https://openrouter.ai/api/v1" : LocalAiServer.OllamaUrl));
+        fields.Children.Add(ScreenKit.Field(model, custom ? "ör. google/gemma-3-27b-it" : LocalAiServer.DefaultModel));
+        var presets = new WrapPanel { Margin = Sp.T("0", "xs", "0", "0") };
+        (string Name, string Url)[] choices = custom
+            ? [("OpenRouter", "https://openrouter.ai/api/v1"), ("Groq", "https://api.groq.com/openai/v1"), ("Together", "https://api.together.xyz/v1"),
+               ("LM Studio", LocalAiServer.LmStudioUrl)]
+            : [("Ollama", LocalAiServer.OllamaUrl), ("LM Studio", LocalAiServer.LmStudioUrl)];
+        foreach (var (name, url) in choices)
+        {
+            var preset = ScreenKit.Button(name, "CompactButton", (_, _) => { address.Text = url; Commit(); }, $"Adres: {name}");
+            preset.Margin = Sp.T("0", "0", "xs", "xs");
+            presets.Children.Add(preset);
+        }
+        fields.Children.Add(presets);
+        panel.Children.Add(Numbered(custom ? 1 : 2, "Adres ve model", fields));
+
+        var keyArea = new StackPanel { Width = FieldWidth, HorizontalAlignment = HorizontalAlignment.Left };
+        if (controller.HasKey(engine))
+        {
+            var row = new DockPanel { Margin = Sp.T("0", "0", "0", "xs") };
+            var remove = ScreenKit.Button("Kaldır", "TextLink", (_, _) => { controller.RemoveKey(engine); testResult = null; ShowEngines(); }, "Anahtarı kaldır");
+            DockPanel.SetDock(remove, Dock.Right);
+            row.Children.Add(remove);
+            row.Children.Add(DeviceStatus.Line(DeviceState.Ready, "Anahtar kayıtlı"));
+            keyArea.Children.Add(row);
+        }
+        keyBox = new PasswordBox { MinHeight = 36 };
+        AutomationProperties.SetName(keyBox, "Anahtar (isteğe bağlı)");
+        keyArea.Children.Add(keyBox);
+        var keyHint = ScreenKit.Small(custom ? "Bulut hizmetlerinde gerekir; yerel sunucuda boş bırak. Yalnız bu bilgisayarda, şifreli saklanır." : "Çoğu yerel sunucu anahtar istemez; boş bırakabilirsin.", 12);
+        keyHint.Margin = Sp.T("0", "xxs", "0", "0");
+        keyArea.Children.Add(keyHint);
+        panel.Children.Add(Numbered(custom ? 2 : 3, "Anahtar (isteğe bağlı)", keyArea));
+        panel.Children.Add(Numbered(custom ? 3 : 4, "Dene", TestArea(engine, "Sunucuya örnek bir satır gönderilir; çalışırsa motor seçilir.", commit: Commit)));
+    }
+
+    /// <summary>Numaralı adım: solda numara, sağda başlık ve içerik.</summary>
+    private static FrameworkElement Numbered(int number, string title, UIElement content)
+    {
+        var row = new DockPanel { Margin = Sp.T("0", "s", "0", "0") };
+        var badge = ScreenKit.Mono(number.ToString(CultureInfo.InvariantCulture), 12, "mutedBrush");
+        badge.Width = 20;
+        badge.Margin = Sp.T("0", "line", "0", "0");
+        badge.VerticalAlignment = VerticalAlignment.Top;
+        DockPanel.SetDock(badge, Dock.Left);
+        row.Children.Add(badge);
+        var body = new StackPanel();
+        var heading = ScreenKit.Text(title, 14, FontWeights.SemiBold);
+        heading.Margin = Sp.T("0", "0", "0", "xs");
+        body.Children.Add(heading);
+        body.Children.Add(content);
+        row.Children.Add(body);
+        return row;
+    }
+
+    private StackPanel LinkWithHint(string link, string how, Uri uri)
+    {
+        var block = new StackPanel();
+        var open = ScreenKit.Button(link, "TextLink", (_, _) => controller.OpenInBrowser(uri));
+        open.HorizontalAlignment = HorizontalAlignment.Left;
+        block.Children.Add(open);
+        var hint = ScreenKit.Small(how, 13);
+        hint.Margin = Sp.T("0", "xxs", "0", "0");
+        block.Children.Add(hint);
+        return block;
+    }
+
+    /// <summary>"Bağlantıyı dene" (sayfanın tek sarı düğmesi) ve sonucu (Türkçe cümle; yeşil çalışıyor, kırmızı sorun).</summary>
+    private StackPanel TestArea(TranslationEngine engine, string hint, Action? commit = null)
+    {
+        var area = new StackPanel();
+        var test = ScreenKit.Button("Bağlantıyı dene", "PrimaryButton", async (sender, _) =>
+        {
+            commit?.Invoke();
+            await TestAsync((Button)sender, engine);
+        });
+        test.MinHeight = 40;
+        test.HorizontalAlignment = HorizontalAlignment.Left;
+        area.Children.Add(test);
+        FrameworkElement line = testResult is { } result
+            ? DeviceStatus.Line(testOk ? DeviceState.Ready : DeviceState.Error, result, testOk ? "successTextBrush" : "liveTextBrush")
+            : ScreenKit.Small(hint, 12);
+        if (line is StackPanel { Children: [_, TextBlock words] })
+        {
+            words.TextWrapping = TextWrapping.Wrap;
+            words.TextTrimming = TextTrimming.None;
+            words.MaxWidth = 600;
+        }
+        line.Margin = Sp.T("0", "xs", "0", "0");
+        AutomationProperties.SetLiveSetting(line, AutomationLiveSetting.Polite);
+        area.Children.Add(line);
+        return area;
     }
 
     /// <summary>"Bağlantıyı dene": yazılan anahtar (yoksa kayıtlı olan) örnek satırla denenir; süre ölçülür.</summary>
@@ -615,10 +463,12 @@ public sealed class TranslationPage : UserControl
         try
         {
             var text = Localizer.Current;
-            if (engine == TranslationEngine.Local)
+            if (engine.UsesServer())
             {
-                var result = await controller.TestLocalAiAsync(typed);
-                Report(result.State == OnlineKeyState.Valid, result.State.Describe(engine, text, controller.Settings.LocalAiServer), watch.ElapsedMilliseconds);
+                var result = engine == TranslationEngine.Custom ? await controller.TestCustomAiAsync(typed) : await controller.TestLocalAiAsync(typed);
+                var ok = result.State == OnlineKeyState.Valid;
+                if (ok && engine == TranslationEngine.Local) controller.UseEngine(engine);
+                Report(ok, result.State.Describe(engine, text, controller.Settings.ServerFor(engine)), watch.ElapsedMilliseconds);
             }
             else if (engine.Provider() is { } provider)
             {
@@ -644,7 +494,7 @@ public sealed class TranslationPage : UserControl
         finally
         {
             ShowEngines();
-            ShowSetup();
+            ShowCompare();
         }
     }
 
@@ -652,18 +502,54 @@ public sealed class TranslationPage : UserControl
     {
         testOk = ok;
         testResult = ok && ms is { } elapsed ? string.Create(CultureInfo.InvariantCulture, $"Çalışıyor · {elapsed} ms") : message;
-        // Yeni motor çalışıyorsa kör testteki sütunu da açılır.
-        if (ok && Preview is null)
+        if (ok && Preview is null) RefreshColumns();
+    }
+
+    /// <summary>Hazır motorlar değiştiyse karşılaştırmanın sütunları yenilenir (çeviri istenmez; "Karşılaştır" bekler).</summary>
+    private void RefreshColumns()
+    {
+        if (Preview is not null) return;
+        var wanted = controller.BlindTestColumns();
+        if (wanted.OrderBy(c => c.Engine).SequenceEqual(columns.OrderBy(c => c.Engine))) return;
+        columns = BlindTest.Shuffle(wanted, new Random());
+        lastColumns = columns;
+        votes.Clear();
+        results.Clear();
+        foreach (var column in columns)
+            if (LastResults.TryGetValue(column.Engine, out var cached)) results[column.Engine] = cached;
+    }
+
+    /// <summary>Ücretsiz modelin durumu: kurulu, iniyor (ilerleme) ya da "Modeli indir · 475 MB".</summary>
+    private FrameworkElement FreeModelState(bool primary)
+    {
+        var panel = new StackPanel();
+        if (controller.ModelInstalled)
         {
-            var wanted = controller.BlindTestColumns();
-            if (!wanted.OrderBy(c => c.Engine).SequenceEqual(columns.OrderBy(c => c.Engine)))
-            {
-                columns = BlindTest.Shuffle(wanted, new Random());
-                lastColumns = columns;
-                votes.Clear();
-                _ = RunAsync(force: false);
-            }
+            panel.Children.Add(ScreenKit.Small("Model bu bilgisayarda kurulu. Çeviri çevrimdışı yapılır; altyazı yazıları hiçbir yere gönderilmez.", 13));
+            return panel;
         }
+        if (controller.ModelDownloading)
+        {
+            var percent = (int)Math.Round(controller.ModelProgress * 100);
+            panel.Children.Add(ScreenKit.Small(string.Create(CultureInfo.InvariantCulture, $"Model iniyor… %{percent}"), 13));
+            var bar = new ProgressBar { Minimum = 0, Maximum = 1, Value = controller.ModelProgress, Height = 4, MaxWidth = 360, HorizontalAlignment = HorizontalAlignment.Left, Margin = Sp.T("0", "xs", "0", "0") };
+            panel.Children.Add(bar);
+            return panel;
+        }
+        panel.Children.Add(ScreenKit.Small("Ücretsiz model henüz bu bilgisayara inmedi. Bir kez indirilir; sonra çeviri internetsiz de çalışır.", 13));
+        var size = controller.ModelDownloadBytes > 0
+            ? string.Create(CultureInfo.InvariantCulture, $" · {Math.Round(controller.ModelDownloadBytes / 1_000_000d):0} MB") : "";
+        var download = ScreenKit.Button("Modeli indir" + size, primary ? "PrimaryButton" : "OutlineButton", (_, _) => controller.StartModelDownload());
+        download.MinHeight = primary ? 40 : 36;
+        download.Margin = Sp.T("0", "s", "0", "0");
+        panel.Children.Add(download);
+        if (controller.ModelError is not null)
+        {
+            var error = DeviceStatus.Line(DeviceState.Error, "İndirilemedi. İnternet bağlantını kontrol edip yeniden dene.", "liveTextBrush");
+            error.Margin = Sp.T("0", "xs", "0", "0");
+            panel.Children.Add(error);
+        }
+        return panel;
     }
 
     // ───── İleri ─────
@@ -671,7 +557,7 @@ public sealed class TranslationPage : UserControl
     /// <summary>İleri: model (yapay zekâ), ücretli Gemini anahtarı, çeviri hızı, oyun dili, ek talimat.</summary>
     private void ShowAdvanced()
     {
-        advancedToggle.Content = advancedOpen ? "İleri ayarlar ▴" : "İleri ayarlar ▾";
+        advancedToggle.Content = advancedOpen ? "İleri ayarları gizle" : "İleri ayarlar";
         advanced.Children.Clear();
         advanced.Visibility = advancedOpen ? Visibility.Visible : Visibility.Collapsed;
         if (!advancedOpen) return;
@@ -681,7 +567,7 @@ public sealed class TranslationPage : UserControl
 
         if (provider is { } ai && ai != AiProvider.Local)
         {
-            var models = new ComboBox { MinWidth = 280, HorizontalAlignment = HorizontalAlignment.Right };
+            var models = new ComboBox { MinWidth = 260, HorizontalAlignment = HorizontalAlignment.Right };
             var selected = ai.Model(settings.ModelFor(ai)).Id;
             foreach (var option in ai.Models())
                 models.Items.Add(new ComboBoxItem { Content = Localizer.Current[option.Label], Tag = option.Id, IsSelected = option.Id == selected });
@@ -690,31 +576,38 @@ public sealed class TranslationPage : UserControl
                 if (models.SelectedItem is ComboBoxItem { Tag: string id }) controller.Settings = controller.Settings.WithModel(ai, id);
             };
             AutomationProperties.SetName(models, "Model");
-            advanced.Children.Add(Line("Model", models));
+            advanced.Children.Add(Line($"{BlindTest.EngineName(engine)} modeli", models));
         }
         if (engine == TranslationEngine.Gemini)
         {
             var paid = new SwitchRow
             {
                 Content = "Ücretli Gemini anahtarı kullanıyorum",
-                Description = "Ücretsiz anahtarda Google yazıları ürünlerini geliştirmek için kullanabilir ve dakikalık sınır vardır; sınıra gelinen satırı ücretsiz model çevirir.",
+                Description = "Ücretsiz anahtarda dakikalık sınır vardır ve Google yazıları ürünlerini geliştirmek için kullanabilir; sınıra gelinen satırı ücretsiz model çevirir.",
                 IsChecked = settings.GeminiPaidTier, Divider = false,
             };
             paid.Checked += (_, _) => controller.Settings = controller.Settings with { GeminiPaidTier = true };
             paid.Unchecked += (_, _) => controller.Settings = controller.Settings with { GeminiPaidTier = false };
-            advanced.Children.Add(paid);
+            advanced.Children.Add(ScreenKit.Row(paid));
         }
 
         var pace = TranslationPaces.Match(settings);
         var paces = TranslationPaces.All;
         var paceIndex = pace is null ? -1 : paces.ToList().IndexOf(pace);
-        var paceHint = ScreenKit.Muted(pace?.Hint ?? "Bekleme süreleri elle ayarlandı (Ayarlar › Gelişmiş).", 13);
-        var paceBox = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        paceBox.Children.Add(ScreenKit.Segmented("Çeviri hızı", [.. paces.Select(p => p.Name)], paceIndex,
-            index => controller.Settings = TranslationPaces.Apply(controller.Settings, paces[index]), minWidth: 88));
-        advanced.Children.Add(Line("Çeviri hızı", paceBox));
-        paceHint.Margin = Sp.T("0", "0", "0", "s");
-        advanced.Children.Add(paceHint);
+        var paceBox = ScreenKit.Segmented("Çeviri hızı", [.. paces.Select(p => p.Name)], paceIndex,
+            index => controller.Settings = TranslationPaces.Apply(controller.Settings, paces[index]), minWidth: 80);
+        var paceBlock = new StackPanel();
+        var paceLine = new DockPanel();
+        DockPanel.SetDock(paceBox, Dock.Right);
+        paceLine.Children.Add(paceBox);
+        var paceName = ScreenKit.Text("Çeviri hızı", 14);
+        paceName.VerticalAlignment = VerticalAlignment.Center;
+        paceLine.Children.Add(paceName);
+        paceBlock.Children.Add(paceLine);
+        var paceHint = ScreenKit.Small(pace?.Hint ?? "Bekleme süreleri elle ayarlandı (Ayarlar › Gelişmiş).", 13);
+        paceHint.Margin = Sp.T("0", "xs", "0", "0");
+        paceBlock.Children.Add(paceHint);
+        advanced.Children.Add(ScreenKit.Row(paceBlock));
 
         var languages = new[] { ("en", "İngilizce"), ("ja", "Japonca"), ("de", "Almanca"), ("fr", "Fransızca"), ("es", "İspanyolca") }
             .Where(language => controller.SupportsLanguage(language.Item1)).ToList();
@@ -731,11 +624,11 @@ public sealed class TranslationPage : UserControl
             AutomationProperties.SetName(choice, "Oyunun dili");
             advanced.Children.Add(Line("Oyunun dili", choice));
             if (settings.SourceLanguage != "en")
-                advanced.Children.Add(ScreenKit.Muted("Çevrimiçi motorlar yalnız İngilizce oyunları çevirir; diğer dillerde ücretsiz model çevirir.", 13));
+                advanced.Children.Add(ScreenKit.Small("Çevrimiçi motorlar yalnız İngilizce oyunları çevirir; diğer dillerde ücretsiz model çevirir.", 13));
         }
         else
         {
-            advanced.Children.Add(Line("Çeviri dili", ScreenKit.Mono("İngilizce → Türkçe", 14, "textBrush")));
+            advanced.Children.Add(Line("Çeviri dili", ScreenKit.Text("İngilizce → Türkçe", 14)));
         }
 
         if (provider is not null)
@@ -754,7 +647,7 @@ public sealed class TranslationPage : UserControl
             var block = new StackPanel();
             block.Children.Add(ScreenKit.Text("Ek talimat", 14));
             block.Children.Add(ScreenKit.Field(instruction, "Örnek: Küfürleri yumuşatmadan çevir."));
-            var hint = ScreenKit.Muted("Yapay zekâ çevirmeninin talimatının sonuna eklenir (en çok 1000 karakter). Sözlükteki kurallar ayrıca eklenir.", 13);
+            var hint = ScreenKit.Small("Yapay zekâ motorlarının talimatının sonuna eklenir (en çok 1000 karakter). Sözlükteki kurallar ayrıca eklenir.", 13);
             hint.Margin = Sp.T("0", "xs", "0", "0");
             block.Children.Add(hint);
             advanced.Children.Add(ScreenKit.Row(block));
@@ -771,5 +664,271 @@ public sealed class TranslationPage : UserControl
         label.VerticalAlignment = VerticalAlignment.Center;
         row.Children.Add(label);
         return ScreenKit.Row(row);
+    }
+
+    // ───── Motorları karşılaştır (kör test) ─────
+
+    /// <summary>
+    /// İsteğe bağlı karşılaştırma: başlık, kısa açıklama ve "Karşılaştır" (çeviri yalnız basınca istenir). İki hazır motor
+    /// yoksa ne yapılacağı söylenir; ücretsiz model inmediyse indirme düğmesi.
+    /// </summary>
+    private void ShowCompare()
+    {
+        compare.Children.Clear();
+        compare.Children.Add(SectionTitle("Motorları karşılaştır"));
+        var lead = ScreenKit.Muted("Beş zor repliği hazır motorlarına çevirtir, adlarını gizler. Her satırda kulağına en doğal geleni seç; sonra hangi motorun kazandığını gör.", 14);
+        lead.MaxWidth = ReadableWidth;
+        lead.HorizontalAlignment = HorizontalAlignment.Left;
+        lead.Margin = Sp.T("0", "0", "0", "m");
+        compare.Children.Add(lead);
+
+        if (!controller.ModelInstalled && Preview?.Columns.Any(column => column.Engine == TranslationEngine.Free) != true)
+        {
+            var free = FreeModelState(primary: false);
+            free.Margin = Sp.T("0", "0", "0", "m");
+            free.MaxWidth = ReadableWidth;
+            free.HorizontalAlignment = HorizontalAlignment.Left;
+            compare.Children.Add(free);
+        }
+
+        if (!BlindTest.CanCompare(columns))
+        {
+            var need = ScreenKit.Small("Karşılaştırmak için en az iki hazır motor gerekir. Yukarıdaki listeden bir motor kur (Gemini ücretsiz anahtarla çalışır).", 13);
+            need.MaxWidth = ReadableWidth;
+            need.HorizontalAlignment = HorizontalAlignment.Left;
+            compare.Children.Add(need);
+            var gemini = ScreenKit.Button("Gemini'yi kur", "OutlineButton", (_, _) => GoToSetup(TranslationEngine.Gemini));
+            gemini.Margin = Sp.T("0", "s", "0", "0");
+            compare.Children.Add(gemini);
+            return;
+        }
+
+        var actions = new WrapPanel();
+        var compared = results.Count > 0 || running.Count > 0;
+        var run = ScreenKit.Button(running.Count > 0 ? "Çevriliyor…" : compared ? "Yeniden çevir" : "Karşılaştır", "OutlineButton",
+            async (_, _) => await RunAsync());
+        run.IsEnabled = running.Count == 0;
+        run.Margin = Sp.T("0", "0", "xs", "0");
+        actions.Children.Add(run);
+        if (compared)
+        {
+            var reveal = ScreenKit.Button(revealed ? "Motorları gizle" : "Motorları göster", "GhostButton", (_, _) => { revealed = !revealed; ShowCompare(); });
+            reveal.MinHeight = 36;
+            actions.Children.Add(reveal);
+        }
+        else
+        {
+            var names = string.Join(", ", columns.Select(column => BlindTest.EngineName(column.Engine)));
+            var note = ScreenKit.Small($"{columns.Count} motor: {names}. Her motora beş satır gönderilir.", 12);
+            note.VerticalAlignment = VerticalAlignment.Center;
+            actions.Children.Add(note);
+        }
+        compare.Children.Add(actions);
+        if (!compared) return;
+
+        var table = new Grid();
+        BuildTable(table);
+        var frame = new Border { BorderThickness = new Thickness(1), Child = table, Margin = Sp.T("0", "m", "0", "0"), CornerRadius = new CornerRadius(6),
+            SnapsToDevicePixels = true, ClipToBounds = true };
+        frame.SetResourceReference(Border.BorderBrushProperty, "borderBrush");
+        AutomationProperties.SetName(frame, "Örnek çeviriler");
+        compare.Children.Add(frame);
+        var hint = ScreenKit.Small("Çeviriler bu bilgisayardan gerçek motorlarla istenir; süre satır başına ortalamadır. Seçmek için hücreye tıkla.", 12);
+        hint.Margin = Sp.T("0", "xs", "0", "0");
+        compare.Children.Add(hint);
+        compare.Children.Add(Winner());
+    }
+
+    /// <summary>Karşılaştırma: hazır sütunların çevirileri aynı anda istenir. Önceki sonuçlar ve seçimler silinir.</summary>
+    private async Task RunAsync()
+    {
+        if (Preview is not null || running.Count > 0) return;
+        foreach (var column in columns) LastResults.Remove(column.Engine);
+        results.Clear();
+        votes.Clear();
+        foreach (var column in columns) running.Add(column.Engine);
+        ShowCompare();
+        await Task.WhenAll(columns.Select(async column =>
+        {
+            BlindTestResult result;
+            try { result = await controller.TranslateSamplesAsync(column.Engine, BlindTest.Lines); }
+            catch (Exception error)
+            {
+                // Ham hata yalnız günlüğe; ekranda Türkçe cümle.
+                SubtitleLog.Write($"kör test: {column.Engine} beklenmedik hata: {error.GetType().Name}: {error.Message}");
+                result = new BlindTestResult([.. BlindTest.Lines.Select(_ => (string?)null)], null, "Bu motor şu an çeviremedi. Biraz sonra yeniden dene.");
+            }
+            results[column.Engine] = result;
+            LastResults[column.Engine] = result;
+            running.Remove(column.Engine);
+            ShowCompare();
+        }));
+    }
+
+    /// <summary>Tablo: replik sütunu ve motor sütunları; başlıkta ad (gizliyse Motor A/B/C) ve seçim sayısı; açılınca ücret · hız.</summary>
+    private void BuildTable(Grid table)
+    {
+        table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star), MinWidth = 180 });
+        foreach (var _ in columns) table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var rows = BlindTest.Lines.Count + 1 + (revealed ? 1 : 0);
+        for (var r = 0; r < rows; r++) table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        void Place(UIElement element, int row, int column)
+        {
+            Grid.SetRow(element, row);
+            Grid.SetColumn(element, column);
+            table.Children.Add(element);
+        }
+
+        Place(Cell(ScreenKit.Label("Replik"), head: true), 0, 0);
+        for (var c = 0; c < columns.Count; c++)
+        {
+            var column = columns[c];
+            var name = ScreenKit.Text(revealed ? BlindTest.EngineName(column.Engine) : BlindTest.HiddenName(c), 14, FontWeights.SemiBold, wrap: false);
+            var count = ScreenKit.Small(votes.VotesText(c), 12, votes.Votes(c) > 0 ? "amberTextBrush" : "mutedBrush");
+            count.TextWrapping = TextWrapping.NoWrap;
+            count.VerticalAlignment = VerticalAlignment.Center;
+            var line = new DockPanel();
+            DockPanel.SetDock(count, Dock.Right);
+            count.Margin = Sp.T("xs", "0", "0", "0");
+            line.Children.Add(count);
+            line.Children.Add(name);
+            Place(Cell(line, head: true), 0, c + 1);
+        }
+
+        for (var r = 0; r < BlindTest.Lines.Count; r++)
+        {
+            var english = ScreenKit.Muted(BlindTest.Lines[r], 14);
+            english.LineHeight = 20;
+            Place(Cell(english), r + 1, 0);
+            for (var c = 0; c < columns.Count; c++) Place(Choice(r, c), r + 1, c + 1);
+        }
+
+        if (!revealed) return;
+        var last = BlindTest.Lines.Count + 1;
+        Place(Cell(ScreenKit.Label("Ücret · hız"), head: true), last, 0);
+        for (var c = 0; c < columns.Count; c++)
+        {
+            var result = results.GetValueOrDefault(columns[c].Engine);
+            var facts = ScreenKit.Small(BlindTest.FactsWithSpeed(columns[c].Engine, result?.AverageMs), 12);
+            Place(Cell(facts, head: true), last, c + 1);
+        }
+    }
+
+    /// <summary>Tablo hücresi: üstte kıl çizgi (ilk satırda yok); başlık hücreleri yüzey renginde.</summary>
+    private static Border Cell(UIElement child, bool head = false)
+    {
+        var cell = new Border { Child = child, Padding = Sp.T("m", "s", "m", "s"), BorderThickness = new Thickness(0, 0, 0, 1) };
+        cell.SetResourceReference(Border.BorderBrushProperty, "hairlineBrush");
+        if (head) cell.SetResourceReference(Border.BackgroundProperty, "surfaceBrush");
+        return cell;
+    }
+
+    /// <summary>
+    /// Bir satırın bir motordaki çevirisi: seçilebilir hücre. Seçili hücre sarı blok değil: hafif sarı zemin (%12), sarı yazı
+    /// ve tik. Motor çeviremediyse ilk satırda Türkçe neden, diğerlerinde boş.
+    /// </summary>
+    private FrameworkElement Choice(int row, int column)
+    {
+        var engine = columns[column].Engine;
+        var result = results.GetValueOrDefault(engine);
+        if (result is { Failed: true })
+        {
+            var reason = row == 0 ? ScreenKit.Small(result.Error ?? "Bu motor şu an çeviremedi.", 13, "liveTextBrush") : ScreenKit.Small("", 13);
+            return Cell(reason);
+        }
+        var translated = result?.Lines.ElementAtOrDefault(row);
+        var text = running.Contains(engine) ? "çevriliyor…" : translated ?? "—";
+        var picked = votes.Picked(row) == column;
+        var content = new DockPanel();
+        if (picked)
+        {
+            var check = new TextBlock { Text = "", FontSize = 12, VerticalAlignment = VerticalAlignment.Top, Margin = Sp.T("xs", "xxs", "0", "0") };
+            check.SetResourceReference(StyleProperty, "GlyphText");
+            check.SetResourceReference(TextBlock.ForegroundProperty, "amberTextBrush");
+            DockPanel.SetDock(check, Dock.Right);
+            content.Children.Add(check);
+        }
+        var words = new TextBlock { Text = text, FontSize = 15, TextWrapping = TextWrapping.Wrap, LineHeight = 22, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+            FontWeight = picked ? FontWeights.Medium : FontWeights.Normal };
+        words.SetResourceReference(TextBlock.ForegroundProperty, picked ? "amberTextBrush" : translated is null ? "mutedBrush" : "textBrush");
+        content.Children.Add(words);
+        var button = new Button
+        {
+            Content = content, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top,
+            Padding = Sp.T("m", "s", "m", "s"), Cursor = System.Windows.Input.Cursors.Hand, Template = ChoiceTemplate(), IsEnabled = translated is not null,
+            HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, BorderThickness = new Thickness(0, 0, 0, 1),
+        };
+        button.SetResourceReference(BorderBrushProperty, "hairlineBrush");
+        if (picked)
+        {
+            button.SetResourceReference(BackgroundProperty, "amberSoftBrush");
+            button.Tag = "picked";
+        }
+        else button.Background = Brushes.Transparent;
+        button.SetResourceReference(FocusVisualStyleProperty, "SegmentFocusRing");
+        AutomationProperties.SetName(button, $"{BlindTest.HiddenName(column)}: {text}{(picked ? ", seçili" : "")}");
+        button.Click += (_, _) =>
+        {
+            votes.Pick(row, column);
+            ShowCompare();
+        };
+        return button;
+    }
+
+    private static ControlTemplate ChoiceTemplate()
+    {
+        var template = new ControlTemplate(typeof(Button));
+        var border = new FrameworkElementFactory(typeof(Border), "Cell");
+        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(BackgroundProperty));
+        border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(BorderBrushProperty));
+        border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(BorderThicknessProperty));
+        border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(PaddingProperty));
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(HorizontalAlignmentProperty, new TemplateBindingExtension(HorizontalContentAlignmentProperty));
+        presenter.SetValue(VerticalAlignmentProperty, new TemplateBindingExtension(VerticalContentAlignmentProperty));
+        border.AppendChild(presenter);
+        template.VisualTree = border;
+        var hover = new MultiTrigger();
+        hover.Conditions.Add(new System.Windows.Condition(IsMouseOverProperty, true));
+        hover.Conditions.Add(new System.Windows.Condition(TagProperty, null));
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("fieldBrush"), "Cell"));
+        template.Triggers.Add(hover);
+        return template;
+    }
+
+    /// <summary>Kazanan: "Motor B önde · 3 seçim" ve "Bu motoru kullan" (seçili motorsa "Zaten bu motoru kullanıyorsun").</summary>
+    private FrameworkElement Winner()
+    {
+        var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("0", "m", "0", "0") };
+        if (votes.Winner is not { } winner || winner >= columns.Count)
+        {
+            if (votes.Count > 0) bar.Children.Add(ScreenKit.Muted("Berabere. Birkaç satır daha seç.", 14));
+            return bar;
+        }
+        var column = columns[winner];
+        var name = revealed ? BlindTest.EngineName(column.Engine) : BlindTest.HiddenName(winner);
+        var label = ScreenKit.Text($"{name} önde · {votes.VotesText(winner)}", 15, FontWeights.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.Margin = Sp.T("0", "0", "m", "0");
+        bar.Children.Add(label);
+        if (controller.Settings.Engine == column.Engine)
+        {
+            var already = ScreenKit.Muted("Zaten bu motoru kullanıyorsun.", 14);
+            already.VerticalAlignment = VerticalAlignment.Center;
+            bar.Children.Add(already);
+            return bar;
+        }
+        var use = ScreenKit.Button("Bu motoru kullan", "OutlineButton", (_, _) =>
+        {
+            controller.UseEngine(column.Engine);
+            setupEngine = column.Engine;
+            revealed = true;
+            ShowEngines();
+            ShowAdvanced();
+            ShowCompare();
+        });
+        bar.Children.Add(use);
+        return bar;
     }
 }
