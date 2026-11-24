@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
-<!-- Kurulum sihirbazı (Mac WizardView, Perde): üstte logo, ortada ilerleme noktaları (şimdiki adım amber hap), sağda "Sonra
+<!-- Kurulum sihirbazı (Mac WizardView; Çevirgen: üstte "çevirgen" adı, ilk adım platform sorusu): üstte logo, ortada ilerleme noktaları (şimdiki adım amber hap), sağda "Sonra
      Ayarlarım"; içerik alanı yanlarda 120, üstte 24, altta 40; adım etiketi ("Adım 3 / 4", "Kurulum · Hesap"), başlık,
      açıklama, adım; altta solda Geri (ikincil) ve Deneme modu, sağda adımın kısa notu ve tek ana düğme Devam. Üst çubuk ve
      alttaki Geri / Devam çubuğu cam katman: adım içeriği ikisinin de arkasından kayar. Kurulumda reklam yok. -->
@@ -33,12 +33,9 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
-                <c:CouchLogo />
-                <TextBlock Text="Çevirgen" FontWeight="Bold" FontSize="15" Margin="{t:Sp 's,0,0,0'}" VerticalAlignment="Center" />
-            </StackPanel>
+            <c:Wordmark FontSize="28" HorizontalAlignment="Left" />
             <StackPanel x:Name="Dots" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" />
-            <Button x:Name="LaterButton" Grid.Column="2" Style="{StaticResource LinkButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+            <Button x:Name="LaterButton" Grid.Column="2" Style="{StaticResource TextLink}" Foreground="{DynamicResource mutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"
                     FontSize="{DynamicResource smallFontSize}"
                     Content="{t:T 'I\'ll Set Up Later'}" Click="OnLater" />
         </Grid>

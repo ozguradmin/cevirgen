@@ -1,85 +1,110 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-using System.Windows.Controls;
+using System.ComponentModel;
 using System.Windows;
-using CouchSubs.App.Controls;
-using CouchSubs.Core;
+using System.Windows.Controls;
+using CouchSubs.App.Theme;
 using CouchSubs.Shell;
 
 namespace CouchSubs.App.Views.Steps;
 
+/// <summary>
+/// İlk açılış: "Oyunu nerede oynuyorsun?" (PS5 / Xbox / Bilgisayar / Diğer). Seçim denetleyicide bekler
+/// (<see cref="AppController.PendingPlatform"/>); sihirbazın Devam'ı uygular. Ayarlar'dan "Platformu değiştir" ile de açılır.
+/// </summary>
 public partial class WelcomeStep : UserControl
 {
-    /// <summary>"Oyun Penceresi" seçili mi (Mac WelcomeChoice.window): Devam'a basılınca uygulanır.</summary>
-    public static bool WindowChosen { get; private set; }
+    private readonly Dictionary<SetupPlatform, RadioButton> options = [];
+    private bool loading = true;
 
     public WelcomeStep()
     {
         InitializeComponent();
         Loaded += (_, _) =>
         {
-            Ps5.IsChecked = !WindowChosen && !Controller.IsXbox;
-            Xbox.IsChecked = !WindowChosen && Controller.IsXbox;
-            GameWindow.IsChecked = WindowChosen;
-            Ps5.IsEnabled = Xbox.IsEnabled = !Controller.ConsoleKindLocked;
-            ShowRequirements();
+            Build();
+            Controller.PropertyChanged += OnChanged;
+            loading = true;
+            AnonymousCount.IsChecked = Controller.AnonymousCount;
+            AnonymousCount.Description = AppController.AnonymousCountDisclosure;
+            // Açıklama ilk açılışta bir kez (kurulum Ayarlar'dan yeniden açıldıysa Ayarlar › Uygulama'da).
+            CountPanel.Visibility = Controller.PartialSetup ? Visibility.Collapsed : Visibility.Visible;
+            loading = false;
         };
-    }
-
-    /// <summary>Seçili kartın simge karesi amber ve amber ışımalı; diğerleri kendi tonunda (Mac ConsoleChoiceStep).</summary>
-    private void ShowIcons()
-    {
-        foreach (var (card, tone) in new[] { (Ps5, IconTone.Sky), (Xbox, IconTone.Olive), (GameWindow, IconTone.Peach) })
-        {
-            if (card.Tag is not IconSquare square) continue;
-            var on = card.IsChecked == true;
-            square.Tone = on ? IconTone.Amber : tone;
-            square.Effect = on ? PerdeEffects.AmberGlow(32) : null;
-        }
+        Unloaded += (_, _) => Controller.PropertyChanged -= OnChanged;
     }
 
     private AppController Controller => (AppController)DataContext;
 
-    private void OnSelected(object sender, RoutedEventArgs e)
+    /// <summary>Dört seçenek: ad (Archivo 26), nasıl çalıştığı, "Gerekenler" ve adım sayısı (sarı mono).</summary>
+    private void Build()
     {
-        if (!IsLoaded) return;
-        WindowChosen = false;
-        Controller.SelectConsoleKind(Xbox.IsChecked == true ? GameConsoleKind.Xbox : GameConsoleKind.PlayStation);
-        ShowRequirements();
-    }
-
-    private void OnWindow(object sender, RoutedEventArgs e)
-    {
-        if (!IsLoaded) return;
-        WindowChosen = true;
-        ShowRequirements();
-    }
-
-    /// <summary>"Oyun Penceresi" seçiliyse görüntü seçilen pencereden okunur, kurulum biter (Mac WizardFooter.continueStep).</summary>
-    public static bool ApplyWindowChoice(AppController controller)
-    {
-        if (!WindowChosen) return false;
-        WindowChosen = false;
-        if (controller.IsXbox) controller.UseXboxWindow();
-        else controller.UseCaptureWindow();
-        return true;
-    }
-
-    private void ShowRequirements()
-    {
-        ShowIcons();
-        var text = Localizer.Current;
-        if (WindowChosen)
+        Options.Children.Clear();
+        options.Clear();
+        var index = 0;
+        foreach (var option in SetupPlatforms.All)
         {
-            Requirements.Text = text["CouchSubs can read only the OBS projector or game window you select in Settings › Picture source. No second PSN account or additional capture app is needed."];
-            return;
+            var body = new DockPanel { LastChildFill = false };
+            var foot = new StackPanel();
+            DockPanel.SetDock(foot, Dock.Bottom);
+            var rule = new Border { Height = 1, Margin = Sp.T("0", "0", "0", "m") };
+            rule.SetResourceReference(Border.BackgroundProperty, "borderBrush");
+            foot.Children.Add(rule);
+            foot.Children.Add(Label("GEREKENLER", "mutedBrush"));
+            var needs = new TextBlock { Text = option.Needs, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = Sp.T("0", "xxs", "0", "0") };
+            needs.SetResourceReference(TextBlock.ForegroundProperty, "mutedBrush");
+            foot.Children.Add(needs);
+            var steps = Label(option.StepsText.ToUpper(new System.Globalization.CultureInfo("tr-TR")), "amberTextBrush");
+            steps.Margin = Sp.T("0", "xs", "0", "0");
+            foot.Children.Add(steps);
+            body.Children.Add(foot);
+            var top = new StackPanel();
+            DockPanel.SetDock(top, Dock.Top);
+            var name = new TextBlock { Text = option.Name, FontSize = 26 };
+            name.SetResourceReference(StyleProperty, "ScreenTitle");
+            name.FontSize = 26;
+            top.Children.Add(name);
+            var how = new TextBlock { Text = option.How, FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Margin = Sp.T("0", "xs", "0", "m"), LineHeight = 20,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+            how.SetResourceReference(TextBlock.ForegroundProperty, "subduedBrush");
+            top.Children.Add(how);
+            body.Children.Add(top);
+            var button = new RadioButton { Content = body, Tag = option.Id, VerticalContentAlignment = VerticalAlignment.Stretch, BorderThickness = new Thickness(index == 0 ? 0 : 1, 0, 0, 0) };
+            button.SetResourceReference(StyleProperty, "PlatformOption");
+            System.Windows.Automation.AutomationProperties.SetName(button, $"{option.Name}. {option.How} Gerekenler: {option.Needs}. {option.StepsText}");
+            // Xbox yardımcısı bu derlemede yoksa Xbox seçilemez.
+            button.IsEnabled = option.Id != SetupPlatform.Xbox || Controller.XboxAvailable;
+            button.IsChecked = option.Id == Controller.PendingPlatform;
+            button.Checked += (_, _) => Controller.ChoosePlatform(option.Id);
+            options[option.Id] = button;
+            Options.Children.Add(button);
+            index++;
         }
-        if (Controller.IsXbox)
+    }
+
+    private static TextBlock Label(string text, string brush)
+    {
+        var label = new TextBlock { Text = text };
+        label.SetResourceReference(StyleProperty, "MonoLabel");
+        label.SetResourceReference(TextBlock.ForegroundProperty, brush);
+        return label;
+    }
+
+    private void OnChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AppController.PendingPlatform) && options.TryGetValue(Controller.PendingPlatform, out var button))
+            button.IsChecked = true;
+        if (e.PropertyName == nameof(AppController.Settings))
         {
-            Requirements.Text = text["You will need: your home Xbox on the same network, a Microsoft account, and a TV or computer to show the subtitles. Remote play must be turned on on the Xbox."];
-            return;
+            loading = true;
+            AnonymousCount.IsChecked = Controller.AnonymousCount;
+            loading = false;
         }
-        Requirements.Text = text["You will need:"] + "\n• " + text["A PS5 on the same network as this computer"]
-            + "\n• " + text["An LG TV with the CouchSubs TV app"] + "\n• " + text["A free second PlayStation Network account"];
+    }
+
+    private void OnAnonymousCount(object sender, RoutedEventArgs e)
+    {
+        if (loading || !IsLoaded) return;
+        Controller.AnonymousCount = AnonymousCount.IsChecked == true;
     }
 }

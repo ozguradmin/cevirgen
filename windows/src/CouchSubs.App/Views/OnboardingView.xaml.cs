@@ -60,6 +60,7 @@ public partial class OnboardingView : UserControl
             ShowSteps();
         }
         else if (e.PropertyName == nameof(AppController.UsesFreeGemini)) ShowContinue();
+        else if (e.PropertyName is nameof(AppController.PendingPlatform) or nameof(AppController.PartialSetup)) ShowSteps();
         else if (e.PropertyName is nameof(AppController.Tv) or nameof(AppController.HasTv)) ShowSteps();
     }
 
@@ -88,6 +89,7 @@ public partial class OnboardingView : UserControl
             OnboardingStep.Hdmi => new HdmiStep(),
             OnboardingStep.Translation => new TranslationStep(),
             OnboardingStep.Test => new TestStep(),
+            OnboardingStep.Window => new WindowStep(),
             _ => new BetterTranslationStep(),
         };
         ShowSteps();
@@ -110,7 +112,7 @@ public partial class OnboardingView : UserControl
         var group = controller.Step switch
         {
             OnboardingStep.Welcome => 1,
-            OnboardingStep.SecondAccount or OnboardingStep.PsnLogin or OnboardingStep.Console => 2,
+            OnboardingStep.SecondAccount or OnboardingStep.PsnLogin or OnboardingStep.Console or OnboardingStep.Window => 2,
             OnboardingStep.Tv or OnboardingStep.Hdmi => 3,
             _ => 4,
         };
@@ -120,10 +122,17 @@ public partial class OnboardingView : UserControl
         {
             OnboardingStep.SecondAccount or OnboardingStep.PsnLogin => controller.IsXbox ? stepText : text["Setup · Account"],
             OnboardingStep.Hdmi => stepText + " · " + text["TV input"],
+            OnboardingStep.Window => stepText + " · Pencere",
             OnboardingStep.BetterTranslation => text["Setup · Translation"],
             _ => stepText,
         };
-        Footnote.Text = FootnoteKey() is { } key ? text[key] : "";
+        // Platform sorusunda sayaç yok (taslak); notta seçilen platform ve kurulumun uzunluğu.
+        Counter.Visibility = controller.Step == OnboardingStep.Welcome ? Visibility.Collapsed : Visibility.Visible;
+        var picked = SetupPlatforms.Option(controller.PendingPlatform);
+        Footnote.Text = controller.Step == OnboardingStep.Welcome ? $"Seçilen: {picked.Name} · {picked.StepsText}"
+            : FootnoteKey() is { } key ? text[key] : "";
+        // Ayarlar'dan açılan kurulumda "Sonra Ayarlarım" yerine "Vazgeç" (ana ekrana döner).
+        LaterButton.Content = controller.PartialSetup ? "Vazgeç" : text["I'll Set Up Later"];
         Footnote.Visibility = Footnote.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         Dots.Children.Clear();
         for (var number = 1; number <= 4; number++)
@@ -144,7 +153,7 @@ public partial class OnboardingView : UserControl
     /// <summary>Alt çubuktaki kısa not (Mac WizardText.footnote; Mac'e özgü anahtar zinciri notu Windows'ta yok).</summary>
     private string? FootnoteKey() => controller.Step switch
     {
-        OnboardingStep.Welcome => "You can change the console later in Settings.",
+        OnboardingStep.Window => "Yalnız seçilen pencere okunur; sonra Ayarlar › Cihazlar'dan değiştirebilirsin.",
         OnboardingStep.PsnLogin when !controller.IsXbox => "If sign-in opens in the browser, finish it there; the app continues by itself.",
         OnboardingStep.Console when !controller.IsXbox => "If the PS5 isn't found, tips open after 10 seconds.",
         OnboardingStep.Tv => controller.HasTv
@@ -155,7 +164,11 @@ public partial class OnboardingView : UserControl
     };
 
     /// <summary>"Sonra Ayarlarım": kurulum yarıda bırakılır, ana ekran "Kurulum Eksik" durumuyla açılır.</summary>
-    private void OnLater(object sender, RoutedEventArgs e) => ShellWindow.DeferSetup();
+    private void OnLater(object sender, RoutedEventArgs e)
+    {
+        if (controller.PartialSetup) controller.CancelPartialSetup();
+        else ShellWindow.DeferSetup();
+    }
 
     private void OnBack(object sender, RoutedEventArgs e) => controller.Back();
 
@@ -165,10 +178,6 @@ public partial class OnboardingView : UserControl
         ShowStep();
     }
 
-    private void OnContinue(object sender, RoutedEventArgs e)
-    {
-        // Karşılamada "Oyun Penceresi" seçildiyse görüntü seçilen pencereden okunur, kurulum biter (Mac ile aynı).
-        if (controller.Step == OnboardingStep.Welcome && WelcomeStep.ApplyWindowChoice(controller)) return;
-        controller.Advance();
-    }
+    /// <summary>Devam: karşılamada seçilen platform uygulanır, sihirbaz o platformun sıradaki adımına geçer.</summary>
+    private void OnContinue(object sender, RoutedEventArgs e) => controller.Advance();
 }

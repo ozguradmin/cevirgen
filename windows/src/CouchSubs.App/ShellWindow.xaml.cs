@@ -3,8 +3,10 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using CouchSubs.App.Controls;
 using CouchSubs.App.Services;
 using CouchSubs.App.Theme;
@@ -12,24 +14,45 @@ using CouchSubs.App.Views;
 using CouchSubs.Shell;
 using CouchSubs.Core;
 using Microsoft.Win32;
+using Hyperlink = System.Windows.Documents.Hyperlink;
+using Run = System.Windows.Documents.Run;
 
 namespace CouchSubs.App;
 
-/// <summary>Üst çubuktaki sekmeler (Profil sayfası yok; her şey Ayarlar'da).</summary>
-public enum ShellTab { Home, History, Settings }
+/// <summary>Üst çubuktaki bölümler (taslak sırasıyla).</summary>
+public enum ShellTab { Home, Appearance, Translation, History, Settings }
 
 /// <summary>
-/// Uygulamanın tek penceresi: kurulum bitmediyse sihirbaz; bittiyse üst çubuk (logo, Ana Ekran / Geçmiş / Ayarlar,
-/// durum hapı), seçili sayfa ve reklam bandı. Eskiden Ayarlar ve Geçmiş ayrı pencerede açılıyordu.
+/// Uygulamanın tek penceresi: kurulum bitmediyse sihirbaz; bittiyse güncelleme şeridi, duyuru, üst çubuk (çevirgen adı,
+/// bölüm sekmeleri, cihaz durumu, başlat/durdur), seçili sayfa ve reklam bandı.
 /// </summary>
 public partial class ShellWindow : Window
 {
+    /// <summary>
+    /// Sekmelerin sayfaları. 2. bölüm (Görünüm, Çeviri, Geçmiş ve sözlük, Alanları düzenle) kendi ekranlarını buraya bağlar;
+    /// şimdilik Görünüm eski görünüm düzenleyicisini, Çeviri Ayarlar › Gelişmiş'i (motor seçimi orada), Geçmiş eski Geçmiş'i açar.
+    /// Canlı ekran (MainView) bir kez kurulur ve saklanır; diğerleri her açılışta güncel ayarlarla yeniden kurulur.
+    /// </summary>
+    internal static readonly Dictionary<ShellTab, Func<AppController, FrameworkElement>> Pages = new()
+    {
+        [ShellTab.Appearance] = controller => new AppearancePage(controller),
+        [ShellTab.Translation] = controller =>
+        {
+            var page = new SettingsView(controller);
+            page.Show(SettingsGroup.Advanced);
+            return page;
+        },
+        [ShellTab.History] = controller => new HistoryView(controller),
+        [ShellTab.Settings] = controller => new SettingsView(controller),
+    };
+
     private readonly AppController controller;
     private bool showingMain;
     private GlobalHotkeys? hotkeys;
     private ShellTab tab = ShellTab.Home;
     private MainView? home;
     private bool switching;
+    private string? notesVersion;
     private static ShellWindow? current;
 
     public ShellWindow(AppController controller)
@@ -44,8 +67,10 @@ public partial class ShellWindow : Window
         Deactivated += (_, _) => MotionGate.WindowActive = false;
         StateChanged += (_, _) => MotionGate.WindowActive = WindowState != WindowState.Minimized && IsActive;
         MotionGate.Translating = controller.IsRunning;
-        // Reklam listesi sonradan gelirse alt cam şerit ve sayfaların alt boşluğu güncellenir.
-        void OnAds() => Dispatcher.BeginInvoke(ApplyInsets);
+        // Sayfalar artık çubukların arkasından kaymaz; eski sayfaların içeriden başlama payı sıfır.
+        Root.Resources["shell.inset"] = new Thickness(0);
+        // Reklam listesi sonradan gelirse bant görünür olur.
+        void OnAds() => Dispatcher.BeginInvoke(ApplyAds);
         AdCatalog.Changed += OnAds;
         Closed += (_, _) => AdCatalog.Changed -= OnAds;
         ThemeManager.Changed += PaintCaption;
@@ -53,8 +78,8 @@ public partial class ShellWindow : Window
         controller.TvPairingRequested += OnTvPairing;
         // Bilgisayar uykudan uyanınca bağlantılar hemen yenilenir.
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
-        // Kısayollar (varsayılan Num 0, 1, 2, 3, 5, 7, 8, 9 ve Ctrl+Shift+rakam; Ayarlar › Kısayollar'da değişir) yalnız
-        // çeviri sürerken tutulur.
+        // Kısayollar (varsayılan Num 0, 1, 2, 3, 5, 7, 8, 9, Ctrl+Shift+rakam ve Ctrl+H; Ayarlar › Kısayollar'da değişir)
+        // yalnız çeviri sürerken tutulur.
         SourceInitialized += (_, _) =>
         {
             hotkeys = new GlobalHotkeys(new WindowInteropHelper(this).Handle, OnHotkey);
@@ -88,14 +113,15 @@ public partial class ShellWindow : Window
             controller.Dispose();
         };
         ShowScreen(force: true);
+        ShowUpdate();
+        ShowAnnouncement();
     }
 
     private bool pairingShown;
 
     /// <summary>
     /// "Bu TV eşleşsin mi?" penceresi. Pencere açıkken gelen yeni istek (TV'de Tamam ile yeniden denendi, TV uygulaması
-    /// yeniden açıldı) ikinci pencere açmaz; pencere kapanınca bekleyen istek yeni koduyla gösterilir. Eskiden eski koddan
-    /// verilen onay "süresi doldu" deyip bitiyordu, TV'nin bekleyen yeni isteği bilgisayarda hiç görünmüyordu (Mac ile aynı).
+    /// yeniden açıldı) ikinci pencere açmaz; pencere kapanınca bekleyen istek yeni koduyla gösterilir (Mac ile aynı).
     /// </summary>
     private void OnTvPairing(SubtitlePairing.Ticket ticket)
     {
@@ -108,7 +134,6 @@ public partial class ShellWindow : Window
             for (var current = ticket; ;)
             {
                 var message = text.Format("TV code: %@. You don't type this code anywhere: if your TV shows the same code, approve it here.", current.Code);
-                // Açılır kart: kod iki ekranda; onay amber ana eylem.
                 var approved = DesignDialog.Confirm(this, text["Pair this TV?"], message, text["I See This Code on the TV"], text["Cancel"]);
                 var resolved = controller.ResolveTvPairing(current.Id, approved);
                 if (controller.PendingTvPairing is { } next && next.Id != current.Id) { current = next; continue; }
@@ -130,7 +155,8 @@ public partial class ShellWindow : Window
         }
         if (e.PropertyName is nameof(AppController.IsRunning) or nameof(AppController.IsStarting) or nameof(AppController.DemoMode)
             or nameof(AppController.Step) or nameof(AppController.Ps5Tone) or nameof(AppController.TvTone) or nameof(AppController.SessionState)
-            or nameof(AppController.Settings))
+            or nameof(AppController.Settings) or nameof(AppController.CanStart) or nameof(AppController.TvClients) or nameof(AppController.Tv)
+            or nameof(AppController.Console) or nameof(AppController.TranslatorStatus) or nameof(AppController.OnlineIssue))
             ShowStatus();
         if (e.PropertyName is nameof(AppController.Settings)) Motion.AnimationsEnabled = controller.Settings.TransitionAnimations;
         if (e.PropertyName is nameof(AppController.IsRunning)) MotionGate.Translating = controller.IsRunning;
@@ -141,6 +167,10 @@ public partial class ShellWindow : Window
             Dispatcher.BeginInvoke(() => PopupAdWindow.Offer(this, controller, PopupAdMoment.AppLaunch), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         if (e.PropertyName is nameof(AppController.IsRunning) or nameof(AppController.HotkeysPaused) or nameof(AppController.Settings))
             ApplyHotkeys();
+        if (e.PropertyName is nameof(AppController.UpdateVersion) or nameof(AppController.Updating)
+            or nameof(AppController.UpdateProgress) or nameof(AppController.UpdateError))
+            ShowUpdate();
+        if (e.PropertyName is nameof(AppController.CurrentAnnouncement)) ShowAnnouncement();
     }
 
     /// <summary>Kısayol tablosu ayarlardan gelir; Ayarlar'da yeni tuş beklenirken kısayollar bırakılır.</summary>
@@ -174,9 +204,10 @@ public partial class ShellWindow : Window
         ShowStatus();
         if (!force && main == showingMain) return;
         showingMain = main;
-        // Kurulumda üst çubuk ve reklam bandı yok (sihirbazın kendi çubuğu var).
-        TopBar.Visibility = TopGlass.Visibility = main ? Visibility.Visible : Visibility.Collapsed;
-        ApplyInsets();
+        // Kurulumda üst çubuk, duyuru ve reklam bandı yok (sihirbazın kendi çubuğu var). Güncelleme şeridi her yerde.
+        TopBar.Visibility = main ? Visibility.Visible : Visibility.Collapsed;
+        ApplyAds();
+        ShowAnnouncement();
         home?.Detach();
         if (!main)
         {
@@ -185,6 +216,7 @@ public partial class ShellWindow : Window
             return;
         }
         home = new MainView(controller);
+        _ = controller.CheckForUpdateAsync();
         // Açılır reklam: yalnız açılışta ya da çeviri durunca, günde en fazla bir kez (PopupAdPolicy).
         Dispatcher.BeginInvoke(() => PopupAdWindow.Offer(this, controller, PopupAdMoment.AppLaunch), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         tab = ShellTab.Home;
@@ -203,125 +235,239 @@ public partial class ShellWindow : Window
         window.ShowScreen();
     }
 
-    /// <summary>Yalnız ekran görüntüsü aracı (--render-screens): pencere gösterilmeden sekme ve Ayarlar sayfası seçilir.</summary>
-    internal void ShowForRender(ShellTab chosen, int? settingsPage = null)
+    /// <summary>Yalnız ekran görüntüsü aracı (--render-screens): pencere gösterilmeden sekme ve Ayarlar bölümü seçilir.</summary>
+    internal void ShowForRender(ShellTab chosen, SettingsGroup? group = null)
     {
         if (!showingMain) return;
         SelectTab(chosen, null);
-        if (settingsPage is { } page && Host.Content is SettingsView settings) settings.ShowPage(page);
+        if (group is { } page && Host.Content is SettingsView settings) settings.Show(page);
     }
 
-    /// <summary>Başka bir yerden sekme açar (ana ekrandaki "Ayarlar › Çeviri" satırı, menüler, kısayollar).</summary>
+    /// <summary>Ekran görüntüsü aracı: canlı ekranın kendisi (örnek altyazı olayları vermek için).</summary>
+    internal MainView? Home => home;
+
+    /// <summary>Başka bir yerden sekme açar (Canlı ekrandaki bağlantılar, menüler, kısayollar).</summary>
     public static void Navigate(ShellTab tab, SettingsSection? section = null)
     {
         if (current is not { } window) return;
         if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
         window.Activate();
-        if (window.showingMain) window.SelectTab(tab, section);
+        if (!window.showingMain) return;
+        // Eski bölüm adları: Görünüm artık kendi sekmesinde.
+        if (tab == ShellTab.Settings && section == SettingsSection.Appearance) { window.SelectTab(ShellTab.Appearance, null); return; }
+        window.SelectTab(tab, section is { } wanted ? SettingsView.GroupFor(wanted) : null);
+    }
+
+    /// <summary>Ayarlar'ı belli bir bölümde açar.</summary>
+    public static void Navigate(SettingsGroup group)
+    {
+        if (current is not { } window) return;
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        window.Activate();
+        if (window.showingMain) window.SelectTab(ShellTab.Settings, group);
     }
 
     private void OnTab(object sender, RoutedEventArgs e)
     {
         if (switching || !showingMain) return;
-        var chosen = sender == HistoryTab ? ShellTab.History : sender == SettingsTab ? ShellTab.Settings : ShellTab.Home;
+        var chosen = sender == AppearanceTab ? ShellTab.Appearance : sender == TranslationTab ? ShellTab.Translation
+            : sender == HistoryTab ? ShellTab.History : sender == SettingsTab ? ShellTab.Settings : ShellTab.Home;
         SelectTab(chosen, null);
     }
 
+    private void OnWordmark(object sender, RoutedEventArgs e)
+    {
+        if (showingMain) SelectTab(ShellTab.Home, null);
+    }
+
     /// <summary>
-    /// Sekmeyi açar. Ana ekran bir kez kurulur ve saklanır (canlı altyazı, oyun durumu kaybolmasın); Geçmiş ve Ayarlar her
-    /// açılışta yeniden kurulur (eskiden pencere her açıldığında olduğu gibi güncel ayarlarla).
+    /// Sekmeyi açar. Canlı ekran bir kez kurulur ve saklanır (canlı altyazı, oyun durumu kaybolmasın); diğer sayfalar her
+    /// açılışta yeniden kurulur (güncel ayarlarla).
     /// </summary>
-    private void SelectTab(ShellTab chosen, SettingsSection? section)
+    private void SelectTab(ShellTab chosen, SettingsGroup? group)
     {
         switching = true;
-        (chosen switch { ShellTab.History => HistoryTab, ShellTab.Settings => SettingsTab, _ => HomeTab }).IsChecked = true;
+        (chosen switch
+        {
+            ShellTab.Appearance => AppearanceTab,
+            ShellTab.Translation => TranslationTab,
+            ShellTab.History => HistoryTab,
+            ShellTab.Settings => SettingsTab,
+            _ => HomeTab,
+        }).IsChecked = true;
         switching = false;
+        // Ayarlar'da sağda "Kurulumu baştan başlat"; diğer sekmelerde cihaz durumu ve başlat/durdur.
+        RestartSetup.Visibility = chosen == ShellTab.Settings ? Visibility.Visible : Visibility.Collapsed;
+        StatusArea.Visibility = chosen == ShellTab.Settings ? Visibility.Collapsed : Visibility.Visible;
         if (chosen == tab && Host.Content is FrameworkElement shown && shown is not OnboardingView)
         {
-            if (section is { } wanted && shown is SettingsView open) open.Show(wanted);
+            if (group is { } wanted && shown is SettingsView open) open.Show(wanted);
             return;
         }
         tab = chosen;
-        // Ortam ışığı yalnız Ana Ekran'da (ve kurulumda) süzülür; Geçmiş ve Ayarlar'da durağan (boşta ≤ %2 işlemci).
-        Ambient.Animated = chosen == ShellTab.Home;
-        switch (chosen)
+        if (chosen == ShellTab.Home)
         {
-            case ShellTab.History:
-                Show(new HistoryView(controller));
-                break;
-            case ShellTab.Settings:
-                var settings = new SettingsView(controller);
-                Show(settings);
-                settings.Show(section);
-                break;
-            default:
-                Show(home ??= new MainView(controller));
-                break;
+            Show(home ??= new MainView(controller));
+            return;
         }
+        var page = Pages[chosen](controller);
+        if (group is { } section && page is SettingsView settings) settings.Show(section);
+        Show(page);
     }
 
-    /// <summary>
-    /// Sayfaların cam çubuklar kadar içeriden başlayıp bitmesi (shell.inset): üstte çubuk yüksekliği, altta reklam şeridi.
-    /// Sayfalar bu boşluğu kaydırılan içeriğin içine koyar; böylece içerik çubukların arkasından kayar. Kurulumda sıfır.
-    /// </summary>
-    private void ApplyInsets()
-    {
-        var ads = showingMain && AdCatalog.Banners.Count > 0;
-        Ads.Visibility = BottomGlass.Visibility = ads ? Visibility.Visible : Visibility.Collapsed;
-        var top = showingMain ? Palette.Size["header"] : 0;
-        var bottom = ads ? Palette.Size["adBand"] + Sp.V("xs") + Sp.V("m") : 0;
-        Root.Resources["shell.inset"] = new Thickness(0, top, 0, bottom);
-        Ambient.Animated = !showingMain || tab == ShellTab.Home;
-    }
+    /// <summary>Reklam bandı yalnız ana ekranlarda ve reklam varken.</summary>
+    private void ApplyAds() =>
+        Ads.Visibility = showingMain && AdCatalog.Banners.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>Sayfa geçişi: yeni sayfa 8 px aşağıdan kayarak ve solarak gelir (hareket azaltılmışsa yalnız solma).</summary>
+    /// <summary>Sayfa geçişi: yeni sayfa kısaca solarak gelir (hareket azaltılmışsa yalnız solma).</summary>
     private void Show(FrameworkElement page)
     {
         Host.Content = page;
-        Motion.EnterFrom(page, 8, Motion.Page);
+        Motion.EnterFrom(page, 4, Motion.Page);
     }
 
+    // ───── Cihaz durumu ve başlat/durdur ─────
+
     /// <summary>
-    /// Durum hapı: çeviri sürüyorsa yeşil "Çeviri Açık"; bağlanırken amber "Bağlanıyor…"; sorun varsa kırmızı "Sorun Var";
-    /// kurulum bitmediyse gri "Kurulum Eksik"; deneme modunda amber "Deneme Modu"; yoksa gri "Hazır" (Mac ile aynı).
+    /// Üst çubuğun sağı: "● PS5-010  ● Oturma Odası TV'si  ● Gemini 2.5 Flash" (yeşil bağlı/hazır, turuncu sorun, gri
+    /// kurulmamış) ve çeviriyi başlat/durdur düğmesi.
     /// </summary>
     private void ShowStatus()
     {
-        var kind = ShellStatus.For(controller.DemoMode, controller.Step == OnboardingStep.Done, controller.IsRunning, controller.IsStarting,
-            controller.Ps5Tone, controller.ShowsOnTv ? controller.TvTone : StatusTone.Good);
-        var (tone, key) = kind switch
+        StatusLine.Children.Clear();
+        foreach (var item in DeviceStatus.Items(controller))
         {
-            ShellStatusKind.Demo => (PillTone.Attention, "Demo Mode"),
-            ShellStatusKind.SetupIncomplete => (PillTone.Idle, "Setup Incomplete"),
-            ShellStatusKind.NeedsAttention => (PillTone.Live, "Needs Attention"),
-            ShellStatusKind.Connecting => (PillTone.Attention, "Connecting…"),
-            ShellStatusKind.TranslationOn => (PillTone.On, "Translation On"),
-            _ => (PillTone.Idle, "Ready"),
-        };
-        Status.Tone = tone;
-        Status.Text = Localizer.Current[key];
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = Sp.T("0", "0", "m", "0"), VerticalAlignment = VerticalAlignment.Center, ToolTip = item.Hint };
+            var dot = new Ellipse { Width = 7, Height = 7, VerticalAlignment = VerticalAlignment.Center, Margin = Sp.T("0", "0", "xs", "0") };
+            dot.SetResourceReference(Shape.FillProperty, ToneBrush(item.Tone));
+            row.Children.Add(dot);
+            var label = new TextBlock { Text = item.Text, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
+            label.SetResourceReference(TextBlock.ForegroundProperty, "mutedBrush");
+            row.Children.Add(label);
+            System.Windows.Automation.AutomationProperties.SetName(row, $"{item.Text}: {item.Hint}");
+            StatusLine.Children.Add(row);
+        }
+        ShowToggle();
     }
+
+    internal static string ToneBrush(DeviceTone tone) => tone switch
+    {
+        DeviceTone.Ok => "successBrush",
+        DeviceTone.Warn => "warnBrush",
+        _ => "faintBrush",
+    };
+
+    /// <summary>Başlat/durdur: çeviri sürerken kareli "Çeviriyi durdur", durmuşken "Çeviriyi başlat"; deneme modunda çıkış.</summary>
+    private void ShowToggle()
+    {
+        var text = Localizer.Current;
+        var running = controller.IsRunning;
+        var demo = controller.DemoMode;
+        Toggle.Style = (Style)FindResource(running || demo ? "LiveButton" : "SecondaryButton");
+        Toggle.Content = controller.IsStarting ? text["Starting…"] : demo ? text["Exit Demo Mode"] : running ? "Çeviriyi durdur" : "Çeviriyi başlat";
+        // Altyazının gideceği bir yer yoksa (TV seçili ama bağlı değil) çeviri başlatılamaz.
+        Toggle.IsEnabled = !controller.IsStarting && (running || demo || controller.CanStart);
+    }
+
+    private async void OnToggle(object sender, RoutedEventArgs e) => await ToggleTranslationAsync(controller);
 
     /// <summary>
-    /// "Günlüğü Kopyala": günlükler maskelenip zip olur, zip panoya DOSYA olarak konur (yapıştırınca dosya gelir); altında
-    /// kısa onay ve "Gezgin'de Göster". Sürerken "Kopyalanıyor…" yazar, basılamaz.
+    /// Çeviriyi başlatır ya da durdurur (deneme modunda çıkar). async void'den kaçan hata genel hata işleyicisine düşerdi;
+    /// hata kaydedilir ve gösterilir, uygulama açık kalır. Canlı ekrandaki büyük "Çeviriyi başlat" da bunu çağırır.
     /// </summary>
-    private async void OnCopyLog(object sender, RoutedEventArgs e)
+    internal static async Task ToggleTranslationAsync(AppController controller)
     {
-        LogCopy.IsEnabled = false;
-        LogCopyText.Text = Localizer.Current["Copying…"];
-        var zip = await LogArchive.CopyAsync();
-        LogCopy.IsEnabled = true;
-        LogCopyText.Text = Localizer.Current["Copy Log"];
-        LogCopiedOk.Visibility = LogShow.Visibility = zip is null ? Visibility.Collapsed : Visibility.Visible;
-        LogCopyFailed.Visibility = zip is null ? Visibility.Visible : Visibility.Collapsed;
-        LogCopied.IsOpen = true;
+        var starting = !controller.IsRunning;
+        try
+        {
+            if (controller.DemoMode) controller.ExitDemo();
+            else if (starting) await controller.StartAsync(); else controller.Stop();
+        }
+        catch (Exception error)
+        {
+            StartupGuard.Log(starting ? "Çeviri başlatılamadı" : "Çeviri durdurulamadı", error);
+            StartupGuard.Show(Application.Current, StartupGuard.ErrorMessage(error));
+        }
     }
 
-    private void OnShowLog(object sender, RoutedEventArgs e)
+    /// <summary>"Kurulumu baştan başlat": onaydan sonra kayıtlı her şey (hesap, eşleşmeler) silinir, sihirbaz baştan açılır.</summary>
+    private void OnRestartSetup(object sender, RoutedEventArgs e) => SettingsView.ConfirmReset(this, controller);
+
+    // ───── Güncelleme şeridi ─────
+
+    /// <summary>Yeni sürüm varken en üstte tam genişlikte sarı şerit: başlık, açıklama/hata, ilerleme, "Şimdi güncelle".</summary>
+    private void ShowUpdate()
     {
-        LogCopied.IsOpen = false;
-        LogArchive.ShowInExplorer();
+        if (notesVersion is not null && notesVersion != controller.UpdateVersion)
+        {
+            UpdateNotes.Visibility = Visibility.Collapsed;
+            UpdateNotesText.Inlines.Clear();
+            notesVersion = null;
+        }
+        UpdateBanner.Visibility = controller.UpdateVersion is null ? Visibility.Collapsed : Visibility.Visible;
+        if (controller.UpdateVersion is null) return;
+        UpdateTitle.Text = Localizer.Brand(controller.UpdateTitle);
+        UpdateButton.Content = Localizer.Brand(controller.UpdateButtonText);
+        UpdateButton.IsEnabled = !controller.Updating;
+        UpdateBar.Visibility = controller.Updating ? Visibility.Visible : Visibility.Collapsed;
+        UpdateBar.Value = controller.UpdateProgress;
+        var problem = controller.UpdateError ?? controller.UpdateHint;
+        UpdateHintText.Text = problem is null ? "" : Localizer.Brand(problem);
+        UpdateHintText.Visibility = problem is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private async void OnUpdate(object sender, RoutedEventArgs e) => await controller.InstallUpdateAsync();
+
+    /// <summary>"Sürüm notları": şeridin altında açılır/kapanır; notlar GitHub sürüm sayfasından bir kez yüklenir.</summary>
+    private async void OnUpdateNotes(object sender, RoutedEventArgs e)
+    {
+        if (UpdateNotes.Visibility == Visibility.Visible)
+        {
+            UpdateNotes.Visibility = Visibility.Collapsed;
+            return;
+        }
+        UpdateNotes.Visibility = Visibility.Visible;
+        if (controller.UpdateVersion is not { } version || notesVersion == version) return;
+        notesVersion = version;
+        UpdateNotesText.Text = Localizer.Current["Loading release notes…"];
+        var notes = await controller.LoadUpdateNotesAsync(version);
+        if (controller.UpdateVersion != version || notesVersion != version) return;
+        UpdateNotesText.Inlines.Clear();
+        foreach (var note in notes)
+        {
+            var run = new Run(note.Text);
+            if (note.Bold) run.FontWeight = FontWeights.SemiBold;
+            if (note.Link is not { } url) UpdateNotesText.Inlines.Add(run);
+            else
+            {
+                var link = new Hyperlink(run) { NavigateUri = url, Foreground = new SolidColorBrush(Color.FromRgb(0x0F, 0x10, 0x14)) };
+                link.RequestNavigate += (_, args) => { controller.OpenInBrowser(args.Uri); args.Handled = true; };
+                UpdateNotesText.Inlines.Add(link);
+            }
+        }
+        if (notes.Count == 0)
+        {
+            UpdateNotesText.Text = Localizer.Current["Release notes are unavailable."];
+            notesVersion = null;
+        }
+    }
+
+    // ───── Duyuru ─────
+
+    /// <summary>Sunucudaki duyuru (kullanıcı kapatmadıysa): yalnız ana ekranlarda; bağlantısı varsa "Aç →".</summary>
+    private void ShowAnnouncement()
+    {
+        var announcement = controller.CurrentAnnouncement;
+        AnnouncementBar.Visibility = showingMain && announcement is not null ? Visibility.Visible : Visibility.Collapsed;
+        AnnouncementText.Text = announcement?.Text ?? "";
+        AnnouncementOpen.Visibility = announcement?.Link is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnOpenAnnouncement(object sender, RoutedEventArgs e) => controller.OpenAnnouncement();
+
+    private void OnDismissAnnouncement(object sender, RoutedEventArgs e)
+    {
+        if (controller.CurrentAnnouncement is { } announcement) controller.DismissAnnouncement(announcement.Id);
     }
 
     /// <summary>

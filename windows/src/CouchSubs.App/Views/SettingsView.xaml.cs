@@ -18,8 +18,11 @@ using Microsoft.Win32;
 
 namespace CouchSubs.App.Views;
 
-/// <summary>Ayarların doğrudan açılabilen bölümleri.</summary>
+/// <summary>Ayarların doğrudan açılabilen eski bölüm adları (Canlı ekran, tepsi, sihirbaz); <see cref="SettingsView.GroupFor"/>.</summary>
 public enum SettingsSection { Appearance, Translation, PictureSource }
+
+/// <summary>Çevirgen Ayarlar'ın altı bölümü (taslak: Settings.dc.html), soldaki listenin sırasıyla.</summary>
+public enum SettingsGroup { Devices, Areas, Dubbing, Shortcuts, Advanced, App }
 
 public partial class SettingsView : UserControl
 {
@@ -130,14 +133,18 @@ public partial class SettingsView : UserControl
         ShowTvStatus();
         Sections.SelectedIndex = 0;
         ShowHeading();
-        // Yazı boyutu, koyuluk ve yazı rengi artık düzenleyicide; eski satırlar gizlenir (ayarın kendisi aynı).
-        AppearanceHost.Content = new AppearanceEditor(controller);
+        // Yazı boyutu, koyuluk ve yazı rengi Görünüm sekmesindeki düzenleyicide; eski satırlar gizlenir (ayarın kendisi aynı).
         foreach (var old in new FrameworkElement[] { TextSizeUnit, BackgroundUnit, TextColorUnit })
             old.Visibility = Visibility.Collapsed;
         RemotePlayAppChoice.SelectedItem = RemotePlayAppChoice.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == settings.RemotePlayApp.ToString());
         XboxAudioOnComputer.IsChecked = settings.XboxAudioOnComputer;
         XboxLegacyFrameRate.IsChecked = settings.XboxLegacyFrameRate;
         ShowConsole();
+        ShowDisplayModeSegment();
+        // Çevirgen: anonim sayım (KVKK açıklaması satırın altında) ve arayüz dili.
+        AnonymousCount.IsChecked = controller.AnonymousCount;
+        AnonymousCount.Description = AppController.AnonymousCountDisclosure;
+        InterfaceLanguage.Text = Localizer.Current.Language == "tr" ? "Türkçe" : System.Globalization.CultureInfo.CurrentUICulture.NativeName;
         ShowPasscode();
         BuildShortcuts();
         ShowShortcutTexts();
@@ -221,8 +228,10 @@ public partial class SettingsView : UserControl
         (xbox ? ConsoleXbox : ConsolePlayStation).IsChecked = true;
         loading = wasLoading;
         // Kart her zaman görünür (Mac ConsoleSettingsCard); Xbox kapalıysa yalnız PS5 ↔ Xbox seçici gizlenir.
-        ConsoleTabs.Visibility = controller.XboxAvailable ? Visibility.Visible : Visibility.Collapsed;
-        ConsolePlayStationHint.Visibility = xbox ? Visibility.Collapsed : Visibility.Visible;
+        // Çevirgen: PS5 ↔ Xbox seçici yerine "Platformu değiştir"; PS5 bilgisi Konsol bölümünün satırlarında.
+        ConsoleTabs.Visibility = Visibility.Collapsed;
+        ConsolePlayStationHint.Visibility = Visibility.Collapsed;
+        ShowDeviceRows();
         var text = Localizer.Current;
         if (controller.Console is { } ps5)
         {
@@ -254,7 +263,121 @@ public partial class SettingsView : UserControl
         ConsoleXboxLink.Content = Localizer.Current["Choose your Xbox"];
         ConsoleXboxSignedIn.Visibility = controller.HasXboxAccount ? Visibility.Visible : Visibility.Collapsed;
         ShowFrameSource();
-        PasscodeTab.Visibility = xbox ? Visibility.Collapsed : Visibility.Visible;
+        PasscodeTab.Visibility = xbox || controller.Platform != SetupPlatform.Ps5 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Cihazlar › Konsol satırları (taslak): platform ve "Platformu değiştir"; PS5 adı, adresi ve eşleşmesi ("Başka PS5 ekle",
+    /// "Eşleşmeyi kaldır"); ikinci PSN hesabı ("Hesabı değiştir"); Xbox (bağla / hesap kartı). Yalnız platforma uyanlar görünür.
+    /// </summary>
+    private void ShowDeviceRows()
+    {
+        var platform = controller.Platform;
+        var option = SetupPlatforms.Option(platform);
+        PlatformName.Text = $"Platform: {option.Name}";
+        PlatformDesc.Text = option.How;
+        var ps5 = platform == SetupPlatform.Ps5;
+        Ps5Item.Visibility = PsnItem.Visibility = ps5 ? Visibility.Visible : Visibility.Collapsed;
+        if (controller.Console is { } console)
+        {
+            Ps5Name.Text = string.IsNullOrEmpty(console.Name) ? "PS5" : console.Name;
+            Ps5Desc.Text = $"{console.Host} · eşleşti";
+        }
+        else
+        {
+            Ps5Name.Text = "PS5 eşleşmedi";
+            Ps5Desc.Text = "Uzaktan Oynatma'yı aç, PS5'te Ayarlar › Sistem › Uzaktan Oynatma › Cihazı Eşle.";
+        }
+        AddPs5.Content = controller.Console is null ? "PS5 eşle" : "Başka PS5 ekle";
+        ForgetPs5.Visibility = controller.Console is null ? Visibility.Collapsed : Visibility.Visible;
+        ChangePsn.Content = controller.HasAccount ? "Hesabı değiştir" : "Hesabı bağla";
+        var xbox = platform == SetupPlatform.Xbox;
+        XboxItem.Visibility = xbox ? Visibility.Visible : Visibility.Collapsed;
+        ConsoleCard.Visibility = xbox && controller.HasXboxAccount ? Visibility.Visible : Visibility.Collapsed;
+        XboxDesc.Text = controller.HasXboxAccount
+            ? controller.SelectedXboxConsole is { } box ? $"Microsoft hesabıyla bağlı · {(string.IsNullOrEmpty(box.Name) ? "Xbox" : box.Name)}" : "Microsoft hesabıyla bağlı · Xbox seçilmedi"
+            : "Microsoft hesabıyla bağlanır. Bağlı değil.";
+        XboxConnect.Content = controller.HasXboxAccount ? "Xbox seç" : "Xbox bağla";
+    }
+
+    /// <summary>"Platformu değiştir": sihirbaz platform sorusundan açılır; yalnız eksik adımlar gelir, öteki ayarlar kalır.</summary>
+    private void OnChangePlatform(object sender, RoutedEventArgs e) => controller.BeginPlatformChange();
+
+    /// <summary>"Başka PS5 ekle" / "PS5 eşle": PS5 eşleştirme adımı (hesap duruyorsa yalnız o).</summary>
+    private void OnAddPs5(object sender, RoutedEventArgs e) =>
+        controller.RunSetupStep(controller.HasAccount ? OnboardingStep.Console : OnboardingStep.SecondAccount);
+
+    /// <summary>"Eşleşmeyi kaldır": onaydan sonra PS5 eşleşmesi silinir (PSN hesabı kalır).</summary>
+    private void OnForgetPs5(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(Host, "Bu PS5'in eşleşmesi kaldırılacak. Yeniden eşlemek için PS5'te yeni bir kod gerekir.", "Eşleşme kaldırılsın mı?",
+            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.OK) return;
+        controller.ForgetConsole();
+        ShowConsole();
+    }
+
+    /// <summary>"Hesabı değiştir": ikinci PSN hesabıyla yeniden giriş.</summary>
+    private void OnChangePsn(object sender, RoutedEventArgs e) => controller.RunSetupStep(OnboardingStep.PsnLogin);
+
+    /// <summary>"TV'yi değiştir": sihirbazın TV adımı (TV bulunur, eşleşir, uygulama kurulur).</summary>
+    private void OnChangeTv(object sender, RoutedEventArgs e) => controller.RunSetupStep(OnboardingStep.Tv);
+
+    /// <summary>"TV uygulamasını yeniden kur": Canlı ekrandaki TV bildiriminde ilerleme ve sonuç görünür.</summary>
+    private async void OnReinstallTvApp(object sender, RoutedEventArgs e)
+    {
+        Leave();
+        await controller.UpdateTvAppAsync();
+    }
+
+    /// <summary>Görüntü modu üçlü seçicisi (Otomatik / Uygulama içi / Katman) gizli açılır listeyi sürer.</summary>
+    private void OnDisplayModeSegment(object sender, RoutedEventArgs e)
+    {
+        if (loading || sender is not RadioButton { Tag: string tag }) return;
+        DisplayMode.SelectedItem = DisplayMode.Items.Cast<ComboBoxItem>().First(item => (string)item.Tag == tag);
+    }
+
+    private void ShowDisplayModeSegment()
+    {
+        var mode = controller.Settings.Style.DisplayMode;
+        var wasLoading = loading;
+        loading = true;
+        (mode switch { TvDisplayMode.InAppOnly => DisplayInApp, TvDisplayMode.Overlay => DisplayOverlay, _ => DisplayAuto }).IsChecked = true;
+        loading = wasLoading;
+    }
+
+    /// <summary>Uygulama › Gizlilik › "Anonim kullanım sayımı" (kapatılınca kurulum kimliği silinir).</summary>
+    private void OnAnonymousCount(object sender, RoutedEventArgs e)
+    {
+        if (loading) return;
+        controller.AnonymousCount = AnonymousCount.IsChecked == true;
+    }
+
+    /// <summary>"Günlükleri kaydet": günlükler maskelenip zip olur, zip panoya dosya olarak da konur; "Gezgin'de göster".</summary>
+    private async void OnSaveLogs(object sender, RoutedEventArgs e)
+    {
+        SaveLogs.IsEnabled = false;
+        SaveLogs.Content = Localizer.Current["Copying…"];
+        var zip = await Services.LogArchive.CopyAsync();
+        SaveLogs.IsEnabled = true;
+        SaveLogs.Content = "Günlükleri kaydet";
+        SaveLogsStatus.Visibility = Visibility.Visible;
+        SaveLogsStatus.Text = zip is null ? Localizer.Current["The log couldn't be collected. Try again."]
+            : "Günlükler kaydedildi ve panoya kopyalandı; hata bildirimine yapıştırabilirsin.";
+        ShowLogs.Visibility = zip is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnShowLogs(object sender, RoutedEventArgs e) => Services.LogArchive.ShowInExplorer();
+
+    /// <summary>"Güncellemeleri denetle": yeni sürüm varsa pencerenin en üstünde sarı şerit çıkar.</summary>
+    private async void OnCheckUpdate(object sender, RoutedEventArgs e)
+    {
+        CheckUpdate.IsEnabled = false;
+        await controller.CheckForUpdateAsync();
+        CheckUpdate.IsEnabled = true;
+        UpdateStatus.Visibility = Visibility.Visible;
+        UpdateStatus.Text = controller.UpdateVersion is { } version ? $"Yeni sürüm var: {version}. Pencerenin üstündeki sarı şeritten güncelleyebilirsin."
+            : "Çevirgen güncel.";
     }
 
     private void OnConsoleKind(object sender, RoutedEventArgs e)
@@ -1213,17 +1336,34 @@ public partial class SettingsView : UserControl
     /// <summary>Ayarları belli bir bölümde açar (ana ekrandaki bilgi karosunun "Çeviri" satırı).</summary>
     public static void Open(Window? owner, AppController controller, SettingsSection section) => ShellWindow.Navigate(ShellTab.Settings, section);
 
+    /// <summary>Eski bölüm adının yeni bölümü (Görünüm artık kendi sekmesinde; 2. bölüme dek Gelişmiş'te TV'deki yer/biçim).</summary>
+    public static SettingsGroup GroupFor(SettingsSection section) => section switch
+    {
+        SettingsSection.PictureSource => SettingsGroup.Devices,
+        _ => SettingsGroup.Advanced,
+    };
+
     /// <summary>Kabuk Ayarlar sekmesini açınca istenen bölüm seçilir.</summary>
     internal void Show(SettingsSection? section)
     {
-        if (section is not { } wanted) return;
-        Sections.SelectedItem = wanted switch
-        {
-            SettingsSection.Appearance => AppearanceSection,
-            SettingsSection.Translation => TranslationSection,
-            SettingsSection.PictureSource => PictureSourceSection,
-            _ => Sections.SelectedItem,
-        };
+        if (section is { } wanted) Show(GroupFor(wanted));
+    }
+
+    /// <summary>Bölümü açar (soldaki listede de seçilir).</summary>
+    public void Show(SettingsGroup group) => Sections.SelectedIndex = (int)group;
+
+    /// <summary>
+    /// "Kurulumu baştan başlat" (üst çubuk ve Uygulama › Hakkında): onaydan sonra kayıtlı PS5, hesaplar ve TV eşleşmesi silinir,
+    /// sihirbaz platform sorusundan açılır.
+    /// </summary>
+    internal static void ConfirmReset(Window? owner, AppController controller)
+    {
+        var text = Localizer.Current;
+        var answer = owner is null
+            ? MessageBox.Show(text["The saved PS5, account and TV connection will be removed."], text["Set up again?"], MessageBoxButton.OKCancel, MessageBoxImage.Warning)
+            : MessageBox.Show(owner, text["The saved PS5, account and TV connection will be removed."], text["Set up again?"], MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.OK) return;
+        controller.ResetSetup();
     }
 
     private void Update(Func<UserSettings, UserSettings> change)
@@ -1237,7 +1377,7 @@ public partial class SettingsView : UserControl
     // ───── Yeni arayüz: gezinme, Temel sayfası ─────
 
     /// <summary>Soldaki gezinme satırı seçilince o sayfa açılır.</summary>
-    /// <summary>Menüdeki sırasıyla sayfa açar (0 Temel … 8 Konsol ve Kaynak); ekran görüntüsü aracı için.</summary>
+    /// <summary>Menüdeki sırasıyla bölüm açar (0 Cihazlar … 5 Uygulama); ekran görüntüsü aracı için.</summary>
     public void ShowPage(int index) => Sections.SelectedIndex = index;
 
     private void OnNav(object sender, RoutedEventArgs e)
@@ -1257,7 +1397,7 @@ public partial class SettingsView : UserControl
         if (Sections.SelectedContent is FrameworkElement page) Theme.Motion.EnterFrom(page, 8, Theme.Motion.Medium);
     }
 
-    private void OnEditAppearance(object sender, RoutedEventArgs e) => Sections.SelectedItem = AppearanceSection;
+    private void OnEditAppearance(object sender, RoutedEventArgs e) => ShellWindow.Navigate(ShellTab.Appearance);
 
     /// <summary>
     /// Seçim hapını seçili menü satırına taşır (Mac matchedGeometryEffect): konum ve yükseklik giriş eğrisiyle orta sürede
@@ -1404,18 +1544,7 @@ public partial class SettingsView : UserControl
     private TextBlock MiniSubtitleText => (TextBlock)MiniSubtitle.Child;
 
     /// <summary>Bölümlerin başlığı (Mac SectionHeading): simge, ton, ad ve iki kelimelik alt yazı; menü sırasıyla.</summary>
-    private static readonly (string Glyph, Controls.IconTone Tone, string Title, string Hint)[] Headings =
-    [
-        ("\uE9E9", Controls.IconTone.Amber, "Basics", "Translation, Sound"),
-        ("\uE8D2", Controls.IconTone.Peach, "Subtitle Appearance", "Size, Colors"),
-        ("\uE713", Controls.IconTone.Gray, "Advanced", "Engine, Experimental"),
-        ("\uE8B3", Controls.IconTone.Olive, "Subtitle Area", "Frame, Extra Areas"),
-        ("\uE7B8", Controls.IconTone.Olive, "Game Packs", "Ready Translations"),
-        ("\uE8D6", Controls.IconTone.Plum, "Turkish Dubbing", "Voices, Characters"),
-        ("\uE7F4", Controls.IconTone.Teal, "Output Screens", "TV, OBS"),
-        ("\uE765", Controls.IconTone.Sky, "Keyboard Shortcuts", "Translation Keys"),
-        ("\uE7FC", Controls.IconTone.Gray, "Console and Source", "PS5, Xbox"),
-    ];
+    private static readonly string[] Headings = ["Cihazlar", "Okuma alanları", "Seslendirme", "Kısayollar", "Gelişmiş", "Uygulama"];
 
     /// <summary>
     /// Sağ sütunun başındaki bölüm başlığı (Mac SectionHeading): 40'lık renkli simge karesi + başlık (24) + iki kelimelik alt
@@ -1424,23 +1553,10 @@ public partial class SettingsView : UserControl
     private void ShowHeading()
     {
         var index = Math.Clamp(Sections.SelectedIndex, 0, Headings.Length - 1);
-        var (glyph, tone, title, hint) = Headings[index];
-        var text = Localizer.Current;
-        var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = Sp.T("s", "0", "0", "0") };
-        var heading = new TextBlock { Text = text[title], FontWeight = FontWeights.Medium };
-        heading.SetResourceReference(TextBlock.FontSizeProperty, "h2FontSize");
-        heading.SetResourceReference(TextBlock.ForegroundProperty, "textBrush");
+        var heading = new TextBlock { Text = Headings[index], Margin = Sp.T("0", "0", "0", "l") };
+        heading.SetResourceReference(StyleProperty, "ScreenTitle");
         System.Windows.Automation.AutomationProperties.SetHeadingLevel(heading, System.Windows.Automation.AutomationHeadingLevel.Level1);
-        names.Children.Add(heading);
-        var sub = new TextBlock { Text = text[hint], Margin = Sp.T("0", "line", "0", "0") };
-        sub.SetResourceReference(StyleProperty, "HintText");
-        names.Children.Add(sub);
-        var row = new DockPanel { Margin = Sp.T("0", "0", "0", "m") };
-        var square = new Controls.IconSquare { Glyph = glyph, Tone = tone, Size = 40 };
-        DockPanel.SetDock(square, Dock.Left);
-        row.Children.Add(square);
-        row.Children.Add(names);
-        Sections.Tag = row;
+        Sections.Tag = heading;
     }
 
     /// <summary>Menüde amber simge karesinin simgesi koyu (Perde: amberde koyu, diğer tonlarda beyaz).</summary>
@@ -1810,15 +1926,7 @@ public partial class SettingsView : UserControl
 
     private void OnAbout(object sender, RoutedEventArgs e) => AboutWindow.Open(Host);
 
-    private void OnReset(object sender, RoutedEventArgs e)
-    {
-        var text = Localizer.Current;
-        var answer = MessageBox.Show(Host, text["The saved PS5, account and TV connection will be removed."], text["Set up again?"],
-            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (answer != MessageBoxResult.OK) return;
-        controller.ResetSetup();
-        Leave();
-    }
+    private void OnReset(object sender, RoutedEventArgs e) => ConfirmReset(Host, controller);
 
 
     private void OnStreamBackground(object sender, SelectionChangedEventArgs e)

@@ -85,27 +85,51 @@ public static class ScreenRenderer
             Save(() => new HistoryView(Demo(OnboardingStep.Done)), Width, Height, Path.Combine(folder, $"gecmis-{suffix}.png"));
             // Uygulamanın gerçek penceresi: XAML'ı (simge dahil) açılıştaki gibi yüklenir.
             Save(() => Detach(new ShellWindow(Demo(OnboardingStep.Done))), Width, Height, Path.Combine(folder, $"pencere-{suffix}.png"));
-            // Perde: pencerenin tamamı (cam üst çubuk, reklam şeridi), Mac mac-*.png karşılıkları. Ana ekran çeviri sürerken
-            // (CANLI, Canlı Akış satırları), Geçmiş, "Hangi Oyun?", Ayarlar'ın bütün sayfaları ve geniş pencere.
-            Save(() => Detach(Shell(Running(), ShellTab.Home)), Width, Height, Path.Combine(folder, $"pencere-ana-{suffix}.png"));
-            Save(() => Detach(Shell(Running(), ShellTab.Home)), 1680, 945, Path.Combine(folder, $"pencere-genis-ana-{suffix}.png"));
-            Save(() => Detach(Shell(Running(), ShellTab.History)), Width, Height, Path.Combine(folder, $"pencere-gecmis-{suffix}.png"));
+            // Çevirgen arayüzü (1. bölüm): kabuk, Canlı (çeviri sürerken ve boş hâl), güncelleme şeridi ve duyuru, platform
+            // sorusu ve pencere adımı, Ayarlar'ın altı bölümü, geçici Görünüm ve Çeviri sekmeleri.
+            Save(() => Detach(Live(Running())), Width, Height, Path.Combine(folder, $"pencere-ana-{suffix}.png"));
+            Save(() => Detach(Live(Running())), 1680, 945, Path.Combine(folder, $"pencere-genis-ana-{suffix}.png"));
+            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Home)), Width, Height, Path.Combine(folder, $"pencere-canli-bos-{suffix}.png"));
             Save(() =>
             {
                 var controller = Running();
-                var window = Shell(controller, ShellTab.Home);
+                SetPrivate(controller, nameof(AppController.UpdateVersion), "1.2.0");
+                typeof(AppController).GetField("currentAnnouncement", BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .SetValue(controller, new Announcement("demo", "Çevirgen TV 1.0.2 yayında: Samsung'da altyazı artık daha hızlı açılıyor.", new Uri("https://example.com")));
+                return Detach(Live(controller));
+            }, Width, Height, Path.Combine(folder, $"pencere-guncelleme-{suffix}.png"));
+            Save(() => Detach(Shell(Running(), ShellTab.History)), Width, Height, Path.Combine(folder, $"pencere-gecmis-{suffix}.png"));
+            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Appearance)), Width, Height, Path.Combine(folder, $"pencere-gorunum-{suffix}.png"));
+            Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Translation)), Width, Height, Path.Combine(folder, $"pencere-ceviri-{suffix}.png"));
+            Save(() =>
+            {
+                var controller = Running();
+                var window = Live(controller);
                 controller.AskGame();
                 return Detach(window);
             }, Width, Height, Path.Combine(folder, $"pencere-oyun-sor-{suffix}.png"));
-            foreach (var (index, name) in SettingsPages)
-                Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, index)), Width, Height, Path.Combine(folder, $"pencere-ayarlar-{name}-{suffix}.png"));
+            foreach (var platform in new[] { SetupPlatform.Ps5, SetupPlatform.Pc })
+                Save(() =>
+                {
+                    var controller = Demo(OnboardingStep.Welcome);
+                    controller.ChoosePlatform(platform);
+                    return new OnboardingView(controller);
+                }, Width, Height, Path.Combine(folder, $"kurulum-platform-{platform.ToString().ToLowerInvariant()}-{suffix}.png"));
+            Save(() =>
+            {
+                var controller = Demo(OnboardingStep.Welcome);
+                controller.ChoosePlatform(SetupPlatform.Capture);
+                controller.Advance();
+                return new OnboardingView(controller);
+            }, Width, Height, Path.Combine(folder, $"kurulum-pencere-{suffix}.png"));
+            foreach (var (group, name) in SettingsPages)
+                Save(() => Detach(Shell(Demo(OnboardingStep.Done), ShellTab.Settings, group)), Width, Height, Path.Combine(folder, $"pencere-ayarlar-{name}-{suffix}.png"));
             Save(() => new SettingsView(Demo(OnboardingStep.Done)), Width, Height, Path.Combine(folder, $"ayarlar-{suffix}.png"));
-            // Ayarların diğer sayfaları (Mac ayarlar-*.png ile aynı adlar).
-            foreach (var (index, name) in SettingsPages.Skip(1))
+            foreach (var (group, name) in SettingsPages.Skip(1))
                 Save(() =>
                 {
                     var page = new SettingsView(Demo(OnboardingStep.Done));
-                    page.ShowPage(index);
+                    page.Show(group);
                     return page;
                 }, Width, Height, Path.Combine(folder, $"ayarlar-{name}-{suffix}.png"));
             Save(() => Detach(new AboutWindow()), 460, 640, Path.Combine(folder, $"hakkinda-{suffix}.png"));
@@ -113,37 +137,77 @@ public static class ScreenRenderer
         app.Shutdown();
     }
 
-    /// <summary>Ayarlar'ın sayfaları (sıra numarası ve Mac ayarlar-*.png adı).</summary>
-    private static readonly (int Index, string Name)[] SettingsPages =
-        [(0, "basics"), (1, "appearance"), (2, "advanced"), (3, "area"), (4, "packs"), (5, "dubbing"), (6, "outputs"), (7, "shortcuts"), (8, "console")];
+    /// <summary>Ayarlar'ın bölümleri ve dosya adları.</summary>
+    private static readonly (SettingsGroup Group, string Name)[] SettingsPages =
+    [
+        (SettingsGroup.Devices, "cihazlar"), (SettingsGroup.Areas, "alanlar"), (SettingsGroup.Dubbing, "seslendirme"),
+        (SettingsGroup.Shortcuts, "kisayollar"), (SettingsGroup.Advanced, "gelismis"), (SettingsGroup.App, "uygulama"),
+    ];
 
-    /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme bu sayıyı bekler.</summary>
-    public const int ExpectedCount = 86;
+    /// <summary>Bir ekran görüntüsünde çizilen PNG sayısı (iki tema): sürekli tümleştirme en az bu kadarını bekler.</summary>
+    public const int ExpectedCount = 90;
 
-    /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar sayfası) açık.</summary>
-    private static ShellWindow Shell(AppController controller, ShellTab tab, int? settingsPage = null)
+    /// <summary>Uygulama penceresi, istenen sekme (ve Ayarlar bölümü) açık.</summary>
+    private static ShellWindow Shell(AppController controller, ShellTab tab, SettingsGroup? group = null)
     {
         var window = new ShellWindow(controller);
-        window.ShowForRender(tab, settingsPage);
+        window.ShowForRender(tab, group);
         return window;
     }
 
-    /// <summary>Çeviri sürüyormuş gibi örnek oturum (Mac mac-ana ile aynı satırlar): CANLI, son çeviri ve Canlı Akış.</summary>
+    /// <summary>
+    /// Canlı ekran çeviri sürerken: son kare (İngilizce iki satırla) ve TV'ye gidiyormuş gibi iki Türkçe satır (üstteki eski
+    /// satır "above"); dökümde ikisi "● ekranda".
+    /// </summary>
+    private static ShellWindow Live(AppController controller)
+    {
+        var window = Shell(controller, ShellTab.Home);
+        window.Home?.ShowEventForRender(new SubtitleEvent(SubtitleEventKind.Subtitle, "Hâlâ burada mı?", 60000,
+            Box: new CouchSubs.Core.TextBox(0.3, 0.78, 0.7, 0.9), Above: ["Depolama alanı hiç fazla gelmez, değil mi?"]));
+        return window;
+    }
+
+    /// <summary>
+    /// Çeviri sürüyormuş gibi örnek oturum (taslak Main.dc.html'deki satırlar): son kare, oturumun başı, kaynakları ve okuma
+    /// hızlarıyla döküm, oynanan oyun.
+    /// </summary>
     private static AppController Running()
     {
         var controller = Demo(OnboardingStep.Done);
         var history = (SubtitleHistory)typeof(AppController).GetField("history", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(controller)!;
-        foreach (var (source, translation) in new[]
+        var start = DateTime.UtcNow.AddMinutes(-42).AddSeconds(-20);
+        typeof(AppController).GetField("sessionStartedAt", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(controller, start);
+        foreach (var (seconds, source, translation, origin, cps) in new (double, string, string, LineOrigin, double?)[]
                  {
-                     ("I gotta tell you this, Franklin.", "Bunu sana söylemem lazım, Franklin."),
-                     ("Take out the Lost.", "Lost üyelerini ortadan kaldır."),
-                     ("Are you listening to me?", "Dinliyor musun beni?"),
+                     (2518.903, "Welcome back to Vice City, bro.", "Vice City'ye tekrar hoş geldin, kanka.", LineOrigin.Engine, 12.4),
+                     (2522.540, "Y'all selling that trailer right there?", "Şuradaki karavanı satıyor musunuz?", LineOrigin.Engine, 11.8),
+                     (2526.218, "I'm thinkin' of doing a little cross-country vacay with a lady friend of mine.",
+                         "Bir hanım arkadaşımla ülke boyunca ufak bir tatile çıkmayı düşünüyorum.", LineOrigin.Engine, 21.2),
+                     (2529.402, "Whip the ever-lovin' shit outta him!", "Ağzını burnunu kır şunun!", LineOrigin.Correction, 9.6),
+                     (2533.154, "Can never have too much storage space, am I right?", "Depolama alanı hiç fazla gelmez, değil mi?", LineOrigin.Pack, 13.1),
+                     (2535.880, "He still here?", "Hâlâ burada mı?", LineOrigin.Engine, null),
                  })
-            history.Add(source, translation, LineOrigin.Engine);
+        {
+            var at = start.AddSeconds(seconds);
+            history.Add(source, translation, origin, at);
+            if (cps is { } speed)
+            {
+                // Okuma hızı satır ekrandan kalkınca yazılır (MarkLeft); örnekte doğrudan.
+                var entries = (List<SubtitleHistory.Entry>)typeof(SubtitleHistory).GetField("entries", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(history)!;
+                var index = entries.FindIndex(entry => entry.Source == source);
+                if (index >= 0) entries[index] = entries[index] with { ShownAt = at, Cps = speed };
+            }
+        }
         typeof(AppController).GetProperty(nameof(AppController.IsRunning))!.GetSetMethod(nonPublic: true)!.Invoke(controller, [true]);
-        typeof(AppController).GetProperty(nameof(AppController.LastTranslation))!.GetSetMethod(nonPublic: true)!.Invoke(controller, ["Dinliyor musun beni?"]);
+        SetPrivate(controller, nameof(AppController.LastTranslation), "Hâlâ burada mı?");
+        SetPrivate(controller, nameof(AppController.PlayedGame), "Grand Theft Auto VI");
+        SetPrivate(controller, nameof(AppController.LastFrame),
+            DemoFrameRenderer.Draw(["Can never have too much storage space, am I right?", "He still here?"], 2));
         return controller;
     }
+
+    private static void SetPrivate(AppController controller, string property, object? value) =>
+        typeof(AppController).GetProperty(property)!.GetSetMethod(nonPublic: true)!.Invoke(controller, [value]);
 
     /// <summary>Pencerenin içeriğini başka bir pencerede çizebilmek için kendi penceresinden ayırır.</summary>
     private static FrameworkElement Detach(Window window)
@@ -230,6 +294,9 @@ public static class ScreenRenderer
         public Task<IReadOnlyList<string>> ScanAndroidTvsAsync() => Task.FromResult<IReadOnlyList<string>>([]);
         public Task<string> InstallAndroidAppAsync(string host, BundledTvApp app, bool openIfInstalled, Action<TvInstallEvent> onEvent) => throw new NotSupportedException();
         public ITextReader? MakeReader(string language) => null;
+        // Kurulumun pencere adımı için örnek pencereler.
+        public IReadOnlyList<WindowCaptureTarget> CaptureWindows() =>
+            [new("obs64", "Projektör (Kaynak) - Elgato HD60 X"), new("GTA5", "Grand Theft Auto V"), new("4KCaptureUtility", "4K Capture Utility")];
     }
 
     private sealed class DemoTranslation : ITranslationModel
