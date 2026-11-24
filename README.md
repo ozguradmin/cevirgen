@@ -61,6 +61,7 @@ Altyazının TV'de nasıl duracağını sen seçersin; Görünüm sekmesinden te
 
 1. [Son sürümü indir](https://github.com/ozguradmin/cevirgen/releases/latest) ve `CevirgenApp-win-Setup.exe`'yi çalıştır.
 2. Windows "tanınmayan uygulama" uyarısı verirse **Ek bilgi › Yine de çalıştır**'a bas. Yükleyici henüz imzalı değil; kaynak kodu bu depoda.
+   - **Akıllı Uygulama Denetimi açıksa** Windows imzasız uygulamayı hiç çalıştırmaz, "Yine de çalıştır" seçeneği de çıkmaz. **Ayarlar › Gizlilik ve güvenlik › Windows Güvenliği › Uygulama ve tarayıcı denetimi › Akıllı Uygulama Denetimi ayarları**'ndan **Kapalı**'ya al. Eski Windows 11 sürümlerinde bu ayar kapatıldıktan sonra Windows sıfırlanmadan yeniden açılamıyor; yeni sürümlerde aynı yerden geri açılır.
 3. Çevirgen'i aç, "Oyunu nerede oynuyorsun?" sorusunu cevapla ve adımları izle.
 
 **PS5 için önemli:** Ekranın üstünde sürekli "Uzaktan Oynatma'ya bağlandı" yazmasın diye PS5'te **Ayarlar › Sistem › Uzaktan Oynatma › Uzaktan Oynatma Bağlantı Durumu Açılır Penceresini Gizle**'yi aç; bunu hem kendi hesabında hem ikinci hesapta yap.

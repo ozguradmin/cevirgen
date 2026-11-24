@@ -35,6 +35,10 @@
 
 Çevirgen watches the game's picture (Remote Play from a free second PSN account on PS5, its own connection on Xbox, the game window on PC), reads only the areas you choose, translates them and shows the Turkish line on an Android TV over the game, or on the PC screen. Nothing is installed on the console or in the game.
 
+## Install
+
+Download `CevirgenApp-win-Setup.exe` from the [latest release](https://github.com/ozguradmin/cevirgen/releases/latest) and run it. The installer is not signed yet: if SmartScreen warns, choose **More info › Run anyway**. If **Smart App Control** is on, Windows blocks unsigned apps without that option; turn it off in **Settings › Privacy & security › Windows Security › App & browser control › Smart App Control settings**. On older Windows 11 builds it cannot be turned back on without resetting Windows.
+
 ## Privacy
 
 An anonymous usage count (random ID, version, platform every 5 minutes) and, to build better ready-made translations, the English lines read on screen with their translations and the game name are sent. Personal data such as e-mail addresses or phone numbers is filtered out. Both can be turned off in Settings › App. Details: [PRIVACY.md](PRIVACY.md).
