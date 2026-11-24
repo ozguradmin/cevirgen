@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen canlı</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Yayın monitörü önde: TV görüntüsü ilk bakışta tam boy; döküm sağda kendi içinde kayar. Önizleme 1920×1080'in gerçek oranında ölçeklenir. */
+body{margin:0;background:#0F1014}
+a{color:#ECEDEF}a:hover{color:#FFD23F}
+button:focus-visible,a:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#9097A3;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cue{display:flex;flex-direction:column;gap:3px;padding:12px 18px;border-top:1px solid #272B34}
+.meta{display:flex;justify-content:space-between;gap:10px}
+.en{font-size:13px;color:#9097A3;line-height:1.45}
+.tr{font-size:15px;color:#ECEDEF;line-height:1.4}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5BD08A;margin-right:7px;vertical-align:1px}
+.ol{text-shadow:-1px -1px 0 #000,0 -1px 0 #000,1px -1px 0 #000,1px 0 0 #000,1px 1px 0 #000,0 1px 0 #000,-1px 1px 0 #000,-1px 0 0 #000}
+</style>
+</helmet>
+<div style="height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <nav aria-label="Bölümler" style="display: flex; gap: 22px; font-size: 14px; font-weight: 500">
+      <a href="Main.dc.html" style="text-decoration: none; color: #ECEDEF; padding: 21px 0 19px; border-bottom: 2px solid #FFD23F">Canlı</a>
+      <a href="Appearance.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Görünüm</a>
+      <a href="Translation.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Çeviri</a>
+      <a href="History.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Geçmiş ve sözlük</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Ayarlar</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 13px; color: #9097A3">
+      <span><span class="dot"></span>PS5-010</span>
+      <span><span class="dot"></span>Oturma Odası TV'si</span>
+      <span><span class="dot"></span>Gemini 2.5 Flash</span>
+      <button type="button" style="display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid #3A3F4B; background: #1C1F27; color: #ECEDEF; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect width="12" height="12" rx="2" fill="#ECEDEF"></rect></svg>Çeviriyi durdur</button>
+    </div>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+    <section aria-label="TV görüntüsü" style="flex: 999 1 640px; min-width: 0; padding: 20px 28px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px">
+        <h1 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 26px">Grand Theft Auto VI</h1>
+        <span class="tc" style="font-size: 13px">TV'de şu an · 1920×1080 · katman modu</span>
+      </div>
+
+      <div style="position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; background: #3C424C; border: 1px solid #272B34; overflow: hidden; container-type: inline-size">
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 48%; background: #75879A"></div>
+        <div style="position: absolute; left: 0; right: 0; top: 48%; height: 7%; background: #55606E"></div>
+        <div style="position: absolute; left: 14%; top: 28%; width: 18%; height: 44%; background: #2E333B"></div>
+        <div style="position: absolute; left: 62%; top: 36%; width: 9%; height: 36%; background: #262A31"></div>
+        <div aria-hidden="true" style="position: absolute; inset: 5%; border: 1px dashed rgba(255,255,255,0.28)"></div>
+        <span class="tc" style="position: absolute; left: 5.4%; top: 5.6%; font-size: 10px; color: rgba(255,255,255,0.7)">güvenli alan %90</span>
+
+        <div style="position: absolute; left: 10%; right: 10%; bottom: 7.5%; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.25cqw; font-size: 1.68cqw; line-height: 1.32">
+          <span class="ol" style="font-weight: 700; color: rgba(255,255,255,0.78)">Depolama alanı hiç fazla gelmez, değil mi?</span>
+          <span class="ol" style="font-weight: 700; color: #FFFFFF">Hâlâ burada mı?</span>
+          <span style="height: 0.6cqw"></span>
+          <span style="color: #F1F1F1; text-shadow: 0 1px 2px #000">Can never have too much storage space, am I right?</span>
+          <span style="color: #F1F1F1; text-shadow: 0 1px 2px #000">He still here?</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px 32px; align-items: center; font-size: 13px; color: #9097A3">
+        <span>Gecikme <span class="tc" style="font-size: 13px; color: #ECEDEF">180 ms</span></span>
+        <span>Okuma hızı ort. <span class="tc" style="font-size: 13px; color: #ECEDEF">13 / 17 kr/sn</span></span>
+        <span>Görünüm <a href="Appearance.dc.html" style="color: #ECEDEF">Sinema · 32 px · kenarlık 2 px</a></span>
+        <a href="Areas.dc.html" style="color: #ECEDEF">Alanları düzenle</a>
+        <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px">
+          <kbd style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 2px 7px; border: 1px solid #3A3F4B; border-bottom-width: 2px; border-radius: 4px; color: #ECEDEF">Ctrl</kbd><kbd style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 2px 7px; border: 1px solid #3A3F4B; border-bottom-width: 2px; border-radius: 4px; color: #ECEDEF">H</kbd> altyazıyı gizle</span>
+      </div>
+    </section>
+
+    <aside aria-label="Canlı döküm" style="flex: 1 1 380px; max-width: 440px; min-width: 0; border-left: 1px solid #272B34; display: flex; flex-direction: column; min-height: 0">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 20px 18px 12px">
+        <h2 class="lbl" style="margin: 0">Döküm</h2>
+        <span class="tc">412 satır · 38 düzeltme</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto">
+        <div class="cue" style="background: #16181E">
+          <div class="meta"><span class="tc" style="color: #FFD23F">00:42:15,880</span><span class="tc" style="color: #FFD23F">● ekranda</span></div>
+          <span class="en">He still here?</span>
+          <span class="tr" style="color: #FFD23F; font-weight: 600">Hâlâ burada mı?</span>
+        </div>
+        <div class="cue" style="background: #16181E">
+          <div class="meta"><span class="tc">00:42:13,154</span><span class="tc" style="color: #FFD23F">● ekranda</span></div>
+          <span class="en">Can never have too much storage space, am I right?</span>
+          <span class="tr">Depolama alanı hiç fazla gelmez, değil mi?</span>
+        </div>
+        <div class="cue">
+          <div class="meta"><span class="tc">00:42:09,402</span><span class="tc" style="color: #ECEDEF">senin</span></div>
+          <span class="en">Whip the ever-lovin' shit outta him!</span>
+          <span class="tr">Ağzını burnunu kır şunun!</span>
+        </div>
+        <div class="cue">
+          <div class="meta"><span class="tc">00:42:06,218</span><span class="tc" style="color: #F2A33A">21 kr/sn · hızlı</span></div>
+          <span class="en">I'm thinkin' of doing a little cross-country vacay with a lady friend of mine.</span>
+          <span class="tr">Bir hanım arkadaşımla ülke boyunca ufak bir tatile çıkmayı düşünüyorum.</span>
+        </div>
+        <div class="cue">
+          <div class="meta"><span class="tc">00:42:02,540</span><span class="tc">Gemini</span></div>
+          <span class="en">Y'all selling that trailer right there?</span>
+          <span class="tr">Şuradaki karavanı satıyor musunuz?</span>
+        </div>
+        <div class="cue">
+          <div class="meta"><span class="tc">00:41:58,903</span><span class="tc">sözlük</span></div>
+          <span class="en">Welcome back to Vice City, bro.</span>
+          <span class="tr">Vice City'ye tekrar hoş geldin, kanka.</span>
+        </div>
+      </div>
+      <a href="History.dc.html" style="display: block; padding: 14px 18px; border-top: 1px solid #272B34; font-size: 13px; color: #9097A3">Tüm geçmiş ve düzeltmeler →</a>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

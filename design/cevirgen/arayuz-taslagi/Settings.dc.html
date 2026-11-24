@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen ayarlar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Ayarlar: solda bölüm listesi (her birinin altında içindekiler), sağda seçili bölüm. Cihazlar bölümü açık. */
+body{margin:0;background:#0F1014}
+a{color:#ECEDEF}a:hover{color:#FFD23F}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12px;color:#9097A3}
+.sec{display:flex;flex-direction:column;gap:0;border-top:1px solid #272B34;padding-top:16px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 20px;align-items:center;padding:14px 0;border-bottom:1px solid #20242C}
+.name{font-size:15px;font-weight:600;color:#ECEDEF}
+.desc{font-size:13px;color:#9097A3;line-height:1.45}
+.ghost{min-height:36px;padding:0 14px;border-radius:6px;border:1px solid #3A3F4B;background:transparent;color:#ECEDEF;font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.side a{display:flex;flex-direction:column;gap:3px;padding:12px 14px;text-decoration:none;border-radius:6px}
+.side a span:first-child{font-size:14px;font-weight:600;color:#ECEDEF}
+.side a span:last-child{font-size:12px;color:#9097A3;line-height:1.4}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <nav aria-label="Bölümler" style="display: flex; gap: 22px; font-size: 14px; font-weight: 500">
+      <a href="Main.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Canlı</a>
+      <a href="Appearance.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Görünüm</a>
+      <a href="Translation.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Çeviri</a>
+      <a href="History.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Geçmiş ve sözlük</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #ECEDEF; padding: 21px 0 19px; border-bottom: 2px solid #FFD23F">Ayarlar</a>
+    </nav>
+    <button type="button" class="ghost" style="margin-left: auto">Kurulumu baştan başlat</button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+    <nav class="side" aria-label="Ayar bölümleri" style="flex: 1 1 260px; max-width: 300px; min-width: 0; padding: 18px 14px; border-right: 1px solid #272B34; display: flex; flex-direction: column; gap: 2px">
+      <a href="#" aria-current="page" style="background: #1C1F27"><span>Cihazlar</span><span>PS5 ve hesap, Xbox, TV, OBS, ikinci ekran</span></a>
+      <a href="#"><span>Okuma alanları</span><span>Altyazı alanı, ek alanlar, oyun profilleri, telefon mesajları, görev ve yardım yazıları</span></a>
+      <a href="#"><span>Seslendirme</span><span>Türkçe sesler, karakterlere ses atama</span></a>
+      <a href="#"><span>Kısayollar</span><span>Gizle/göster, alan okuma, çeviriyi durdur</span></a>
+      <a href="#"><span>Gelişmiş</span><span>Yazı tanıma, bekleme süreleri, ekran kartı, yerel yapay zekâ sunucusu</span></a>
+      <a href="#"><span>Uygulama</span><span>Dil, tema, gizlilik, günlükleri kaydet, hakkında</span></a>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 22px 32px; display: flex; flex-direction: column; gap: 22px">
+      <h1 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 30px">Cihazlar</h1>
+
+      <section class="sec" aria-labelledby="h-console">
+        <h2 id="h-console" class="lbl" style="margin: 0 0 4px">Konsol</h2>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">PS5-010</span><span class="desc">192.168.1.35 · eşleşti · kayıp %0,2</span></div>
+          <div style="display: flex; gap: 8px"><button type="button" class="ghost">Başka PS5 ekle</button><button type="button" class="ghost">Eşleşmeyi kaldır</button></div>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">İkinci PSN hesabı</span><span class="desc">Çevirgen ekranı bu hesapla izler; sen kendi hesabınla oynarsın.</span></div>
+          <button type="button" class="ghost">Hesabı değiştir</button>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">PS5 giriş şifresi</span><span class="desc">Konsolda kullanıcı şifresi varsa, bağlanırken kullanılır.</span></div>
+          <button type="button" class="ghost">Şifre ekle</button>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">Xbox</span><span class="desc">Microsoft hesabıyla bağlanır. Bağlı değil.</span></div>
+          <button type="button" class="ghost">Xbox bağla</button>
+        </div>
+      </section>
+
+      <section class="sec" aria-labelledby="h-tv">
+        <h2 id="h-tv" class="lbl" style="margin: 0 0 4px">Ekran</h2>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">Oturma Odası TV'si</span><span class="desc">Android TV · 192.168.1.89 · Çevirgen TV 1.0.0 · HDMI 2</span></div>
+          <div style="display: flex; gap: 8px"><button type="button" class="ghost">TV'yi değiştir</button><button type="button" class="ghost">TV uygulamasını yeniden kur</button></div>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">Görüntü modu</span><span class="desc">Otomatik: TV izin veriyorsa katman (HDR ve oyun modu korunur).</span></div>
+          <span role="group" aria-label="Görüntü modu" style="display: inline-flex; border: 1px solid #3A3F4B; border-radius: 6px; overflow: hidden; font-size: 13px">
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; background: #ECEDEF; color: #0F1014; font-weight: 600; font-family: inherit">Otomatik</button>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #3A3F4B; background: transparent; color: #ECEDEF; font-family: inherit">Uygulama içi</button>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #3A3F4B; background: transparent; color: #ECEDEF; font-family: inherit">Katman</button>
+          </span>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">Bu bilgisayarda da göster</span><span class="desc">Altyazı penceresi ya da OBS katmanı (yayın için).</span></div>
+          <button type="button" class="ghost">Kur</button>
+        </div>
+        <div class="item">
+          <div style="display: flex; flex-direction: column; gap: 3px"><span class="name">Telefonda ya da tablette göster</span><span class="desc">Aynı ağdaki cihazda tarayıcıdan açılır.</span></div>
+          <button type="button" class="ghost">Kare kodu göster</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

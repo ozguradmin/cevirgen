@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen görünüm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Okunurluk testi: aynı satır dört aydınlıkta yan yana; sağda hazır görünümler ve ölçülü ince ayar. */
+body{margin:0;background:#0F1014}
+a{color:#ECEDEF}a:hover{color:#FFD23F}
+button:focus-visible,a:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.step{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid #272B34;font-size:14px}
+.stepper{display:inline-flex;align-items:center;border:1px solid #3A3F4B;border-radius:6px}
+.stepper button{width:36px;height:36px;border:0;background:transparent;color:#ECEDEF;font-size:18px;cursor:pointer}
+.stepper span{min-width:64px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:14px}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <nav aria-label="Bölümler" style="display: flex; gap: 22px; font-size: 14px; font-weight: 500">
+      <a href="Main.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Canlı</a>
+      <a href="Appearance.dc.html" style="text-decoration: none; color: #ECEDEF; padding: 21px 0 19px; border-bottom: 2px solid #FFD23F">Görünüm</a>
+      <a href="Translation.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Çeviri</a>
+      <a href="History.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Geçmiş ve sözlük</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Ayarlar</a>
+    </nav>
+    <span style="margin-left: auto; font-size: 13px; color: #9097A3">Değişiklikler TV'ye anında gider.</span>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+    <section aria-label="Okunurluk testi" style="flex: 999 1 600px; min-width: 0; padding: 22px 28px; display: flex; flex-direction: column; gap: 16px; border-right: 1px solid #272B34">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px">
+        <h1 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 30px">Okunurluk testi</h1>
+        <span style="font-size: 14px; color: #9097A3">Aynı satır, oyunun en karanlık ve en aydınlık anlarında.</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{scenes}}" as="s" hint-placeholder-count="4">
+          <figure style="margin: 0; display: flex; flex-direction: column; gap: 8px">
+            <div style="{{s.boxStyle}}">
+              <div style="position: absolute; left: 6%; right: 6%; bottom: 10%; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center">
+                <span style="{{line}}">Gardiyanla birlikte git.</span>
+                <span style="{{s.enStyle}}">Go with the prison guard.</span>
+              </div>
+            </div>
+            <figcaption style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px">
+              <span class="lbl">{{s.name}}</span>
+              <span class="tc" style="{{s.verdictStyle}}">{{s.verdict}}</span>
+            </figcaption>
+          </figure>
+        </sc-for>
+      </div>
+    </section>
+
+    <aside aria-label="Görünüm ayarları" style="flex: 1 1 380px; min-width: 0; padding: 22px 28px; display: flex; flex-direction: column; gap: 22px">
+      <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0">
+        <legend class="lbl" style="margin-bottom: 10px">Hazır görünüm</legend>
+        <sc-for list="{{presets}}" as="p" hint-placeholder-count="4">
+          <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.rowStyle}}">
+            <span style="{{p.radio}}"></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; text-align: left">
+              <span style="font-size: 15px; font-weight: 600; color: #ECEDEF">{{p.name}}</span>
+              <span style="font-size: 13px; color: #9097A3">{{p.desc}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </fieldset>
+
+      <div>
+        <h2 class="lbl" style="margin: 0 0 6px">İnce ayar</h2>
+        <div class="step"><span>Yazı boyu</span><span class="stepper"><button type="button" aria-label="Küçült">−</button><span>32 px</span><button type="button" aria-label="Büyüt">+</button></span></div>
+        <div class="step"><span>Kenarlık kalınlığı</span><span class="stepper"><button type="button" aria-label="İncelt">−</button><span>{{outline}}</span><button type="button" aria-label="Kalınlaştır">+</button></span></div>
+        <div class="step"><span>Zemin koyuluğu</span><span class="stepper"><button type="button" aria-label="Azalt">−</button><span>{{plate}}</span><button type="button" aria-label="Artır">+</button></span></div>
+        <div class="step"><span>Konum</span>
+          <span role="group" aria-label="Konum" style="display: inline-flex; border: 1px solid #3A3F4B; border-radius: 6px; overflow: hidden; font-size: 13px">
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; background: #ECEDEF; color: #0F1014; font-weight: 600; font-family: inherit">Üstünde</button>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #3A3F4B; background: transparent; color: #ECEDEF; font-family: inherit">Örtsün</button>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #3A3F4B; background: transparent; color: #ECEDEF; font-family: inherit">Sabit</button>
+          </span></div>
+        <div class="step"><span>Satır sınırı</span><span class="tc" style="font-size: 14px; color: #9097A3">2 satır · 42 karakter</span></div>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #9097A3; max-width: 46ch">Satır sınırı profesyonel altyazı kuralıdır: uzun çeviriler iki dengeli satıra bölünür, ekranın üçte birini kaplamaz.</p>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+constructor(props) { super(props); this.state = { picked: 'cinema' }; }
+renderVals() {
+  const picked = this.state.picked;
+  const o = (w) => [-w,0,w].flatMap((x) => [-w,0,w].filter((y) => x || y).map((y) => x + 'px ' + y + 'px 0 #000')).join(', ');
+  const looks = {
+    cinema:   { line: 'font-size: 22px; font-weight: 700; color: #FFFFFF; text-shadow: ' + o(2), outline: '2 px', plate: '%0' },
+    clean:    { line: 'font-size: 21px; font-weight: 500; color: #FFFFFF; text-shadow: 0 1px 3px rgba(0,0,0,.85)', outline: '0 px', plate: '%0' },
+    readable: { line: 'font-size: 24px; font-weight: 700; color: #FFFFFF; background: rgba(15,16,20,.62); padding: 2px 12px; text-shadow: ' + o(1), outline: '1 px', plate: '%62' },
+    classic:  { line: 'font-size: 21px; font-weight: 600; color: #FFFFFF; background: #101014; padding: 4px 14px', outline: '0 px', plate: '%100' }
+  };
+  const verdicts = {
+    cinema:   ['Okunur', 'Okunur', 'Okunur', 'Okunur'],
+    clean:    ['Okunur', 'Okunur', 'Zor', 'Okunmaz'],
+    readable: ['Okunur', 'Okunur', 'Okunur', 'Okunur'],
+    classic:  ['Okunur', 'Okunur', 'Okunur', 'Okunur']
+  };
+  const grounds = [
+    { name: 'Gece · %4', bg: '#0C0E13' }, { name: 'Gölge · %25', bg: '#3E444E' },
+    { name: 'Gündüz gök · %72', bg: '#B7C6D6' }, { name: 'Kar · %95', bg: '#F1F3F5' }
+  ];
+  const scenes = grounds.map((g, i) => {
+    const v = verdicts[picked][i];
+    return {
+      name: g.name, verdict: v,
+      verdictStyle: 'font-size: 13px; color: ' + (v === 'Okunur' ? '#5BD08A' : v === 'Zor' ? '#F2A33A' : '#FF6B5E'),
+      boxStyle: 'position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: ' + g.bg + '; border: 1px solid #272B34',
+      enStyle: 'font-size: 12px; color: #FFFFFF; text-shadow: 0 1px 2px #000'
+    };
+  });
+  const list = [
+    { id: 'cinema', name: 'Sinema', desc: 'Zeminsiz, kalın, siyah kenarlıklı.' },
+    { id: 'clean', name: 'Sade', desc: 'İnce yazı, hafif gölge. Parlak sahnede zorlanır.' },
+    { id: 'readable', name: 'Okunaklı', desc: 'Büyük yazı, yarı saydam zemin.' },
+    { id: 'classic', name: 'Klasik kutu', desc: 'Koyu kutu; İngilizceyi de örtebilir.' }
+  ];
+  const presets = list.map((p) => ({
+    ...p,
+    pressed: p.id === picked ? 'true' : 'false',
+    pick: () => this.setState({ picked: p.id }),
+    rowStyle: 'display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 12px; border: 0; border-top: 1px solid #272B34; background: ' + (p.id === picked ? '#1C1F27' : 'transparent') + '; cursor: pointer; font-family: inherit',
+    radio: 'flex: none; width: 16px; height: 16px; border-radius: 50%; box-sizing: border-box; border: ' + (p.id === picked ? '5px solid #FFD23F' : '1.5px solid #6B7280')
+  }));
+  const L = looks[picked];
+  return { scenes, presets, line: L.line, outline: L.outline, plate: L.plate };
+}
+}
+</script>
+</body>
+</html>

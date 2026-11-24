@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen çeviri motoru</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Kör test: beş zor replik × üç gizli motor; seçimler sayılır, sonra motorlar açılır. Altta seçilen motorun kurulumu. */
+body{margin:0;background:#0F1014}
+a{color:#FFD23F}a:hover{color:#FFE27A}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:minmax(200px,1.1fr) repeat(3,minmax(0,1fr))}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <nav aria-label="Bölümler" style="display: flex; gap: 22px; font-size: 14px; font-weight: 500">
+      <a href="Main.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Canlı</a>
+      <a href="Appearance.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Görünüm</a>
+      <a href="Translation.dc.html" style="text-decoration: none; color: #ECEDEF; padding: 21px 0 19px; border-bottom: 2px solid #FFD23F">Çeviri</a>
+      <a href="History.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Geçmiş ve sözlük</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Ayarlar</a>
+    </nav>
+  </header>
+
+  <div style="padding: 22px 28px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+      <div style="display: flex; flex-direction: column; gap: 6px; max-width: 70ch">
+        <h1 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 30px">Kör test</h1>
+        <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #9097A3">Beş zor repliği üç motora çevirttik, adlarını gizledik. Her satırda kulağına doğru gelen çeviriyi seç; sonra hangi motorun kazandığını gör.</p>
+      </div>
+      <button type="button" onClick="{{toggle}}" style="margin-left: auto; min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid #3A3F4B; background: #1C1F27; color: #ECEDEF; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">{{revealLabel}}</button>
+    </div>
+
+    <div role="table" aria-label="Örnek çeviriler" style="border: 1px solid #272B34; overflow-x: auto">
+      <div role="row" class="grid" style="background: #16181E">
+        <span role="columnheader" class="lbl" style="padding: 12px 16px">Replik</span>
+        <sc-for list="{{cols}}" as="c" hint-placeholder-count="3">
+          <span role="columnheader" style="padding: 12px 16px; display: flex; justify-content: space-between; gap: 8px; border-left: 1px solid #272B34">
+            <span style="font-weight: 600; font-size: 14px">{{c.title}}</span>
+            <span class="tc" style="font-size: 13px; color: #FFD23F">{{c.votes}}</span>
+          </span>
+        </sc-for>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div role="row" class="grid" style="border-top: 1px solid #272B34">
+          <span role="cell" style="padding: 14px 16px; font-size: 14px; color: #9097A3; line-height: 1.45">{{r.en}}</span>
+          <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3">
+            <button type="button" role="cell" onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" style="{{c.style}}">{{c.text}}</button>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div role="row" class="grid" style="border-top: 1px solid #272B34; background: #16181E">
+        <span role="cell" class="lbl" style="padding: 12px 16px">Ücret · hız</span>
+        <sc-for list="{{cols}}" as="c" hint-placeholder-count="3">
+          <span role="cell" class="tc" style="padding: 12px 16px; font-size: 12px; color: #9097A3; border-left: 1px solid #272B34; line-height: 1.5">{{c.facts}}</span>
+        </sc-for>
+      </div>
+    </div>
+    <p class="tc" style="margin: 0; font-size: 12px; color: #9097A3">Örnek çeviriler ve örnek gecikmeler; uygulamada test kendi bilgisayarında, gerçek motorlarla yapılır.</p>
+
+    <section aria-label="Gemini kurulumu" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid #272B34">
+      <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 8px">
+        <span class="lbl">Adım 1</span>
+        <span style="font-size: 15px; font-weight: 600">Ücretsiz anahtarı al</span>
+        <a href="#" style="font-size: 14px">Google AI Studio'yu aç ↗</a>
+        <span style="font-size: 13px; color: #9097A3; line-height: 1.5">Google hesabınla gir, “Create API key”e bas.</span>
+      </div>
+      <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #272B34">
+        <span class="lbl">Adım 2</span>
+        <label for="gemini-key" style="font-size: 15px; font-weight: 600">Anahtarı yapıştır</label>
+        <input id="gemini-key" type="password" value="AIzaSyD3xXxXxXxXxXxXxXx" style="min-height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid #3A3F4B; background: #16181E; color: #ECEDEF; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+        <span style="font-size: 13px; color: #9097A3">Yalnız bu bilgisayarda, şifreli saklanır.</span>
+      </div>
+      <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #272B34">
+        <span class="lbl">Adım 3</span>
+        <span style="font-size: 15px; font-weight: 600">Dene</span>
+        <button type="button" style="align-self: flex-start; min-height: 40px; padding: 0 18px; border-radius: 6px; border: 0; background: #FFD23F; color: #0F1014; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Bağlantıyı dene</button>
+        <span class="tc" style="font-size: 13px; color: #5BD08A">Çalışıyor · 240 ms</span>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+constructor(props) { super(props); this.state = { picks: {}, revealed: false }; }
+renderVals() {
+  const engines = [
+    { name: 'Yerel model', facts: 'ücretsiz · çevrimdışı · ~60 ms' },
+    { name: 'Gemini 2.5 Flash', facts: 'ücretsiz kota · ~250 ms' },
+    { name: 'DeepL', facts: 'ayda 500.000 karakter ücretsiz · ~300 ms' }
+  ];
+  const data = [
+    ["Whip the ever-lovin' shit outta him!", ['Her zaman sevilen pisliği ondan çıkar!', 'Ağzını burnunu kır şunun!', 'Onu bir güzel pataklayın!']],
+    ["Y'all selling that trailer right there?", ['Hepiniz oradaki karavanı mı satıyorsunuz?', 'Şuradaki karavanı satıyor musunuz?', 'Şu karavanı satıyor musunuz?']],
+    ["Hold tight, we're almost there.", ['Sıkı tutun, neredeyse oradayız.', 'Dayan biraz, az kaldı.', 'Sıkı durun, neredeyse geldik.']],
+    ["That's a whole lotta nope.", ['Bu çok fazla hayır.', 'Yok artık, hiç olmaz.', 'Bu tam bir hayır.']],
+    ['Welcome back to Vice City, bro.', ["Vice City'ye tekrar hoş geldin, kardeşim.", "Vice City'ye hoş geldin, kanka.", "Vice City'ye tekrar hoş geldin, kardeş."]]
+  ];
+  const picks = this.state.picks;
+  const votes = [0, 0, 0];
+  Object.values(picks).forEach((c) => { votes[c]++; });
+  const revealed = this.state.revealed;
+  const cols = engines.map((e, i) => ({
+    title: revealed ? e.name : 'Motor ' + 'ABC'[i],
+    votes: votes[i] + ' seçim',
+    facts: revealed ? e.facts : 'gizli'
+  }));
+  const rows = data.map(([en, trs], r) => ({
+    en,
+    cells: trs.map((t, c) => {
+      const on = picks[r] === c;
+      return {
+        text: t,
+        pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ picks: { ...this.state.picks, [r]: c } }),
+        style: 'text-align: left; padding: 14px 16px; border: 0; border-left: 1px solid #272B34; font-family: inherit; font-size: 15px; line-height: 1.45; cursor: pointer; color: ' + (on ? '#0F1014' : '#ECEDEF') + '; background: ' + (on ? '#FFD23F' : 'transparent') + '; font-weight: ' + (on ? '600' : '400')
+      };
+    })
+  }));
+  return { cols, rows, toggle: () => this.setState({ revealed: !revealed }), revealLabel: revealed ? 'Motorları gizle' : 'Motorları göster' };
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen okuma alanları</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Canlı ekranın "Alanları düzenle" hâli: TV karesinin üstünde sürüklenip boyutlanan kutular; sağda her kutunun ne yaptığı. */
+body{margin:0;background:#0F1014}
+a{color:#ECEDEF}a:hover{color:#FFD23F}
+button:focus-visible,a:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12px;color:#9097A3}
+.h{position:absolute;width:10px;height:10px;background:#FFD23F;border:1px solid #0F1014}
+.ghost{min-height:36px;padding:0 14px;border-radius:6px;border:1px solid #3A3F4B;background:transparent;color:#ECEDEF;font-family:inherit;font-size:13px;cursor:pointer}
+.area{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:4px 12px;align-items:start;padding:14px 0;border-top:1px solid #272B34}
+</style>
+</helmet>
+<div style="height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <span style="font-size: 15px; font-weight: 600">Alanları düzenle · Grand Theft Auto VI</span>
+    <div style="margin-left: auto; display: flex; gap: 8px">
+      <button type="button" class="ghost">Varsayılana dön</button>
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 18px; border-radius: 6px; background: #FFD23F; color: #0F1014; font-size: 14px; font-weight: 700; text-decoration: none">Bitti</a>
+    </div>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+    <section aria-label="TV karesi" style="flex: 999 1 640px; min-width: 0; padding: 20px 28px; display: flex; flex-direction: column; gap: 12px">
+      <p style="margin: 0; font-size: 14px; color: #9097A3">Kutuyu tutup taşı, köşesinden çekip büyüt. Çevirgen yalnız kutuların içini okur.</p>
+      <div style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; background: #3C424C; border: 1px solid #272B34; overflow: hidden">
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 48%; background: #75879A"></div>
+        <div style="position: absolute; left: 0; right: 0; top: 48%; height: 7%; background: #55606E"></div>
+        <div style="position: absolute; left: 14%; top: 28%; width: 18%; height: 44%; background: #2E333B"></div>
+        <div style="position: absolute; left: 3%; top: 4%; width: 25%; padding: 1% 1.2%; background: rgba(0,0,0,0.55); color: #FFFFFF; font-size: 11px; line-height: 1.35">Press <span style="display: inline-block; padding: 0 4px; border: 1px solid #FFF; border-radius: 3px">L2</span> to aim. Hold <span style="display: inline-block; padding: 0 4px; border: 1px solid #FFF; border-radius: 3px">R1</span> to take cover.</div>
+        <div style="position: absolute; left: 10%; right: 10%; bottom: 8%; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: #F1F1F1; text-shadow: 0 1px 2px #000; text-align: center">
+          <span>Can never have too much storage space, am I right?</span><span>He still here?</span></div>
+
+        <div role="img" aria-label="Altyazı alanı" style="position: absolute; left: 14%; right: 14%; top: 64%; bottom: 3%; border: 2px solid #FFD23F; background: rgba(255,210,63,0.08)">
+          <span class="tc" style="position: absolute; left: -2px; top: -22px; padding: 2px 8px; background: #FFD23F; color: #0F1014; font-weight: 500">1 · Altyazı</span>
+          <span class="h" style="left: -6px; top: -6px"></span><span class="h" style="right: -6px; top: -6px"></span><span class="h" style="left: -6px; bottom: -6px"></span><span class="h" style="right: -6px; bottom: -6px"></span>
+        </div>
+        <div role="img" aria-label="İpucu alanı" style="position: absolute; left: 2%; top: 2.5%; width: 28%; height: 14%; border: 2px dashed #ECEDEF; background: rgba(236,237,239,0.06)">
+          <span class="tc" style="position: absolute; left: -2px; bottom: -22px; padding: 2px 8px; background: #ECEDEF; color: #0F1014; font-weight: 500">2 · İpucu</span>
+          <span class="h" style="right: -6px; bottom: -6px; background: #ECEDEF"></span>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" class="ghost">+ Kutu ekle</button>
+        <button type="button" class="ghost">Oyundan otomatik bul</button>
+      </div>
+    </section>
+
+    <aside aria-label="Alanlar" style="flex: 1 1 360px; max-width: 440px; min-width: 0; border-left: 1px solid #272B34; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px">
+      <h2 class="lbl" style="margin: 0 0 6px">Bu oyunun alanları</h2>
+      <div class="area">
+        <span style="width: 12px; height: 12px; margin-top: 4px; background: #FFD23F"></span>
+        <div style="display: flex; flex-direction: column; gap: 3px"><strong style="font-size: 15px">1 · Altyazı</strong><span style="font-size: 13px; color: #9097A3; line-height: 1.45">Konuşmalar. Türkçe İngilizcenin üstünde çıkar.</span><span class="tc">x 14 % · y 64 % · 72 × 33 %</span></div>
+        <button type="button" class="ghost" aria-label="Altyazı alanını sil">Sil</button>
+      </div>
+      <div class="area">
+        <span style="width: 12px; height: 12px; margin-top: 4px; border: 2px dashed #ECEDEF; box-sizing: border-box"></span>
+        <div style="display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 15px">2 · İpucu</strong><span style="font-size: 13px; color: #9097A3; line-height: 1.45">Sol üstteki görev ipuçları. Tuş simgeleri korunur.</span>
+          <span role="group" aria-label="Ne zaman okunsun" style="display: inline-flex; align-self: flex-start; border: 1px solid #3A3F4B; border-radius: 6px; overflow: hidden; font-size: 12px">
+            <button type="button" style="min-height: 32px; padding: 0 10px; border: 0; background: #ECEDEF; color: #0F1014; font-weight: 600; font-family: inherit">Sürekli</button>
+            <button type="button" style="min-height: 32px; padding: 0 10px; border: 0; border-left: 1px solid #3A3F4B; background: transparent; color: #ECEDEF; font-family: inherit">Kısayolla</button>
+          </span>
+          <span class="tc">x 2 % · y 2,5 % · 28 × 14 %</span></div>
+        <button type="button" class="ghost" aria-label="İpucu alanını sil">Sil</button>
+      </div>
+      <p style="margin: auto 0 0; font-size: 13px; color: #9097A3; line-height: 1.5">Alanlar her oyun için ayrı saklanır. Oyun değişince Çevirgen o oyunun alanlarını kendisi yükler.</p>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

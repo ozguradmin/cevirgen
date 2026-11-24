@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen geçmiş ve sözlük</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Altyazı dosyası gibi: sıra no, zaman aralığı, iki dil; satırın içinde düzeltme. Sağda kurallı sözlük. */
+body{margin:0;background:#0F1014}
+a{color:#FFD23F}a:hover{color:#FFE27A}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+.tc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12px;color:#9097A3}
+.cue{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 16px;padding:14px 0;border-top:1px solid #272B34;align-items:start}
+.ghost{min-height:36px;padding:0 14px;border-radius:6px;border:1px solid #3A3F4B;background:transparent;color:#ECEDEF;font-family:inherit;font-size:13px;cursor:pointer}
+.term{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 92px;gap:12px;padding:11px 0;border-top:1px solid #272B34;font-size:14px;align-items:center}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 0 28px; min-height: 64px; border-bottom: 1px solid #272B34">
+    <a href="Main.dc.html" aria-label="Çevirgen" style="text-decoration: none; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 26px; color: #ECEDEF"><span style="color: #FFD23F">ç</span>evirgen</a>
+    <nav aria-label="Bölümler" style="display: flex; gap: 22px; font-size: 14px; font-weight: 500">
+      <a href="Main.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Canlı</a>
+      <a href="Appearance.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Görünüm</a>
+      <a href="Translation.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Çeviri</a>
+      <a href="History.dc.html" style="text-decoration: none; color: #ECEDEF; padding: 21px 0 19px; border-bottom: 2px solid #FFD23F">Geçmiş ve sözlük</a>
+      <a href="Settings.dc.html" style="text-decoration: none; color: #9097A3; padding: 21px 0">Ayarlar</a>
+    </nav>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+    <section aria-label="Oturum geçmişi" style="flex: 999 1 600px; min-width: 0; padding: 22px 28px; border-right: 1px solid #272B34; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h1 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 30px">Bugün, 20:00</h1>
+          <span class="tc" style="font-size: 13px">GTA VI · 42 dk · 412 satır · 38 düzeltme</span>
+        </div>
+        <div style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px">
+          <label for="hist-search" class="lbl" style="align-self: center">Ara</label>
+          <input id="hist-search" type="search" value="" placeholder="kelime ya da zaman" style="min-height: 36px; width: 190px; padding: 0 12px; border-radius: 6px; border: 1px solid #3A3F4B; background: #16181E; color: #ECEDEF; font-family: inherit; font-size: 13px">
+          <button type="button" class="ghost">Türkçe .srt kaydet</button>
+          <button type="button" class="ghost">İki dilli .srt</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="cue">
+          <span class="tc">287</span>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <span class="tc">00:42:13,154 → 00:42:16,020</span>
+            <span style="font-size: 13px; color: #9097A3">Can never have too much storage space, am I right?</span>
+            <span style="font-size: 16px">Depolama alanı hiç fazla gelmez, değil mi?</span>
+          </div>
+          <button type="button" class="ghost">Düzelt</button>
+        </div>
+
+        <div class="cue" style="background: #16181E; padding-left: 12px; padding-right: 12px; margin: 0 -12px">
+          <span class="tc" style="color: #FFD23F">286</span>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <span class="tc">00:42:09,402 → 00:42:11,600</span>
+            <span style="font-size: 13px; color: #9097A3">Whip the ever-lovin' shit outta him!</span>
+            <span style="font-size: 14px; color: #9097A3; text-decoration: line-through">Her zaman sevilen pisliği ondan çıkar!</span>
+            <label for="fix-286" class="lbl" style="color: #FFD23F">Senin çevirin · bu replik hep böyle çıkar</label>
+            <input id="fix-286" type="text" value="Ağzını burnunu kır şunun!" style="min-height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #FFD23F; background: #0F1014; color: #ECEDEF; font-family: inherit; font-size: 16px">
+            <span class="tc">25 karakter · 11 kr/sn · sınırın altında</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <button type="button" style="min-height: 36px; padding: 0 16px; border-radius: 6px; border: 0; background: #FFD23F; color: #0F1014; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Kaydet</button>
+            <button type="button" class="ghost">Vazgeç</button>
+          </div>
+        </div>
+
+        <div class="cue">
+          <span class="tc">285</span>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <span class="tc">00:42:06,218 → 00:42:09,100</span>
+            <span style="font-size: 13px; color: #9097A3">I'm thinkin' of doing a little cross-country vacay with a lady friend of mine.</span>
+            <span style="font-size: 16px">Bir hanım arkadaşımla ülke boyunca ufak bir tatile çıkmayı düşünüyorum.</span>
+            <span class="tc" style="color: #F2A33A">21 kr/sn · okumak için hızlı, kısalt</span>
+          </div>
+          <button type="button" class="ghost">Düzelt</button>
+        </div>
+
+        <div class="cue">
+          <span class="tc">284</span>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <span class="tc">00:42:04,870 → 00:42:05,900</span>
+            <span style="font-size: 13px; color: #9097A3">Cheers!</span>
+            <span style="font-size: 16px">Şerefe!</span>
+          </div>
+          <span class="lbl" style="color: #ECEDEF; padding-top: 2px">Senin düzeltmen</span>
+        </div>
+      </div>
+    </section>
+
+    <aside aria-label="Sözlük" style="flex: 1 1 400px; min-width: 0; padding: 22px 28px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 24px">Sözlük</h2>
+        <p style="margin: 0; font-size: 14px; color: #9097A3; line-height: 1.5; max-width: 46ch">Adlar ve terimler her oyunda aynı kalsın. Çeviri motoru bu kurallara uyar.</p>
+      </div>
+      <div>
+        <div class="term lbl" style="border-top: 0; padding-bottom: 6px"><span>İngilizce</span><span>Türkçe</span><span>Kural</span></div>
+        <div class="term"><span>Vice City</span><span style="color: #9097A3">aynen</span><span class="tc">çevirme</span></div>
+        <div class="term"><span>Leonida</span><span style="color: #9097A3">aynen</span><span class="tc">çevirme</span></div>
+        <div class="term"><span>bro</span><span>kanka</span><span class="tc">hep böyle</span></div>
+        <div class="term"><span>cop</span><span>aynasız</span><span class="tc">hep böyle</span></div>
+        <div class="term"><span>safehouse</span><span>güvenli ev</span><span class="tc">hep böyle</span></div>
+        <div class="term" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) 92px">
+          <label for="term-en" class="lbl" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">İngilizce terim</label>
+          <input id="term-en" type="text" placeholder="terim" style="min-height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid #3A3F4B; background: #16181E; color: #ECEDEF; font-family: inherit; font-size: 14px; min-width: 0">
+          <label for="term-tr" class="lbl" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Türkçe karşılık</label>
+          <input id="term-tr" type="text" placeholder="karşılık" style="min-height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid #3A3F4B; background: #16181E; color: #ECEDEF; font-family: inherit; font-size: 14px; min-width: 0">
+          <button type="button" style="min-height: 36px; border-radius: 6px; border: 0; background: #ECEDEF; color: #0F1014; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Ekle</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

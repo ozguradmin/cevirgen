@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevirgen ilk kurulum</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* İlk açılış: tek soru, dört cevap. Her seçenek neye ihtiyaç duyduğunu ve kurulumun kaç adım olduğunu söyler. */
+body{margin:0;background:#0F1014}
+a{color:#ECEDEF}a:hover{color:#FFD23F}
+button:focus-visible,a:focus-visible{outline:2px solid #FFD23F;outline-offset:2px}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9097A3}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #0F1014; color: #ECEDEF; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 56px 28px; box-sizing: border-box; gap: 36px">
+  <div style="width: 100%; max-width: 1080px; display: flex; flex-direction: column; gap: 10px">
+    <span style="font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 72; font-weight: 800; font-size: 28px"><span style="color: #FFD23F">ç</span>evirgen</span>
+    <h1 style="margin: 12px 0 0; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 78; font-weight: 700; font-size: 48px; line-height: 1.05; text-wrap: balance">Oyunu nerede oynuyorsun?</h1>
+    <p style="margin: 0; font-size: 17px; color: #9097A3; max-width: 60ch; line-height: 1.5">Çevirgen ekrandaki İngilizce altyazıyı okuyup Türkçesini gösterir; altyazısı olan her oyunda çalışır. Kurulum seçimine göre ilerler, sonra Ayarlar'dan değiştirebilirsin.</p>
+  </div>
+
+  <div role="radiogroup" aria-label="Platform" style="width: 100%; max-width: 1080px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #272B34">
+    <sc-for list="{{options}}" as="o" hint-placeholder-count="4">
+      <button type="button" role="radio" aria-checked="{{o.checked}}" onClick="{{o.pick}}" style="{{o.style}}">
+        <span style="font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 80; font-weight: 700; font-size: 26px; color: #ECEDEF">{{o.name}}</span>
+        <span style="font-size: 14px; color: #C3C8D0; line-height: 1.5">{{o.how}}</span>
+        <span style="margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 18px; border-top: 1px solid #272B34; width: 100%">
+          <span class="lbl">Gerekenler</span>
+          <span style="font-size: 13px; color: #9097A3; line-height: 1.5">{{o.needs}}</span>
+          <span class="lbl" style="margin-top: 8px; color: #FFD23F">{{o.steps}}</span>
+        </span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="width: 100%; max-width: 1080px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
+    <span style="font-size: 14px; color: #9097A3">Seçilen: <strong style="color: #ECEDEF">{{pickedName}}</strong> · {{pickedSteps}}</span>
+    <button type="button" style="margin-left: auto; min-height: 48px; padding: 0 28px; border-radius: 6px; border: 0; background: #FFD23F; color: #0F1014; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer">Devam</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":860}}'>
+class Component extends DCLogic {
+constructor(props) { super(props); this.state = { picked: 'ps5' }; }
+renderVals() {
+  const list = [
+    { id: 'ps5', name: 'PS5', how: 'Çevirgen, Uzaktan Oynatma ile PS5\'in görüntüsünü izler. Sen kendi hesabınla oynamaya devam edersin.', needs: 'Ücretsiz ikinci bir PSN hesabı, aynı ev ağı', steps: '4 adım · 3 dk' },
+    { id: 'xbox', name: 'Xbox', how: 'Çevirgen Xbox\'a bağlanıp görüntüyü izler; ya da bilgisayardaki Xbox uygulamasının penceresini okur.', needs: 'Microsoft hesabı, aynı ev ağı', steps: '3 adım · 2 dk' },
+    { id: 'pc', name: 'Bilgisayar', how: 'Oyun bu bilgisayarda. Çevirgen oyun penceresini okur; Türkçe oyunun üstünde ya da TV\'de çıkar.', needs: 'Hiçbir şey; oyunu pencereli ya da kenarlıksız aç', steps: '2 adım · 1 dk' },
+    { id: 'capture', name: 'Diğer', how: 'Switch, eski konsollar ya da başka bir cihaz: görüntü yakalama kartıyla bilgisayara gelir, Çevirgen o pencereyi okur.', needs: 'Yakalama kartı ve OBS (ya da kartın kendi uygulaması)', steps: '3 adım · 3 dk' }
+  ];
+  const picked = this.state.picked;
+  const options = list.map((o, i) => ({
+    ...o,
+    checked: o.id === picked ? 'true' : 'false',
+    pick: () => this.setState({ picked: o.id }),
+    style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; min-height: 330px; padding: 24px; border: 0; ' + (i ? 'border-left: 1px solid #272B34; ' : '') + 'background: ' + (o.id === picked ? '#1C1F27' : 'transparent') + '; box-shadow: ' + (o.id === picked ? 'inset 0 3px 0 #FFD23F' : 'none') + '; cursor: pointer; font-family: inherit'
+  }));
+  const p = list.find((o) => o.id === picked);
+  return { options, pickedName: p.name, pickedSteps: p.steps };
+}
+}
+</script>
+</body>
+</html>
