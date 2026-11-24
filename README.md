@@ -64,6 +64,11 @@ Güncellemeler uygulamanın içinden gelir; yeni sürüm çıkınca üstte bir b
 
 Çevirgen işine yaradıysa bu depoya ⭐ vererek destek olabilirsin. Hata ve öneriler için [sorun bildir](https://github.com/ozguradmin/cevirgen/issues).
 
+## İletişim
+
+- Destek ve öneriler: **destek@ozgurguler.tech**
+- Geliştiren: [ozgurguler.tech](https://ozgurguler.tech/professional)
+
 ## Geliştirme
 
 Windows uygulaması .NET 10 (WPF) ile yazılmıştır: `windows/CouchSubs.Windows.slnx`.
