@@ -65,6 +65,10 @@
     <!-- Açılır reklamın görseli (reklamlar.json › popups; Mac aynı dosyayı okur). -->
     <!-- ShellWindow.xaml pencere simgesi olarak bunu okur; ApplicationIcon yalnız exe simgesidir. -->
     <Resource Include="Assets\Cevirgen.ico" />
+    <!-- Arayüz yazıları (SIL OFL 1.1): IBM Plex Sans / Mono ve Archivo Condensed, durağan TTF; WPF değişken eksenleri
+         okumadığı için her ağırlık ayrı dosya. Lisans metinleri pakete de kopyalanır (Assets/Fonts/*.txt). -->
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Content Include="Assets\Fonts\*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- TV uygulaması paketleri (scripts/package-tv.sh, package-tizen.sh ve Android derlemesi üretir); geliştirici modu açık TV'ye kurulur. -->

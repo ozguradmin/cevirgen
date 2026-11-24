@@ -33,7 +33,7 @@
 
     <!-- Başlığın üstündeki adım etiketi ("Adım 3 / 4", "Kurulum · Hesap"): 13 orta kalın, gri; mono büyük harf değil. -->
     <Style x:Key="EyebrowText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+        <Setter Property="FontFamily" Value="{DynamicResource TextFont}" />
         <Setter Property="FontSize" Value="{DynamicResource smallFontSize}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource mutedBrush}" />
@@ -42,7 +42,7 @@
 
     <!-- Alt çubuktaki not ("Devam etmek için TV'deki kodu onaylayın…"): 13, gri, sağa yaslı, en çok iki satır. -->
     <Style x:Key="FootnoteText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+        <Setter Property="FontFamily" Value="{DynamicResource TextFont}" />
         <Setter Property="FontSize" Value="{DynamicResource smallFontSize}" />
         <Setter Property="Foreground" Value="{DynamicResource mutedBrush}" />
         <Setter Property="TextWrapping" Value="Wrap" />
@@ -64,9 +64,6 @@
                 <ControlTemplate TargetType="Button">
                     <Grid>
                         <Border x:Name="Glow" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource surfaceBrush}" Visibility="Collapsed">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.35" Color="#F5B83D" RenderingBias="Performance" />
-                            </Border.Effect>
                         </Border>
                         <Border x:Name="Fill" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource surfaceBrush}" />
                         <Border x:Name="Tint" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource amberSoftBrush}" Visibility="Collapsed" />
@@ -150,7 +147,7 @@
     </Style>
     <!-- Ön koşul maddesi ("1. …"): 13, ana yazı rengi, satır aralığı +2 (Mac TVChecklistRow). -->
     <Style x:Key="ChecklistText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+        <Setter Property="FontFamily" Value="{DynamicResource TextFont}" />
         <Setter Property="FontSize" Value="{DynamicResource smallFontSize}" />
         <Setter Property="Foreground" Value="{DynamicResource textBrush}" />
         <Setter Property="TextWrapping" Value="Wrap" />
@@ -251,9 +248,6 @@
                 <ControlTemplate TargetType="RadioButton">
                     <Grid>
                         <Border x:Name="Glow" CornerRadius="{DynamicResource radius.card}" Background="{DynamicResource surfaceBrush}" Visibility="Collapsed">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.35" Color="#F5B83D" RenderingBias="Performance" />
-                            </Border.Effect>
                         </Border>
                         <Border CornerRadius="{DynamicResource radius.card}" Background="{DynamicResource surfaceBrush}" />
                         <Border x:Name="Tint" CornerRadius="{DynamicResource radius.card}" Background="{DynamicResource amberSoftBrush}" Visibility="Collapsed" />
@@ -307,14 +301,11 @@
             <Setter.Value>
                 <ControlTemplate TargetType="c:TvCard">
                     <Grid>
-                        <Border x:Name="Glow" CornerRadius="18" Background="{DynamicResource surfaceBrush}" Visibility="Collapsed">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.35" Color="#F5B83D" RenderingBias="Performance" />
-                            </Border.Effect>
+                        <Border x:Name="Glow" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource surfaceBrush}" Visibility="Collapsed">
                         </Border>
-                        <Border x:Name="Fill" CornerRadius="18" Background="{DynamicResource surfaceBrush}" />
-                        <Border x:Name="Tint" CornerRadius="18" Background="{DynamicResource amberSoftBrush}" Visibility="Collapsed" />
-                        <Border x:Name="Frame" CornerRadius="18" MinHeight="{DynamicResource size.option}" Padding="{m:Sp 's'}"
+                        <Border x:Name="Fill" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource surfaceBrush}" />
+                        <Border x:Name="Tint" CornerRadius="{DynamicResource radius.tile}" Background="{DynamicResource amberSoftBrush}" Visibility="Collapsed" />
+                        <Border x:Name="Frame" CornerRadius="{DynamicResource radius.tile}" MinHeight="{DynamicResource size.option}" Padding="{m:Sp 's'}"
                                 BorderBrush="{DynamicResource cardEdgeBrush}" BorderThickness="1">
                             <DockPanel VerticalAlignment="Center">
                                 <c:IconSquare x:Name="Icon" DockPanel.Dock="Left" Glyph="&#xE7F4;" Size="36" Tone="Gray" Margin="{m:Sp '0,0,s,0'}" />

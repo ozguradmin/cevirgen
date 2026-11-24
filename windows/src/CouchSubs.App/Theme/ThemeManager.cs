@@ -51,7 +51,8 @@ public static class ThemeManager
         foreach (var (name, value) in Palette.Radius) resources[$"radius.{name}"] = new CornerRadius(value);
         foreach (var (name, value) in Palette.Size) resources[$"size.{name}"] = value;
         // Kart taban gölgesi yok; kartlar 1 px çerçeveyle ayrılır. Döşeme (tile) zemini hafif degradedir (tasarım: .tile).
-        var tile = new LinearGradientBrush((Color)resources["tileTopColor"], (Color)resources["tileBottomColor"], 45);
+        // Çevirgen: degrade yok; döşeme düz yüzey.
+        var tile = new SolidColorBrush((Color)resources["tileTopColor"]);
         tile.Freeze();
         resources["tileBrush"] = tile;
         resources["windowBackgroundBrush"] = resources["backgroundBrush"];
@@ -80,24 +81,19 @@ public static class ThemeManager
         var strong = Get("borderStrong");
         var strongTop = Color.FromArgb((byte)Math.Min(255, strong.A + highlight.A * 2), Blend(strong.R, 255, highlight.A), Blend(strong.G, 255, highlight.A), Blend(strong.B, 255, highlight.A));
         resources["raisedEdgeBrush"] = Frozen(new LinearGradientBrush(new GradientStopCollection { new(strongTop, 0), new(strong, 0.5) }, 90));
-        // Ana düğme: amberHover → amber (yukarıdan aşağı); üzerine gelince daha açık.
-        resources["primaryFillBrush"] = Frozen(new LinearGradientBrush(Get("amberHover"), Get("amber"), 90));
-        resources["primaryHoverBrush"] = Frozen(new LinearGradientBrush(Color.FromRgb(0xFF, 0xD5, 0x78), Get("amber"), 90));
+        // Ana düğme (Çevirgen): düz sarı; üzerine gelince açık sarı. Degrade ve parlama yok.
+        resources["primaryFillBrush"] = Frozen(new SolidColorBrush(Get("amber")));
+        resources["primaryHoverBrush"] = Frozen(new SolidColorBrush(Get("amberHover")));
         resources["primaryEdgeBrush"] = Frozen(new SolidColorBrush(Color.FromArgb(0x99, Get("amberLine").R, Get("amberLine").G, Get("amberLine").B)));
         resources["primarySheenBrush"] = Frozen(new LinearGradientBrush(new GradientStopCollection { new(Color.FromArgb(0x73, 255, 255, 255), 0), new(Color.FromArgb(0, 255, 255, 255), 0.5) }, 90));
         // İlerleme çubuğunun dolgusu: amber → amberHover (soldan sağa).
-        resources["progressFillBrush"] = Frozen(new LinearGradientBrush(Get("amber"), Get("amberHover"), 0));
+        resources["progressFillBrush"] = Frozen(new SolidColorBrush(Get("amber")));
         // e3 cam: üst ve alt çubuklar (içerik arkalarından kayar). Bulanıklık yerine yarı saydam koyu degrade.
         var glass = Get("glass");
         var bg = Get("background");
-        resources["glassBarBrush"] = Frozen(new LinearGradientBrush(new GradientStopCollection
-        {
-            new(Color.FromArgb(0xFA, bg.R, bg.G, bg.B), 0), new(Color.FromArgb(0xEB, bg.R, bg.G, bg.B), 0.72), new(Color.FromArgb(0x00, bg.R, bg.G, bg.B), 1),
-        }, 90));
-        resources["glassBarBottomBrush"] = Frozen(new LinearGradientBrush(new GradientStopCollection
-        {
-            new(Color.FromArgb(0x00, bg.R, bg.G, bg.B), 0), new(Color.FromArgb(0xEB, bg.R, bg.G, bg.B), 0.28), new(Color.FromArgb(0xFA, bg.R, bg.G, bg.B), 1),
-        }, 90));
+        // Çevirgen: cam çubuk yok; eski ekranların bu adları düz zemin olur.
+        resources["glassBarBrush"] = Frozen(new SolidColorBrush(bg));
+        resources["glassBarBottomBrush"] = Frozen(new SolidColorBrush(bg));
         resources["glassFillBrush"] = Frozen(new SolidColorBrush(Color.FromArgb((byte)Math.Min(255, glass.A + 0x30), glass.R, glass.G, glass.B)));
         // Durdur düğmesi: üzerine gelince dolu canlı zemin %8 koyulaşır (Mac: siyah %8 örtü).
         var stop = Get("stopFill");

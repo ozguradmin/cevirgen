@@ -41,11 +41,17 @@ public sealed class Not : IValueConverter
     public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) => value is not true;
 }
 
-/// <summary>Yüksekliğin yarısı köşe (hap biçimi); <c>{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource Pill}}</c>.</summary>
+/// <summary>
+/// Denetim köşesi; <c>{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource PillCorner}}</c>.
+/// Çevirgen: hap biçimi yok, köşe en çok 6 (taslak: "radius 6px only on controls"); küçük noktalarda yüksekliğin yarısı.
+/// </summary>
 public sealed class PillCorner : IValueConverter
 {
+    /// <summary>Denetimlerin köşesi (tasarim.json › radius.control).</summary>
+    public const double Control = 6;
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        new CornerRadius(value is double height && height > 0 ? height / 2 : 0);
+        new CornerRadius(value is double height && height > 0 ? Math.Min(height / 2, Control) : 0);
 
     public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }

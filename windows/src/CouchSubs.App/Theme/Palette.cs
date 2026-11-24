@@ -11,7 +11,8 @@ namespace CouchSubs.App.Theme;
 /// uygulamaya gömülüdür). ThemeManager bu değerleri tokens.json'dan sonra uygular: dosyadaki adlar (<c>amberBrush</c>,
 /// <c>fieldBrush</c> …) ve eski ekranların kullandığı eski adlar (<c>accentBrush</c>, <c>surface2Brush</c> …) aynı
 /// renge bağlanır, böylece eski ekranlar da yeni dile geçer.
-/// Renk anlamları: amber = ana eylem / anahtar açık; yeşil = başarı; kırmızı (#D9542F) = canlı-durdur ve uyarı.
+/// Renk anlamları (Çevirgen): tek vurgu altyazı sarısı #FFD23F (eski adı "amber": ana eylem, etkin sekme, "ekranda");
+/// yeşil = bağlı/başarı; turuncu (warn) = hızlı satır; kırmızı (live) = hata ve tehlikeli eylem.
 /// </summary>
 public static class Palette
 {
@@ -30,14 +31,13 @@ public static class Palette
     /// <summary>Dosyada olmayan, yalnız Windows çiziminde gereken renkler (tasarım tuvalindeki değerler).</summary>
     private static readonly Dictionary<string, (string Light, string Dark)> Extras = new()
     {
-        ["divider"] = ("#EFEAE2", "#26292F"),
-        ["tileTop"] = ("#F1EDE6", "#23262C"),
-        ["tileBottom"] = ("#F6F2EA", "#202328"),
-        ["knob"] = ("#FFFFFF", "#FFFFFF"),
-        ["scene"] = ("#6D6A5D", "#6D6A5D"),
-        ["onDanger"] = ("#FFFFFF", "#17181B"),
-        // Ayarlar menüsü seçim hapının halkası: amber %45 (Mac dsAmber.opacity(0.45)).
-        ["amberRing"] = ("#F5B83D73", "#F5B83D73"),
+        // Çevirgen: satır içi ayraç (taslak #20242C), düz döşeme (degrade yok).
+        ["divider"] = ("#E4E6EA", "#20242C"),
+        ["tileTop"] = ("#FFFFFF", "#16181E"),
+        ["tileBottom"] = ("#FFFFFF", "#16181E"),
+        ["knob"] = ("#FFFFFF", "#ECEDEF"),
+        ["scene"] = ("#3C424C", "#3C424C"),
+        ["onDanger"] = ("#FFFFFF", "#0F1014"),
     };
 
     /// <summary>Ad → (açık, koyu) renk; kaynaklarda <c>{ad}Color</c> ve <c>{ad}Brush</c>.</summary>

@@ -36,17 +36,11 @@ internal static class PerdeColors
     }
 }
 
-/// <summary>Perde ışımaları (DropShadowEffect; GPU'da çizilir, durağan).</summary>
+/// <summary>Perde ışımaları. Çevirgen arayüzünde gölge ve ışıma yok: hep null döner (çağıranlar değişmeden kalsın diye).</summary>
 public static class PerdeEffects
 {
-    /// <summary>Amber ışıma (effect.glowPrimary / amberGlow): verilen bulanıklıkta, kaymasız.</summary>
-    public static DropShadowEffect AmberGlow(double blur, double depth = 0, double opacity = 0.45)
-    {
-        var effect = new DropShadowEffect { BlurRadius = blur, ShadowDepth = depth, Direction = 270, Opacity = opacity,
-            Color = PerdeColors.Rgb(0xF5, 0xB8, 0x3D), RenderingBias = RenderingBias.Performance };
-        effect.Freeze();
-        return effect;
-    }
+    /// <summary>Eski amber ışıma; Çevirgen'de ışıma kullanılmaz (taslak: "no shadows/glows/gradients").</summary>
+    public static DropShadowEffect? AmberGlow(double blur, double depth = 0, double opacity = 0.45) => null;
 }
 
 // ───────────── Canlı nokta ─────────────
@@ -284,14 +278,17 @@ public sealed class IconSquare : Border
     private void Build()
     {
         Width = Height = Size;
-        CornerRadius = new CornerRadius(Size * 0.3);
-        var (top, bottom) = Colors(Tone);
-        var fill = new LinearGradientBrush(top, bottom, new Point(0, 0), new Point(1, 1));
+        CornerRadius = new CornerRadius(Math.Min(6, Size * 0.3));
+        // Çevirgen: tek vurgu rengi; sarı ton dışındakiler nötr denetim yüzeyi (#272B34/#3A3F4B), degrade yok.
+        var amber = Tone == IconTone.Amber;
+        var fill = new SolidColorBrush(amber ? PerdeColors.Rgb(0xFF, 0xD2, 0x3F) : PerdeColors.Get("field", PerdeColors.Rgb(0x1C, 0x1F, 0x27)));
         fill.Freeze();
         Background = fill;
+        BorderBrush = amber ? null : PerdeColors.Frozen(PerdeColors.Get("controlBorder", PerdeColors.Rgb(0x3A, 0x3F, 0x4B)));
+        BorderThickness = new Thickness(amber ? 0 : 1);
         glyph.Text = Glyph ?? "";
         glyph.FontSize = Math.Round(Size * 0.46);
-        glyph.Foreground = Tone == IconTone.Amber ? PerdeColors.Frozen(PerdeColors.Rgb(0x1D, 0x1E, 0x22)) : Brushes.White;
+        glyph.Foreground = amber ? PerdeColors.Frozen(PerdeColors.Rgb(0x0F, 0x10, 0x14)) : PerdeColors.Frozen(PerdeColors.Get("text", System.Windows.Media.Colors.White));
     }
 }
 
@@ -844,6 +841,8 @@ public sealed class ProjectorLight : Border
     public ProjectorLight()
     {
         IsHitTestVisible = false;
+        // Çevirgen: degrade ışık yok.
+        Visibility = Visibility.Collapsed;
         Background = PerdeBrushes.ProjectorLight(ThemeManager.IsDark);
         void Refresh() => Background = PerdeBrushes.ProjectorLight(ThemeManager.IsDark);
         Loaded += (_, _) => { ThemeManager.Changed -= Refresh; ThemeManager.Changed += Refresh; Refresh(); };
@@ -1294,6 +1293,8 @@ public sealed class AmbientGlow : Canvas
 
     private void Paint()
     {
+        // Çevirgen: ortam ışığı (degrade lekeler) kapalı; zemin düz grafit.
+        Visibility = Visibility.Collapsed;
         for (var i = 0; i < Blobs.Length; i++)
         {
             var color = PerdeColors.Get(Blobs[i].Name, Colors.Orange);

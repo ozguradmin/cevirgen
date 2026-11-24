@@ -106,6 +106,8 @@ CouchSubs, Copyright (C) 2026 Sinan Yorulmaz. These adaptations are licensed und
 | QRCoder 1.6.0 (QR code of the "Show on another device" address) | MIT | https://github.com/codebude/QRCoder |
 | ONNX Runtime 1.24.4 (`onnxruntime.dll`, `Microsoft.ML.OnnxRuntime.DirectML`; advanced text recognition) | MIT | https://github.com/microsoft/onnxruntime |
 | DirectML 1.15.4 (`DirectML.dll`, from the `Microsoft.AI.DirectML` package; GPU for advanced text recognition) | Microsoft Software License Terms (Microsoft DirectX Machine Learning) | https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4 |
+| IBM Plex Sans and IBM Plex Mono (static TTF; Çevirgen interface text, `Assets/Fonts/`) | SIL Open Font License 1.1, Copyright © 2017 IBM Corp., Reserved Font Name "Plex" (`Assets/Fonts/IBMPlex-OFL.txt`) | https://github.com/IBM/plex |
+| Archivo Condensed (static TTF, Bold and ExtraBold; Çevirgen headings and wordmark, `Assets/Fonts/`) | SIL Open Font License 1.1, Copyright 2020 The Archivo Project Authors (`Assets/Fonts/Archivo-OFL.txt`) | https://github.com/Omnibus-Type/Archivo |
 | Microsoft Visual C++ 2015–2022 runtime (`vcruntime140*.dll`, `msvcp140*.dll`, `concrt140.dll`; needed by CTranslate2) | Microsoft Visual Studio license terms, "Distributable Code" (redist.txt) | https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files |
 
 The full copyright and license notices for Greenlight, the Xbox helper's bundled libraries, and the bundled Node.js
