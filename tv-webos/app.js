@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.7';
+  var APP_VERSION = '1.0.8';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -1363,23 +1363,85 @@
     return taken;
   }
 
-  // Çevirgen: kullanıcının çizdiği ek alandaki kısa etiketin hizası komşularından çıkar (GTA 6'nın sağ alttaki tuş listesi
-  // sağa yaslı, tuş simgesi yazının sağında). Türkçe uzun gelirse kutu simgenin üstüne değil yazının öbür yanına büyür.
-  function neighbourAlign(items, index, box) {
-    var tolerance = 0.012, left = 0, right = 0;
+  // Çevirgen: "Ek alan çevirisi yazının üstünde" (style.regionsAbove): ek alanın Türkçesi İngilizceyi örtmez, hemen üstünde durur.
+  var regionsAbove = false;
+
+  // --- Çevirgen: tuş etiketleri ---
+  // Kullanıcının çizdiği ek alandaki tuş/seçenek etiketi ("EXIT" ○, "RETRY CHECKPOINT" ✕): bilgisayar bloğu item.key ile
+  // işaretler, yaslandığı kenarı (style.align) ve rengini (surface) bildirir. Çizim tahminsizdir:
+  //  - Plaka İngilizce satırın yerinde ve yüksekliğinde; yazı tek satır, satır yüksekliğine oranlı, listede hep aynı boyda.
+  //  - Yaslanılan kenar (sağa yaslı listede sağ kenar: tuş simgesi o yandadır) İngilizcenin kenarında sabittir (CSS
+  //    right/left). Türkçe uzunsa plaka yalnız öbür yana büyür; simgenin üstüne hiç gelmez.
+  //  - Aynı satırda o yanda başka yazı varsa (yatay tuş çubuğu) ona ve simgesine değmeyecek kadar küçülür (item.room);
+  //    en küçük boyda da sığmazsa çizilmez, İngilizcesi görünür kalır.
+  var KEY_PLATE = '#141519';
+  var KEY_FONT_SCALE = 0.74;
+  var KEY_MIN_FONT = 13;
+  var KEY_MIN_SCALE = 0.58;
+
+  // Etiketin büyüyebileceği genişlik: ekran kenarına ya da aynı satırdaki komşu etikete (ve onun tuş simgesine) kadar.
+  function keyRoom(items, index, box, align, width, height) {
+    var own = (box.right - box.left) * width + 2;
+    var room = align === 'right' ? box.right * width : width - box.left * width;
+    var glyph = (box.bottom - box.top) * height * 1.7;
     for (var j = 0; j < items.length; j++) {
       if (j === index) continue;
       var other = validBox(items[j] && items[j].box);
       if (!other) continue;
-      if (Math.abs(other.left - box.left) < tolerance) left++;
-      if (Math.abs(other.right - box.right) < tolerance) right++;
+      var overlap = Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top);
+      if (overlap < 0.5 * Math.min(box.bottom - box.top, other.bottom - other.top)) continue;
+      if (align === 'right' && other.right <= box.left) room = Math.min(room, (box.right - other.right) * width - glyph);
+      if (align !== 'right' && other.left >= box.right) room = Math.min(room, (other.left - box.left) * width - glyph);
     }
-    if (right !== left) return right > left ? 'right' : 'left';
-    return (box.left + box.right) / 2 > 0.5 ? 'right' : 'left';
+    return Math.max(own, room);
   }
 
-  // Çevirgen: "Ek alan çevirisi yazının üstünde" (style.regionsAbove): ek alanın Türkçesi İngilizceyi örtmez, hemen üstünde durur.
-  var regionsAbove = false;
+  function placeKeyLabel(host, el, item, box, items, index, width, height) {
+    var align = item.style && item.style.align === 'left' ? 'left' : 'right';
+    var boxHeight = (box.bottom - box.top) * height;
+    // Listede hep aynı boy: bilgisayar aynı boydaki etiketlere aynı satır yüksekliğini (line) verir.
+    var lineHeight = typeof item.line === 'number' && item.line > 0 ? item.line * height : boxHeight;
+    var padY = Math.max(1, Math.round(height / 540));
+    var plateHeight = Math.max(1, Math.round(Math.max(boxHeight, lineHeight) + 2 * padY));
+    var size = Math.max(KEY_MIN_FONT, Math.min(64, Math.round(lineHeight * KEY_FONT_SCALE)));
+    var surface = item.surface;
+    el.className = 'item key-label';
+    fillText(el, item.text, item.icons);
+    el.style.backgroundColor = surface && phoneColor(surface.background) ? surface.background : KEY_PLATE;
+    el.style.color = surface && phoneColor(surface.foreground) ? surface.foreground : '#ffffff';
+    el.style.textAlign = align;
+    el.style.height = plateHeight + 'px';
+    el.style.lineHeight = plateHeight + 'px';
+    el.style.fontSize = size + 'px';
+    // İç boşluk ekranla ölçeklenir (1080p'de 6 px): 720p'de sabit 6 px etiketi gereksiz küçültüyordu.
+    el.style.paddingLeft = el.style.paddingRight = Math.max(2, Math.round(height / 180)) + 'px';
+    // İngilizce satır her durumda örtülür: plaka en az onun kadar geniş.
+    var minWidth = Math.max(1, Math.round((box.right - box.left) * width + 1));
+    el.style.minWidth = minWidth + 'px';
+    var top = Math.round((box.top + box.bottom) / 2 * height - plateHeight / 2);
+    if (regionsAbove) top -= plateHeight + 2;
+    el.style.top = Math.max(0, Math.min(Math.round(height) - plateHeight, top)) + 'px';
+    // Yaslanılan kenar İngilizcenin kenarının 1 px içinde sabit; plaka yalnız öbür yana büyür.
+    if (align === 'right') {
+      el.style.left = 'auto';
+      el.style.right = Math.max(0, Math.round(width - box.right * width + 1)) + 'px';
+    } else {
+      el.style.right = 'auto';
+      el.style.left = Math.max(0, Math.round(box.left * width + 1)) + 'px';
+    }
+    host.appendChild(el);
+    // Büyüme payı: bilgisayar bildirir (okuduğu bütün satırları engel sayar); bildirmediyse görünen etiketlerden.
+    var room = typeof item.room === 'number' && item.room > 0 ? item.room * width
+      : keyRoom(items, index, box, align, width, height);
+    room = Math.max(minWidth, Math.floor(room));
+    var floor = Math.max(KEY_MIN_FONT, Math.round(size * KEY_MIN_SCALE));
+    while (el.offsetWidth > room && size > floor) {
+      size--;
+      el.style.fontSize = size + 'px';
+    }
+    // En küçük boyda da sığmayan etiket çizilmez: başka bir tuşun simgesini örtmektense İngilizcesi görünür kalır.
+    if (el.offsetWidth > room) el.style.display = 'none';
+  }
 
   function placeItems(host, items, regionId) {
     var phone = regionId === 'game-phone';
@@ -1417,6 +1479,11 @@
       el.className = item.paragraphs === true ? 'item paragraphs' : 'item';
       // Özgün yazının yeri: aynı yeri çizen başka katmanın kutusuyla karşılaştırılır (resolveLayers).
       el.couchsubsBox = box;
+      // Çevirgen: tuş etiketi (bilgisayar item.key ile işaretler) kendi sade yoluyla çizilir.
+      if (item.key === true && regionId && !phone) {
+        placeKeyLabel(host, el, item, box, items, i, width, height);
+        continue;
+      }
       var styled = false;
       if (phone) {
         el.className += ' phone';
@@ -1456,26 +1523,8 @@
       // küçük boyda da sığmıyorsa satır kırılır.
       var singleOriginal = boxHeight <= line * 1.6 + 2 * pad * height;
       var bubble = styled && item.bubble === true;
-      // Çevirgen: elle çizilen ek alanın kısa satırı da etiket gibi tek satırda kalır ("ARAYÜ / ZÜ GİZLE" diye kırılıyordu).
-      var manual = !phone && !styled && !!regionId && regionId.indexOf('auto-') !== 0;
-      var manualAlign = manual ? neighbourAlign(items, i, box) : null;
-      // Çevirgen: bilgisayarın tuş etiketi dediği blok (item.key) kaç sözcük olursa olsun tek satır etikettir
-      // ("KONTROL NOKTASINDAN TEKRAR DENE" iki satıra kırılıp simgenin üstüne biniyordu).
-      var keyItem = item.key === true && !!regionId && !phone;
-      var label = keyItem || ((styled ? !bubble : manual) && item.text.indexOf('\n') < 0
-        && (item.text.split(/\s+/).length <= 2 || singleOriginal));
+      var label = styled && !bubble && item.text.indexOf('\n') < 0 && (item.text.split(/\s+/).length <= 2 || singleOriginal);
       if (styled) floor = Math.max(label ? 10 : SCREEN_MIN_FONT, Math.round(size * (label ? STYLED_LABEL_MIN_SCALE : STYLED_MIN_SCALE)));
-      else if (manual && label) floor = Math.max(10, Math.round(size * STYLED_LABEL_MIN_SCALE));
-      if (manual && label) el.style.textAlign = manualAlign;
-      // Çevirgen: ek alandaki etiketin yaslandığı yan (bilgisayar tuş simgesinin yerinden bulur): sağa yaslıysa sağ kenar
-      // İngilizcenin sağ kenarında durur, en küçük genişlik ("EXIT" 80 px'ten dar) ve uzun Türkçe sola taşar; tuş simgesi
-      // örtülmez. Sola yaslıysa sol kenar zaten sabit.
-      var labelAlign = label && regionId && !phone ? ((item.style && item.style.align) || manualAlign) : null;
-      // Yalnız bilgisayarın tuş etiketi dediği blok (item.key) simge yanındaki kenara dayanır.
-      var keyAlign = keyItem ? (labelAlign || 'right') : null;
-      if (labelAlign === 'right' && left * width + itemWidth > (Math.min(1, box.right + pad)) * width + 1)
-        el.style.left = Math.max(0, Math.round(Math.min(1, box.right + pad) * width - itemWidth)) + 'px';
-      if (keyAlign) el.className += ' key-label';
       if (bubble) {
         floor = Math.min(size, Math.max(Math.round(BUBBLE_MIN_FONT * height / 1080), Math.round(size * BUBBLE_MIN_SCALE)));
         el.className += ' bubble';
@@ -1495,7 +1544,7 @@
         size = Math.max(floor, size - 1);
         el.style.fontSize = size + 'px';
       }
-      if (label && !keyItem && el.scrollWidth > el.clientWidth + 1 && item.text.split(/\s+/).length > 2) {
+      if (label && el.scrollWidth > el.clientWidth + 1 && item.text.split(/\s+/).length > 2) {
         el.style.whiteSpace = '';
         el.style.lineHeight = '';
       }
@@ -1503,12 +1552,9 @@
       // gerektiği kadar genişler; özgün zemin rengiyle şeridin üstünde durur.
       if (label && el.style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1) {
         var extra = el.scrollWidth - el.clientWidth + 2;
-        var align = (item.style && item.style.align) || manualAlign;
+        var align = item.style && item.style.align;
         var shift = align === 'right' ? extra : align === 'left' ? 0 : extra / 2;
-        var start = parseFloat(el.style.left) || 0;
-        // style.left yüzde ya da (sağa yaslı elle etikette) piksel olabilir.
-        var current = el.style.left.indexOf('%') > 0 ? start / 100 * width : start;
-        var newLeft = Math.max(0, Math.min(width - itemWidth - extra, current - shift));
+        var newLeft = Math.max(0, Math.min(width - itemWidth - extra, left * width - shift));
         el.style.left = newLeft + 'px';
         el.style.width = (itemWidth + extra) + 'px';
       }
@@ -1520,13 +1566,6 @@
       }
       // En küçük okunabilir boyutta da sığmayan metni kesmeyiz/gizlemeyiz.
       // Bu uç durumda eski doğal büyüme davranışı korunur.
-      if ((keyAlign === 'right' || keyAlign === 'left') && el.offsetWidth > 0) {
-        // Çevirgen: tuş etiketi simgenin yanında: İngilizceyle simge arası GTA 6'da ~4 px. Kutu (payı ve iç boşluğu dahil)
-        // simge yanındaki kenarda İngilizcenin kenarından 2 px içeride biter; Türkçe ne kadar uzunsa öbür yana taşar.
-        var drawn = el.offsetWidth;
-        var edge = keyAlign === 'right' ? box.right * width - 2 - drawn : box.left * width + 2;
-        el.style.left = Math.max(0, Math.min(width - drawn, Math.round(edge))) + 'px';
-      }
       if (regionsAbove && regionId && !phone) {
         // Çevirgen: Türkçe İngilizcenin hemen üstünde (örtmez); ekranın üstüne sığmazsa en üstte kalır.
         el.style.top = Math.max(0, top * height - el.offsetHeight - 2) + 'px';

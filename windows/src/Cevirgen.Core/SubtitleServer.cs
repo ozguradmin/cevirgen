@@ -685,6 +685,7 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
         // Telefon mesajı kendi balonunda: TV çeviriyi balona sığdırır (eski TV yok sayar, özgün stilde çizer).
         if (item.Bubble) json["bubble"] = true;
         if (item.Key) json["key"] = true;
+        if (item.Key && item.Room is { } room) json["room"] = Round(room);
         // Telefonun yanındaki sohbet panelinin parçası: yeni TV paneli akışla çizer; eski TV alanı yok sayar.
         if (item.Panel is { } panel) json["panel"] = panel.Json();
         return json;

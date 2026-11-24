@@ -1617,22 +1617,174 @@ public partial class RegionWatcherTests
         Assert.Empty(server.Sent.Where(item => item.Text.Length > 0));
     }
 
-    /// <summary>Çevirgen: etiketin sağındaki parlak tuş simgesi bulunur; Türkçe sağa yaslanır (simgenin üstüne büyümez).</summary>
-    [Theory]
-    [InlineData(true, "right")]
-    [InlineData(false, "left")]
-    public void GlyphSideFindsTheButtonNextToALabel(bool glyphRight, string expected)
+    /// <summary>
+    /// Çevirgen: tuş etiketinin yaslandığı yan yalnız yerleşimden çıkar (görüntüden tahmin açık zeminde yanılıyordu).
+    /// Kutular gerçek GTA 6 karelerinden (2026-11-24 tanılama kayıtları), karenin oranı.
+    /// </summary>
+    [Fact]
+    public void KeyLabelsLeanAwayFromTheirButtonByLayoutAlone()
     {
-        const int width = 200, height = 50;
+        // Dikey tuş listesi (REMINDERS / SELECT / EXIT): sağ kenarlar hizalı, simge sağda.
+        var reminders = new TextBox(0.9029, 0.8086, 0.9614, 0.8404);
+        var select = new TextBox(0.9245, 0.8822, 0.9614, 0.9120);
+        var exit = new TextBox(0.9344, 0.9398, 0.9620, 0.9702);
+        Assert.Equal("right", RegionWatcher.KeyAlign(reminders, [select, exit]));
+        Assert.Equal("right", RegionWatcher.KeyAlign(exit, [reminders, select]));
+        // Yatay tuş çubuğu (PHOTO STUDIO □ SELECT ✕ BACK ○): ortak kenar yok; ekranın sağ yarısında sağa.
+        var studio = new TextBox(0.7583, 0.9410, 0.8422, 0.9685);
+        var pick = new TextBox(0.8594, 0.9410, 0.9042, 0.9685);
+        var back = new TextBox(0.9281, 0.9419, 0.9615, 0.9675);
+        Assert.Equal("right", RegionWatcher.KeyAlign(pick, [studio, back]));
+        // İstatistik kartı (DAMAGE / ACCURACY / HANDLING / RANGE): sol kenarlar hizalı, sola; altındaki tek "DROP" ○ sağa.
+        var damage = new TextBox(0.7620, 0.6957, 0.8057, 0.7259);
+        var accuracy = new TextBox(0.7630, 0.7516, 0.8172, 0.7809);
+        var handling = new TextBox(0.7630, 0.8102, 0.8141, 0.8367);
+        var drop = new TextBox(0.9271, 0.9365, 0.9620, 0.9685);
+        Assert.Equal("left", RegionWatcher.KeyAlign(damage, [accuracy, handling, drop]));
+        Assert.Equal("right", RegionWatcher.KeyAlign(drop, [damage, accuracy, handling]));
+        // Tek etiket: ekranın sol yarısında sola, sağ yarısında sağa.
+        Assert.Equal("left", RegionWatcher.KeyAlign(new TextBox(0.12, 0.8, 0.18, 0.83), []));
+        Assert.Equal("right", RegionWatcher.KeyAlign(exit, []));
+    }
+
+    /// <summary>
+    /// Çevirgen: etiketin rengi yalnız beyaz ya da soluk gri: en parlak pikselleri koyuysa soluk. Açık zeminde (asfalt)
+    /// koyu yazı rengi seçilip koyu plakada görünmez oluyordu.
+    /// </summary>
+    [Theory]
+    [InlineData(20, 250, false)]   // koyu zemin, beyaz yazı
+    [InlineData(20, 140, true)]    // koyu zemin, soluk (kullanılamayan) etiket
+    [InlineData(200, 250, false)]  // açık zemin (asfalt), beyaz yazı
+    [InlineData(200, 60, false)]   // açık zemin, koyu gölge: zemin parlak, etiket yine beyaz çizilir
+    public void KeyLabelIsDimOnlyWhenItsBrightestPixelsAreDark(int ground, int text, bool dim)
+    {
+        const int width = 120, height = 30;
         var pixels = new byte[width * height * 4];
-        // Etiket 60–120 px arası, 20–30 px yüksekliğinde; simge 10 px ötede, 10×10 beyaz kare.
-        var x0 = glyphRight ? 124 : 46;
-        for (var y = 20; y < 30; y++)
-            for (var x = x0; x < x0 + 10; x++)
-                for (var c = 0; c < 3; c++) pixels[(y * width + x) * 4 + c] = 255;
+        for (var p = 0; p < pixels.Length; p += 4)
+            for (var c = 0; c < 3; c++) pixels[p + c] = (byte)ground;
+        // Yazı: kutunun dörtte biri kadar piksel (her dördüncü sütun).
+        for (var y = 8; y < 22; y++)
+            for (var x = 20; x < 100; x += 4)
+                for (var c = 0; c < 3; c++) pixels[(y * width + x) * 4 + c] = (byte)text;
         var frame = new Frame(pixels, width, height, width * 4);
-        Assert.Equal(expected, RegionWatcher.GlyphSide(frame, new TextBox(60.0 / width, 20.0 / height, 120.0 / width, 30.0 / height)));
-        Assert.Null(RegionWatcher.GlyphSide(new Frame(new byte[width * height * 4], width, height, width * 4),
-            new TextBox(60.0 / width, 20.0 / height, 120.0 / width, 30.0 / height)));
+        Assert.Equal(dim, RegionWatcher.IsDim(frame, new TextBox(20.0 / width, 8.0 / height, 100.0 / width, 22.0 / height)));
+    }
+
+    /// <summary>Çevirgen: tuş listesi BÜYÜK HARF kısa satırlar ya da tek sözcükler; küçük harfli çok sözcüklü kısa satırlar sarılmış cümledir.</summary>
+    [Fact]
+    public void KeyGroupsAreUppercaseOrSingleWordLabels()
+    {
+        Assert.True(RegionWatcher.IsKeyGroup([Line("RETRY CHECKPOINT"), Line("SKIP CHECKPOINT"), Line("QUIT MISSION")]));
+        Assert.True(RegionWatcher.IsKeyGroup([Line("VOLUME (LOW)"), Line("TV (WEAZEL)")]));
+        Assert.True(RegionWatcher.IsKeyGroup([Line("Back"), Line("Select")]));
+        Assert.False(RegionWatcher.IsKeyGroup([Line("Hungry"), Line("Health recovery is affected"), Line("until fed.")]));
+        Assert.False(RegionWatcher.IsKeyGroup([Line("Ammu-Nations only accept cash"), Line("for minor purchases.")]));
+    }
+
+    /// <summary>
+    /// Çevirgen: tuş etiketlerinin yerleşimi gerçek GTA 6 karelerinden (2026-11-24 tanılama kayıtları). Ayar ekranının
+    /// çubuğu "RE ALL △ RESTORE DEFAULT □ BACK ○": soluk "RESTORE DEFAULT"un kutusuna yazı tanıma yanındaki □ simgesini de
+    /// katmış (sağ ucu "BACK"in başını geçiyor). Kutu simgeden önce kırpılır; büyüme payı soldaki kesik "RE ALL"ün
+    /// simgesine kadar; listede satır yükseklikleri eşitlenir.
+    /// </summary>
+    [Fact]
+    public void KeyLabelsAreTrimmedSizedAndGivenRoomFromWhatWasRead()
+    {
+        var look = new TextLook(Bold: true, Condensed: false, Align: "right", Upper: true, Flat: true);
+        RegionWatcher.Block Key(double left, double top, double right, double bottom) =>
+            new(0, 1, new TextBox(left, top, right, bottom), bottom - top, null, look) { Key = true };
+        var restore = Key(0.8078, 0.9416, 0.9292, 0.9684);   // kutu □ simgesini de kapsıyor
+        var back = Key(0.9255, 0.9407, 0.9620, 0.9693);
+        List<(string, TextBox)> read =
+        [
+            ("RE ALL", new TextBox(0.75, 0.9397, 0.7823, 0.9693)),
+            ("RESTORE DEFAULT", restore.Box), ("BACK", back.Box),
+        ];
+        var laid = RegionWatcher.KeyLaidOut([restore, back], read, 9.0 / 16);
+        // "RESTORE DEFAULT" sağ ucu "BACK"in başından en az bir simge payı önce biter.
+        var unit = (restore.Box.Bottom - restore.Box.Top) * 9 / 16;
+        Assert.True(laid[0].Box.Right <= back.Box.Left - RegionWatcher.GlyphSpan * unit + 1e-9, laid[0].Box.ToString());
+        Assert.Equal(back.Box, laid[1].Box);
+        Assert.All(laid, block => Assert.Equal("right", block.Look!.Align));
+        // Aynı boydaki iki etiket aynı satır yüksekliğini alır.
+        Assert.Equal(laid[0].LineHeight, laid[1].LineHeight);
+        // Büyüme payı: "RE ALL"ün sağ ucundan bir simge payı sonra başlar; kutunun kendisinden dar olamaz.
+        var room = laid[0].Room!.Value;
+        Assert.True(room >= laid[0].Box.Right - laid[0].Box.Left - 1e-9);
+        Assert.True(room <= laid[0].Box.Right - 0.7823 - RegionWatcher.NeighbourGlyph * unit + 0.02, room.ToString());
+        // Dikey listede (solda başka yazı yok) pay ekranın sol kenarına kadardır.
+        var alone = RegionWatcher.KeyLaidOut([Key(0.9344, 0.9398, 0.9620, 0.9702)], [("EXIT", new TextBox(0.9344, 0.9398, 0.9620, 0.9702))], 9.0 / 16);
+        Assert.Equal(0.9620, alone[0].Room!.Value, 4);
+    }
+
+    /// <summary>
+    /// Çevirgen: yazı tanımanın ayrı okuduğu tuş adı ("L2") etiketin kutusunun ucuna düşüyorsa simgenin kendisidir: kutu
+    /// ondan önce biter ("SPEED 1/2/3 [L2] [R2]").
+    /// </summary>
+    [Fact]
+    public void KeyLabelBoxEndsBeforeAButtonNameReadInsideIt()
+    {
+        var look = new TextLook(Bold: true, Condensed: false, Align: "right", Upper: true, Flat: true);
+        var speed = new RegionWatcher.Block(0, 1, new TextBox(0.8625, 0.8915, 0.9453, 0.9220), 0.0305, null, look) { Key = true };
+        List<(string, TextBox)> read = [("SPEED 1/2/3", speed.Box), ("L2", new TextBox(0.9380, 0.8933, 0.9568, 0.9201)), ("R2", new TextBox(0.9630, 0.8924, 0.9807, 0.9220))];
+        var laid = RegionWatcher.KeyLaidOut([speed], read, 9.0 / 16);
+        Assert.True(laid[0].Box.Right < 0.9380, laid[0].Box.ToString());
+        Assert.True(laid[0].Box.Right > speed.Box.Left + (speed.Box.Right - speed.Box.Left) / 3);
+    }
+
+    /// <summary>
+    /// Çevirgen: metnin hiçbir sözcüğüne karşılık gelmeyen, tuş simgesi genişliğinde bir yazı sütunu satırın içindeyse satır
+    /// tek satır okunmuş tuş çubuğudur ("RESTORE DEFAULT □ BACK"); "JASON'S '70 GANADO"daki dar sütun ise "'70" sözcüğüdür.
+    /// </summary>
+    [Fact]
+    public void InnerGlyphIsAColumnThatNoWordExplains()
+    {
+        // 600×40 koyu zemin; yazı sütunları beyaz dikdörtgenler (satır yüksekliği 40 px = 1 birim).
+        static Frame Columns(params (int From, int To)[] spans)
+        {
+            const int width = 600, height = 40;
+            var pixels = new byte[width * height * 4];
+            foreach (var (from, to) in spans)
+                for (var y = 8; y < 32; y++)
+                    for (var x = from; x < to; x++)
+                        for (var c = 0; c < 3; c++) pixels[(y * width + x) * 4 + c] = 255;
+            return new Frame(pixels, width, height, width * 4);
+        }
+        var box = new TextBox(0, 0, 1, 1);
+        const double aspect = 600.0 / 40;
+        // "RESTORE DEFAULT" (tek sütun), □ (36 px ≈ 0,9 birim), "BACK".
+        Assert.True(RegionWatcher.HasInnerGlyph(Columns((10, 223), (245, 281), (310, 374)), box, ["RESTORE", "DEFAULT", "BACK"], aspect));
+        // "JASON'S" / "'70" / "GANADO": ortadaki sütun üç harflik sözcük kadar.
+        Assert.False(RegionWatcher.HasInnerGlyph(Columns((10, 111), (135, 169), (195, 291)), box, ["JASON'S", "'70", "GANADO"], aspect));
+        // İki sütun: içte sütun yok.
+        Assert.False(RegionWatcher.HasInnerGlyph(Columns((10, 200), (240, 300)), box, ["RESTORE", "DEFAULT", "BACK"], aspect));
+    }
+
+    /// <summary>Çevirgen: alanın iç kenarında kesilmiş satırlar (ayar ekranında alanın dışından taşan açıklama) atılır.</summary>
+    [Fact]
+    public void LinesCutByTheAreaEdgeAreDropped()
+    {
+        var area = new CropRegion(Top: 0.66, Bottom: 0.993, Left: 0.75, Right: 1.0);
+        List<TextLine> lines =
+        [
+            new("od of navigation.", new TextBox(0, 0.2244, 0.4271, 0.3186)),         // solda kesik
+            new("ACCLLLRATIUN", new TextBox(0.0854, 0, 0.3646, 0.0332)),              // üstte kesik (alçak)
+            new("RESTORE DEFAULT", new TextBox(0.2312, 0.8449, 0.7167, 0.9252)),
+            new("BACK", new TextBox(0.7021, 0.8421, 0.8479, 0.928)),
+        ];
+        Assert.Equal(["RESTORE DEFAULT", "BACK"], RegionWatcher.WithoutCutLines(lines, area).Select(line => line.Text));
+        // Alan o yanda ekranın kenarındaysa (sağ kenar 1,0) kenara dayanan satır kesik sayılmaz.
+        List<TextLine> edge = [new("EXIT", new TextBox(0.9, 0.5, 1.0, 0.6))];
+        Assert.Single(RegionWatcher.WithoutCutLines(edge, area));
+        // Kesik satırın paragrafı bütünüyle gider (devam satırı tek başına çevrilmez); kenarın hemen içinde başlayan cümle
+        // satırı da kesik sütunun parçasıdır.
+        List<TextLine> paragraph =
+        [
+            new("doesn't display by default. It can", new TextBox(0, 0.10, 0.80, 0.18)),
+            new("while aiming.", new TextBox(0.07, 0.20, 0.40, 0.28)),
+            new("e viewed in the Brief.", new TextBox(0.012, 0.50, 0.54, 0.58)),
+            new("BACK", new TextBox(0.7021, 0.8421, 0.8479, 0.928)),
+        ];
+        Assert.Equal(["BACK"], RegionWatcher.WithoutCutLines(paragraph, area).Select(line => line.Text));
     }
 }

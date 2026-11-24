@@ -101,7 +101,10 @@ public class TextStyleSamplerTests
         Assert.NotNull(block.Look);
         Assert.True(block.Look!.Upper);
         Assert.Equal("#14161E", block.Style!.Background);
-        // Kullanıcının alanında (otomatik değil) tek grup eskisi gibi bloksuzdur.
-        Assert.Null(RegionWatcher.MakeCandidate(reading, new CropRegion(0, 1, 0, 1), frame).Blocks);
+        // Çevirgen: kullanıcının alanında (otomatik değil) tek BÜYÜK HARF satır tuş etiketidir; cümle olan tek grup eskisi
+        // gibi bloksuzdur.
+        Assert.True(Assert.Single(RegionWatcher.MakeCandidate(reading, new CropRegion(0, 1, 0, 1), frame).Blocks!).Key);
+        var sentence = new Reading([new TextLine("Rob Vicki's boss is away today", header)]);
+        Assert.Null(RegionWatcher.MakeCandidate(sentence, new CropRegion(0, 1, 0, 1), frame).Blocks);
     }
 }

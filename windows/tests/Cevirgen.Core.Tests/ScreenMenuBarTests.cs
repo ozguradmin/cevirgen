@@ -143,7 +143,11 @@ public class ScreenMenuBarTests
             }
         var reading = new Reading([new TextLine("ROB VICKI'S BOSS", new TextBox(0.05, 0.25, 0.55, 0.75))]);
         var whole = new CropRegion(0, 1, 0, 1);
-        Assert.Null(RegionWatcher.MakeCandidate(reading, whole, frame).Blocks);
+        // Çevirgen: kullanıcının alanında tek BÜYÜK HARF satır tuş etiketidir: koyu plaka, beyaz yazı (özgün stil örneklenmez).
+        var own = Assert.Single(RegionWatcher.MakeCandidate(reading, whole, frame).Blocks!);
+        Assert.True(own.Key);
+        Assert.Equal(RegionWatcher.LabelPlate, own.Style!.Background);
+        Assert.Equal(RegionWatcher.KeyWhite, own.Style.Foreground);
         var preset = RegionWatcher.MakeCandidate(reading, whole, frame, styled: true);
         var block = Assert.Single(preset.Blocks!);
         Assert.Equal("#0E1F55", block.Style!.Background);

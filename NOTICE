@@ -95,6 +95,11 @@ Changes (2026-11-24, repository cleanup and rename):
   - 2026-11-24: the license file is named LICENSE.txt (its text is unchanged).
     Button-prompt lists in user areas are drawn per line, away from the button
     icon; GTA 6 default areas; diagnostics capture extra-area readings.
+  - 2026-11-24: button-prompt labels are laid out from the text layout alone
+    (no guessing from pixels) and drawn by a dedicated TV path; text cut by the
+    area edge and prompt bars read as one line are left untranslated. Added a
+    real-frame replay (DiagnosticReplayTests, scripts/tv-preview.js) that draws
+    recorded game frames on the real TV page.
 
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or

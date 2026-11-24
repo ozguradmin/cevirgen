@@ -150,6 +150,12 @@ public sealed partial class RegionWatcher
     {
         /// <summary>Çevirgen: kullanıcının tuş listesindeki etiket (TV kutuyu tuş simgesinin öbür yanına dayar).</summary>
         public bool Key { get; init; }
+        /// <summary>
+        /// Çevirgen: tuş etiketinin plakasının en çok genişliği (karenin genişliğine oran): yaslandığı kenardan, büyüdüğü
+        /// yandaki ilk engele (aynı satırdaki başka yazı ve onun tuş simgesi) ya da ekranın kenarına kadar. TV etiketi bu
+        /// genişliğe sığdırır; sığmıyorsa çizmez (başka bir tuşun simgesini örtmektense İngilizcesi kalır).
+        /// </summary>
+        public double? Room { get; init; }
     }
 
     /// <param name="Icons">Her parçadaki kumanda simgeleri (kareden kesilmiş), parçadaki sırasıyla.</param>
@@ -604,9 +610,15 @@ public sealed partial class RegionWatcher
         // Aynı yazının iki okunuşu tek satır kalır; satırın başındaki/sonundaki simge kutunun dışında kalır (#827; "Ekranı
         // çevir" ile aynı). Telefon alanı girmez.
         // Kenardaki kumanda simgesi ("RECENTER L3") çeviriye girmez, görünür kalır (#860).
+        // Çevirgen: kullanıcının alanının iç kenarında kesilmiş yazı çevrilmez. Kenar simgesi kırpılmadan önce bakılır: kesik
+        // satırın başındaki tek harf ("e viewed in the Brief.") simge sanılıp kutusu kırpılınca kenara dayandığı görülmüyordu.
+        var user = !phone && !styled;
+        if (user) lines = WithoutCutLines(lines, region, menuRows);
         if (!phone)
             lines = [.. ScreenTranslation.WithoutDuplicateLines([.. lines.Select(ScreenTranslation.WithoutEdgeMarks)
                 .Select(ScreenTranslation.WithoutEdgeIcons)])];
+        // Tek satır okunmuş tuş çubuğu çevrilmez (tek plaka aradaki tuş simgesini örterdi).
+        if (user) lines = WithoutMergedBars(lines, reading.Lines, aspect, frame);
         var paragraphs = ScreenTranslation.Paragraphs(lines);
         var place = new TextBox(region.Left, region.Top, region.Right, region.Bottom);
         var boxes = lines.Where(line => line.Box is not null).Select(line => line.Box!.Value).ToList();
@@ -624,14 +636,18 @@ public sealed partial class RegionWatcher
         // açıklamaya katılıp ikisi tek kutuda, görev resminin üstünde çiziliyordu (#856).
         var cards = !phone && lines.Count > 0 && boxes.Count == lines.Count
             ? Cevirgen.Core.MissionCard.Find(lines, place) : [];
-        // Çevirgen: kullanıcının alanındaki tuş/seçenek listesi (bütün satırlar kısa etiket: "RECENTER", "2D VIEW", "EXIT")
-        // satır satır blok olur ve oyunun yazı stiliyle çizilir. Önceden liste tek, yarı saydam siyah kutuda sola yaslı
-        // çiziliyor, İngilizcesi arkadan görünüyordu.
-        var labelList = !phone && !styled && lines.Count >= 2 && boxes.Count == lines.Count && cards.Count == 0 && lines.All(IsLabelLine);
-        var groups = labelList ? [.. lines.Select(LineGroup)]
-            : (phone || styled || lines.Count > 1) && boxes.Count == lines.Count
-            ? (phone ? GamePhoneText.Groups(reading) : styled ? AutoGroups(lines, menuRows, menu, cards) : CardGroups(lines, menuRows, cards)) : [];
-        if (((phone || styled || labelList) && groups.Count > 0) || groups.Count is > 1 and < ScreenTranslation.MaxGroups)
+        // Çevirgen: kullanıcının alanında tuş/seçenek etiketleri ("RECENTER", "2D VIEW", "EXIT" ○) satır satır kendi bloğudur
+        // (UserGroups); TV bunları tek satır, koyu plakada, tuş simgesinin öbür yanına yaslı çizer. Renk ve yaslanma
+        // görüntüden tahmin edilmez (açık zeminde yanılıyordu): yaslanma yalnız yerleşimden (KeyAlign), renk yalnız beyaz
+        // ya da soluk gri (IsDim).
+        HashSet<TextBox>? keyBoxes = null;
+        IReadOnlyList<ScreenTranslation.Group> groups;
+        if (user && lines.Count > 0 && boxes.Count == lines.Count) (groups, keyBoxes) = UserGroups(lines, menuRows, cards);
+        else
+            groups = (phone || styled) && boxes.Count == lines.Count
+                ? (phone ? GamePhoneText.Groups(reading) : AutoGroups(lines, menuRows, menu, cards)) : [];
+        var hasKeys = keyBoxes is { Count: > 0 };
+        if (((phone || styled || hasKeys) && groups.Count > 0) || groups.Count is > 1 and < ScreenTranslation.MaxGroups)
         {
             paragraphs = [.. groups.SelectMany(group => group.Paragraphs)];
             icons = [.. groups.SelectMany(group => group.Icons
@@ -642,24 +658,33 @@ public sealed partial class RegionWatcher
             {
                 var style = phone && frame is not null ? GamePhonePalette.Sample(frame, group.Box) : null;
                 TextLook? look = null;
-                if ((styled || labelList) && frame is not null)
+                var isKey = keyBoxes?.Contains(group.Box) == true;
+                if (isKey)
+                {
+                    style = new PhoneTextStyle(LabelPlate, frame is not null && IsDim(frame, group.Box) ? KeyDim : KeyWhite);
+                    look = new TextLook(Bold: true, Condensed: false, Align: "right",
+                                        Upper: TextStyleSampler.IsUpper(string.Join(' ', group.Paragraphs)), Flat: true);
+                }
+                else if (styled && frame is not null)
                 {
                     // Çeviri özgün yazının stilinde çizilsin: renkler, kalınlık, dar aile, hiza, büyük harf.
                     var own = lines.Where(line => Inside(line.Box!.Value, group.Box)).ToList();
                     (style, look) = TextStyleSampler.Sample(frame, group.Box, own, string.Join(' ', group.Paragraphs));
-                    // Çevirgen: kullanıcının tuş listesinde zemin sabit koyu plaka (sahneden alınan renk haritada mavi leke
-                    // oluyor, sahne kıpırdadıkça kutu titriyordu); yazının kendi rengi (seçili/soluk) kalır.
-                    if (labelList && style is { } sampled) style = sampled with { Background = LabelPlate };
                 }
                 list.Add(new Block(start, group.Paragraphs.Count, group.Box.PlacedIn(place), group.LineHeight * height, style, look,
-                                   phone ? group.Phone : null));
+                                   phone ? group.Phone : null) { Key = isKey });
                 start += group.Paragraphs.Count;
             }
-            if (styled || labelList) list = AlignByNeighbours(list);
-            // Çevirgen: tuş simgesi etiketin hangi yanındaysa Türkçe öbür yana büyür (simgeyi örtmez).
-            if (labelList && frame is not null)
-                list = [.. list.Select(block => (block.Look is { } own && GlyphSide(frame, block.Box) is { } side
-                    ? block with { Look = own with { Align = side } } : block) with { Key = true })];
+            if (styled) list = AlignByNeighbours(list);
+            if (hasKeys)
+            {
+                // Karenin yükseklik/genişlik oranı (kırpıntıdan; kare yoksa 16:9).
+                var xPerY = frame is { Width: > 0, Height: > 0 }
+                    ? frame.Height / (region.Bottom - region.Top) / (frame.Width / (region.Right - region.Left)) : 9.0 / 16;
+                var read = reading.Lines.Where(line => line.Box is not null)
+                    .Select(line => (line.Text, line.Box!.Value.PlacedIn(place))).ToList();
+                list = KeyLaidOut(list, read, xPerY);
+            }
             blocks = list;
             key = TextKey(paragraphs) + "|" + string.Join(',', list.Select(block => block.Count));
         }
@@ -716,51 +741,307 @@ public sealed partial class RegionWatcher
         return [.. result.OrderBy(group => group.Box.Top).ThenBy(group => group.Box.Left)];
     }
 
-    /// <summary>Kullanıcının alanında görev kartının parçaları kendi gruplarıdır, kalan satırlar her zamanki gibi.</summary>
-    private static List<ScreenTranslation.Group> CardGroups(List<TextLine> lines, bool menuRows, IReadOnlyList<Cevirgen.Core.MissionCard.Card> cards)
+    /// <summary>
+    /// Çevirgen: kullanıcının alanının grupları ve hangilerinin tuş etiketi olduğu (<c>Keys</c>: kutuları). Görev kartının
+    /// parçaları kendi gruplarıdır. Kalan satırlar her zamanki gibi gruplanır; bütün satırları tuş/seçenek etiketi olan grup
+    /// (<see cref="IsKeyGroup"/>) satır satır ayrılır: TV her etiketi kendi satırında, tek satır çizer.
+    /// </summary>
+    private static (List<ScreenTranslation.Group> Groups, HashSet<TextBox> Keys) UserGroups(
+        List<TextLine> lines, bool menuRows, IReadOnlyList<Cevirgen.Core.MissionCard.Card> cards)
     {
         var taken = cards.SelectMany(card => card.All).ToHashSet();
         var rest = Enumerable.Range(0, lines.Count).Where(i => !taken.Contains(i)).Select(i => lines[i]).ToList();
-        return [.. cards.SelectMany(card => Cevirgen.Core.MissionCard.Groups(card, lines))
-            .Concat(ScreenTranslation.GroupsFromLines(rest, menuRows)).OrderBy(group => group.Box.Top)];
+        var result = cards.SelectMany(card => Cevirgen.Core.MissionCard.Groups(card, lines)).ToList();
+        var keys = new HashSet<TextBox>();
+        var used = new HashSet<TextLine>(ReferenceEqualityComparer.Instance);
+        foreach (var group in ScreenTranslation.GroupsFromLines(rest, menuRows))
+        {
+            var members = rest.Where(line => Inside(line.Box!.Value, group.Box) && !used.Contains(line))
+                .OrderBy(line => line.Box!.Value.Top).ThenBy(line => line.Box!.Value.Left).ToList();
+            if (members.Count == 0 || !IsKeyGroup(members))
+            {
+                result.Add(group);
+                continue;
+            }
+            foreach (var line in members)
+            {
+                var single = LineGroup(line);
+                result.Add(single);
+                keys.Add(single.Box);
+                used.Add(line);
+            }
+        }
+        return ([.. result.OrderBy(group => group.Box.Top).ThenBy(group => group.Box.Left)], keys);
     }
 
-    /// <summary>Çevirgen: kullanıcının tuş listesindeki etiketlerin zemini (TV'deki altyazı plakasıyla aynı koyu ton).</summary>
-    internal const string LabelPlate = "#141519";
+    /// <summary>
+    /// Çevirgen: grup bir tuş/seçenek listesi mi: bütün satırlar kısa etiket ve ya hepsi BÜYÜK HARF ("EXIT", "VOLUME (LOW)",
+    /// "RETRY CHECKPOINT") ya da hepsi tek sözcük ("Back", "Select"). Küçük harfli çok sözcüklü kısa satırlar ("Health
+    /// recovery / is affected") dar bir kutuya sarılmış cümledir; paragraf olarak birlikte çevrilir.
+    /// </summary>
+    internal static bool IsKeyGroup(IReadOnlyList<TextLine> members) =>
+        members.All(IsLabelLine) && (members.All(line => TextStyleSampler.IsUpper(line.Text))
+            || members.All(line => line.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length == 1));
 
     /// <summary>
-    /// Çevirgen: etiketin hemen sağında ya da solunda parlak bir tuş simgesi (○ ✕ □ R3) var mı: varsa Türkçenin yaslanacağı
-    /// yan (simge sağdaysa "right": kutu sola büyür). Etiketin yüksekliği kadar bir şerit taranır; bir yan öbüründen
-    /// belirgin parlak değilse null. Kutu karenin oranıdır (0–1).
+    /// Çevirgen: kullanıcının alanının iç kenarında kesilmiş yazı çevrilmez (yarım yazının çevirisi anlamsız bir kutuydu:
+    /// ayar ekranında alanın dışından taşan açıklama "od of navigation.", "RE ALL"). Kesik sayılan satır:
+    /// <list type="bullet">
+    /// <item>Yanlarda: kutusu alanın sol/sağ kenarına dayanan satır.</item>
+    /// <item>Üstte/altta: kenara dayanan ve öbür satırlardan belirgin alçak satır (harflerin yarısı alanın dışında).</item>
+    /// <item>Kenara dayanan satır varken aynı kenarın hemen içinde başlayan cümle satırı (kesme sözcük arasına denk gelmiş:
+    /// "e viewed in the Brief."); BÜYÜK HARF kısa etiket bu kurala girmez.</item>
+    /// </list>
+    /// Kesik satırın paragrafı da bütünüyle atılır ("doesn't display by default. It can" kesik; devamı "while aiming."
+    /// tek başına çevrilmez). Tuş çubuğunda yalnız kesik etiket gider, kalan etiketler çevrilir. Alan o yanda ekranın
+    /// kenarındaysa kesik sayılmaz.
     /// </summary>
-    internal static string? GlyphSide(Frame frame, TextBox box)
+    internal static List<TextLine> WithoutCutLines(List<TextLine> lines, CropRegion region, bool menuRows = false)
     {
-        if (frame.Width <= 0 || frame.Height <= 0) return null;
-        var height = (box.Bottom - box.Top) * frame.Height;
-        if (height < 4) return null;
-        var top = Math.Clamp((int)(box.Top * frame.Height - height * 0.15), 0, frame.Height - 1);
-        var bottom = Math.Clamp((int)Math.Ceiling(box.Bottom * frame.Height + height * 0.15), top + 1, frame.Height);
-        var span = height * 1.3;
-        int Bright(double from, double to)
+        var boxed = lines.Where(line => line.Box is not null).OrderBy(line => line.Box!.Value.Top).ToList();
+        if (boxed.Count == 0) return lines;
+        var heights = boxed.Select(line => line.Box!.Value.Bottom - line.Box!.Value.Top).Order().ToList();
+        var median = heights[heights.Count / 2];
+        const double edge = 0.003, column = 0.025;
+        var left = region.Left > 0.005;
+        var right = region.Right < 0.995;
+        var cut = new HashSet<TextLine>(ReferenceEqualityComparer.Instance);
+        foreach (var line in boxed)
         {
-            var x0 = Math.Clamp((int)from, 0, frame.Width);
-            var x1 = Math.Clamp((int)Math.Ceiling(to), x0, frame.Width);
-            var count = 0;
-            for (var y = top; y < bottom; y++)
-                for (var x = x0; x < x1; x++)
-                {
-                    var p = y * frame.Stride + x * 4;
-                    if (frame.Pixels[p] + frame.Pixels[p + 1] + frame.Pixels[p + 2] >= 3 * 200) count++;
-                }
-            return count;
+            var box = line.Box!.Value;
+            var side = (left && box.Left <= edge) || (right && box.Right >= 1 - edge);
+            var low = box.Bottom - box.Top < median * 0.7;
+            var end = low && ((region.Top > 0.005 && box.Top <= edge) || (region.Bottom < 0.995 && box.Bottom >= 1 - edge));
+            if (side || end) cut.Add(line);
         }
-        var right = Bright(box.Right * frame.Width + 1, box.Right * frame.Width + span);
-        var left = Bright(box.Left * frame.Width - span, box.Left * frame.Width - 1);
-        var area = span * (bottom - top);
-        var floor = area * 0.06;
-        if (right >= floor && right > left * 1.5) return "right";
-        if (left >= floor && left > right * 1.5) return "left";
-        return null;
+        if (cut.Count == 0) return lines;
+        var leftCut = left && boxed.Any(line => line.Box!.Value.Left <= edge);
+        var rightCut = right && boxed.Any(line => line.Box!.Value.Right >= 1 - edge);
+        foreach (var line in boxed)
+        {
+            if (IsKeyLine(line)) continue;
+            var box = line.Box!.Value;
+            if ((leftCut && box.Left <= column) || (rightCut && box.Right >= 1 - column)) cut.Add(line);
+        }
+        var dropped = new HashSet<TextLine>(cut, ReferenceEqualityComparer.Instance);
+        foreach (var group in ScreenTranslation.GroupsFromLines(boxed, menuRows))
+        {
+            var members = boxed.Where(line => Inside(line.Box!.Value, group.Box)).ToList();
+            if (!members.Any(cut.Contains)) continue;
+            var rest = members.Where(line => !cut.Contains(line)).ToList();
+            // Tuş çubuğu: yalnız kesik etiket gider.
+            if (rest.Count > 0 && IsKeyGroup(rest)) continue;
+            foreach (var line in members) dropped.Add(line);
+        }
+        return [.. lines.Where(line => !dropped.Contains(line))];
+    }
+
+    /// <summary>Tuş etiketi satırı: kısa ve BÜYÜK HARF ("EXIT", "VOLUME (LOW)").</summary>
+    private static bool IsKeyLine(TextLine line) => IsLabelLine(line) && TextStyleSampler.IsUpper(line.Text);
+
+    /// <summary>
+    /// Çevirgen: tek satır okunmuş tuş çubuğu ("PHOTO STUDIO □ SELECT": iki etiket ve aradaki tuş simgesi tek satırda)
+    /// çevrilmez: tek plaka aradaki simgeyi örterdi. İngilizcesi görünür kalır; okuma etiketleri ayrı verdiğinde çevrilir.
+    /// Belirtiler:
+    /// <list type="bullet">
+    /// <item>Satırın içine düşen, ayrı okunmuş bir tuş adı ("R2", "X").</item>
+    /// <item>Satır sözlükteki etiketlere bölünebiliyor ("RESTORE DEFAULT" + "BACK") ve görüntüde, satırın içinde, metnin
+    /// hiçbir sözcüğüne karşılık gelmeyen tuş simgesi genişliğinde bir yazı sütunu var (<see cref="HasInnerGlyph"/>).</item>
+    /// </list>
+    /// </summary>
+    /// <param name="read">Alanda okunan bütün satırlar (ham okuma; kutular alana oranlı).</param>
+    /// <param name="aspect">Alanın genişlik/yükseklik oranı (piksel).</param>
+    /// <param name="frame">Alanın görüntüsü; yoksa yalnız ilk belirtiye bakılır.</param>
+    internal static List<TextLine> WithoutMergedBars(List<TextLine> lines, IReadOnlyList<TextLine> read, double aspect, Frame? frame)
+    {
+        static bool Row(TextBox a, TextBox b) =>
+            Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top) >= 0.5 * Math.Min(a.Bottom - a.Top, b.Bottom - b.Top);
+        return [.. lines.Where(line =>
+        {
+            if (line.Box is not { } box || line.Icons is { Count: > 0 } || !IsKeyLine(line)) return true;
+            var text = IconText.Plain(line.Text).Trim();
+            var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < 2) return true;
+            var width = box.Right - box.Left;
+            if (read.Any(other => other.Box is { } glyph && ButtonIcons.IsButtonName(other.Text.Trim()) && Row(box, glyph)
+                                  && glyph.Left > box.Left + 0.1 * width && glyph.Right < box.Right - 0.1 * width))
+                return false;
+            if (frame is null || UiCommands.TranslateLabel(text) is not null || !SplitsIntoLabels(words, 0, 0)) return true;
+            return !HasInnerGlyph(frame, box, words, aspect);
+        })];
+    }
+
+    /// <summary>
+    /// Satırın içinde tuş simgesi var mı: yazı sütunlarından (<see cref="ScreenTranslation.InkSpans"/>; sözcük arası
+    /// boşluktan dar aralıklar birleşir) baştaki ve sondaki dışında biri tuş simgesi genişliğinde (satır yüksekliğinin
+    /// 0,55–1,35 katı) ve metnin hiçbir sözcüğünün genişliğine uymuyor. "JASON'S '70 GANADO"da ortadaki dar sütun "'70"
+    /// sözcüğüdür; "RESTORE DEFAULT BACK"te ortadaki dar sütun hiçbir sözcük değildir (□).
+    /// </summary>
+    internal static bool HasInnerGlyph(Frame frame, TextBox box, string[] words, double aspect)
+    {
+        var unit = (box.Bottom - box.Top) / Math.Max(0.1, aspect);
+        if (unit <= 0) return false;
+        var spans = ScreenTranslation.InkSpans(frame, box, unit * 0.17).Select(span => (span.Right - span.Left) / unit).ToList();
+        if (spans.Count < 3) return false;
+        var letters = words.Sum(word => word.Length);
+        for (var i = 1; i < spans.Count - 1; i++)
+        {
+            var width = spans[i];
+            if (width is < 0.55 or > 1.35) continue;
+            // Simge sayılırsa kalan sütunlar yazıdır: harf başına genişlik.
+            var perLetter = (spans.Sum() - width) / Math.Max(1, letters);
+            if (perLetter <= 0) continue;
+            if (!words.Any(word => Math.Abs(word.Length * perLetter - width) <= 0.4 * width)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Sözcükler baştan sona sözlükteki etiketlere (en az ikiye) bölünebiliyor mu ("RESTORE DEFAULT" + "BACK").</summary>
+    private static bool SplitsIntoLabels(string[] words, int start, int parts)
+    {
+        if (start == words.Length) return parts >= 2;
+        for (var count = words.Length - start; count >= 1; count--)
+        {
+            if (start == 0 && count == words.Length) continue;
+            if (UiCommands.TranslateLabel(string.Join(' ', words, start, count)) is not null && SplitsIntoLabels(words, start + count, parts + 1))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Çevirgen: tuş etiketlerinin zemini (koyu plaka) ve yazı renkleri (beyaz; oyunda soluksa açık gri).</summary>
+    public const string LabelPlate = "#141519";
+    public const string KeyWhite = "#FFFFFF";
+    public const string KeyDim = "#A9ADB6";
+
+    /// <summary>
+    /// Çevirgen: etiket oyunda soluk mu (o an kullanılamayan seçenek gri yazılır): kutusundaki en parlak piksellerin
+    /// (%5'lik en parlak dilim) parlaklığı düşükse. Açık zeminde zemin de parlak olduğundan soluk çıkmaz; etiket hiçbir
+    /// durumda koyu renkle çizilmez (koyu plakada görünmez olurdu), yalnız beyaz ya da açık gri.
+    /// </summary>
+    internal static bool IsDim(Frame frame, TextBox box)
+    {
+        var x0 = Math.Clamp((int)(box.Left * frame.Width), 0, frame.Width);
+        var x1 = Math.Clamp((int)Math.Ceiling(box.Right * frame.Width), x0, frame.Width);
+        var y0 = Math.Clamp((int)(box.Top * frame.Height), 0, frame.Height);
+        var y1 = Math.Clamp((int)Math.Ceiling(box.Bottom * frame.Height), y0, frame.Height);
+        var total = (x1 - x0) * (y1 - y0);
+        if (total < 16) return false;
+        Span<int> histogram = stackalloc int[256];
+        for (var y = y0; y < y1; y++)
+            for (var x = x0; x < x1; x++)
+            {
+                var p = y * frame.Stride + x * 4;
+                histogram[(114 * frame.Pixels[p] + 587 * frame.Pixels[p + 1] + 299 * frame.Pixels[p + 2]) / 1000]++;
+            }
+        var need = Math.Max(1, total / 20);
+        var seen = 0;
+        for (var level = 255; level >= 0; level--)
+        {
+            seen += histogram[level];
+            if (seen >= need) return level < DimBelow;
+        }
+        return false;
+    }
+
+    /// <summary>En parlak pikselleri bu parlaklığın altında kalan etiket soluktur (beyaz yazı ~235–255, soluk ~120–160).</summary>
+    internal const int DimBelow = 185;
+
+    /// <summary>
+    /// Çevirgen: tuş etiketlerinin yerleşimi (öbür bloklara dokunulmaz). Sırayla:
+    /// <list type="number">
+    /// <item>Yaslanılan yan (<see cref="KeyAlign"/>).</item>
+    /// <item>Kutunun simgeye taşan ucu kırpılır: yazı tanıma soluk etiketin kutusuna yanındaki tuş simgesini de katabiliyor
+    /// ("RESTORE DEFAULT □" kutusu "BACK"in başına kadar) ya da simgeyi ayrı satır okuyor ("SPEED 1/2/3" + "L2").</item>
+    /// <item>Aynı boydaki etiketler aynı satır yüksekliğini alır (listede yazı boyu satırdan satıra değişmesin).</item>
+    /// <item>Büyüme payı (<see cref="Block.Room"/>): okunan bütün satırlar (çevrilmeyenler de) engeldir.</item>
+    /// </list>
+    /// </summary>
+    /// <param name="lines">Alanda okunan bütün satırlar (ham okuma), kutuları karenin oranı.</param>
+    /// <param name="xPerY">Karenin yüksekliğinin genişliğine oranı (16:9 karede 9/16): yükseklik oranını genişlik oranına çevirir.</param>
+    internal static List<Block> KeyLaidOut(List<Block> blocks, IReadOnlyList<(string Text, TextBox Box)> lines, double xPerY)
+    {
+        var keys = blocks.Where(block => block.Key).ToList();
+        var result = blocks.Select(block => !block.Key || block.Look is not { } look ? block
+            : block with { Look = look with { Align = KeyAlign(block.Box, keys.Where(other => !ReferenceEquals(other, block)).Select(other => other.Box)) } }).ToList();
+        static bool SameRow(TextBox a, TextBox b)
+        {
+            var overlap = Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top);
+            return overlap >= 0.5 * Math.Min(a.Bottom - a.Top, b.Bottom - b.Top);
+        }
+        // 2) Sağa yaslı etiket (simge sağında): kutusu aynı satırdaki sonraki etikete simge payı kadar yaklaşamaz; içine ya da
+        // ucuna düşen ayrı okunmuş tuş adı ("L2") simgenin kendisidir, kutu ondan önce biter.
+        for (var i = 0; i < result.Count; i++)
+        {
+            if (result[i] is not { Key: true, Look.Align: "right" } block) continue;
+            var box = block.Box;
+            var unit = (box.Bottom - box.Top) * xPerY;
+            var right = box.Right;
+            foreach (var other in result)
+                if (other.Key && !ReferenceEquals(other, block) && SameRow(box, other.Box) && other.Box.Left > box.Left)
+                    right = Math.Min(right, other.Box.Left - GlyphSpan * unit);
+            foreach (var (text, line) in lines)
+                if (ButtonIcons.IsButtonName(text.Trim()) && SameRow(box, line) && line.Left > box.Left + 0.3 * (box.Right - box.Left)
+                    && line.Left < box.Right + 0.1 * unit)
+                    right = Math.Min(right, line.Left - 0.15 * unit);
+            // Kutunun en az üçte biri kalır (yanlış bir komşu etiketi yok etmesin).
+            right = Math.Max(right, box.Left + (box.Right - box.Left) / 3);
+            if (right < box.Right) result[i] = block with { Box = box with { Right = right } };
+        }
+        // 3) Benzer boydaki (±%25) etiketlerin ortanca yüksekliği.
+        var heights = result.Where(block => block.Key).Select(block => block.LineHeight).ToList();
+        for (var i = 0; i < result.Count; i++)
+        {
+            if (!result[i].Key) continue;
+            var own = result[i].LineHeight;
+            var near = heights.Where(height => Math.Abs(height - own) <= 0.25 * own).Order().ToList();
+            if (near.Count > 1) result[i] = result[i] with { LineHeight = near[near.Count / 2] };
+        }
+        // 4) Büyüme payı.
+        for (var i = 0; i < result.Count; i++)
+        {
+            if (result[i] is not { Key: true, Look: { } look } block) continue;
+            var box = block.Box;
+            var unit = (box.Bottom - box.Top) * xPerY;
+            var room = look.Align == "right" ? box.Right : 1 - box.Left;
+            // Engeller: okunan bütün satırlar ve (kutusu kırpılmış olabilen) öbür tuş etiketleri.
+            var obstacles = lines.Select(line => (Glyph: ButtonIcons.IsButtonName(line.Text.Trim()), line.Box))
+                .Concat(result.Where(other => other.Key && !ReferenceEquals(other, block)).Select(other => (Glyph: false, other.Box)));
+            foreach (var (glyph, line) in obstacles)
+            {
+                if (!SameRow(box, line)) continue;
+                if (look.Align == "right" && line.Right <= box.Left + 0.2 * unit)
+                    room = Math.Min(room, box.Right - line.Right - (glyph ? 0.15 : NeighbourGlyph) * unit);
+                else if (look.Align != "right" && line.Left >= box.Right - 0.2 * unit)
+                    room = Math.Min(room, line.Left - box.Left - (glyph ? 0.15 : 0.3) * unit);
+            }
+            result[i] = block with { Room = Math.Max(room, box.Right - box.Left) };
+        }
+        return result;
+    }
+
+    /// <summary>Etiketle kendi tuş simgesi: boşluk + simge, etiket yüksekliğinin katı (GTA 6: ~0,3 + ~1).</summary>
+    internal const double GlyphSpan = 1.25;
+    /// <summary>Soldaki komşu etiketin sağındaki tuş simgesine bırakılan pay (boşluk + simge + boşluk).</summary>
+    internal const double NeighbourGlyph = 1.5;
+
+    /// <summary>
+    /// Çevirgen: tuş etiketinin yaslandığı yan; Türkçe uzunsa kutu öbür yana büyür. Görüntüden tahmin yok, yalnız yerleşim:
+    /// aynı sağ kenarı paylaşan başka etiket varsa (tuş listesi: simge sağda) sağa; aynı sol kenarı paylaşan varsa
+    /// (istatistik kartı: DAMAGE / ACCURACY) sola; ikisi de yoksa (tek etiket, yatay tuş çubuğu) ekranın sağ yarısında sağa,
+    /// sol yarısında sola: tuş ipuçları ekranın kenarına yaslıdır, simge kenar tarafındadır. Kutular karenin oranıdır.
+    /// </summary>
+    internal static string KeyAlign(TextBox box, IEnumerable<TextBox> others)
+    {
+        const double tolerance = 0.004;
+        int left = 0, right = 0;
+        foreach (var other in others)
+        {
+            if (Math.Abs(other.Left - box.Left) < tolerance) left++;
+            if (Math.Abs(other.Right - box.Right) < tolerance) right++;
+        }
+        if (right != left) return right > left ? "right" : "left";
+        return (box.Left + box.Right) / 2 >= 0.5 ? "right" : "left";
     }
 
     /// <summary>Tek satır kendi grubu (kendi kutusu ve simgeleriyle).</summary>
@@ -856,6 +1137,8 @@ public sealed partial class RegionWatcher
                         Box = current[block.Group].Box, LineHeight = current[block.Group].LineHeight,
                         // Seçim gezince yalnız renkler değişir: çeviri yeniden istenmez, zemin/yazı rengi güncellenir.
                         Style = current[block.Group].Style ?? block.Item.Style, Look = current[block.Group].Look ?? block.Item.Look,
+                        // Çevirgen: tuş etiketinin büyüme payı yeni yerleşime göre.
+                        Room = current[block.Group].Room,
                     })).ToList()
                 : null;
             server.SendRegion(area.Id, state.RenderedText, candidate.Box, candidate.LineHeight, state.RenderedIcons,
@@ -1165,7 +1448,7 @@ public sealed partial class RegionWatcher
             var source = string.Join('\n', range.Select(i => IconText.Plain(candidate.Paragraphs[i])));
             result.Add((g, new ScreenTranslation.Item(source, translation, block.Box, block.LineHeight,
                                                       icons.Count > 0 ? icons : null)
-            { Style = block.Style, Look = block.Look, Phone = block.Phone, Unchanged = unchanged, Key = block.Key }));
+            { Style = block.Style, Look = block.Look, Phone = block.Phone, Unchanged = unchanged, Key = block.Key, Room = block.Room }));
         }
         return result;
     }

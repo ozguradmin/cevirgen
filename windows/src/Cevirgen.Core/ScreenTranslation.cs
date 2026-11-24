@@ -40,6 +40,8 @@ public static class ScreenTranslation
         public bool Bubble { get; init; }
         /// <summary>Çevirgen: kullanıcının alanındaki tuş etiketi ("EXIT" ○); TV kutuyu simgenin öbür yanına dayar.</summary>
         public bool Key { get; init; }
+        /// <summary>Çevirgen: tuş etiketinin plakasının en çok genişliği (karenin genişliğine oran); bkz. RegionWatcher.Block.Room.</summary>
+        public double? Room { get; init; }
         /// <summary>
         /// Telefonun yanındaki sohbet panelinin parçası (<see cref="ScreenPhoneCard.PanelPart"/>); yeni çiziciler paneli akışla
         /// çizer, eski TV kutuları yerinde çizer (Mac ile aynı).

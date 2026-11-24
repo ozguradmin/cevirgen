@@ -35,7 +35,7 @@ public sealed class LivePreview : ContentControl
     private readonly Grid overlay = new();
     /// <summary>Çevirgen: ek alanların (ipucu, seçenekler) TV'deki Türkçesi, kendi yerlerinde.</summary>
     private readonly Canvas regionLayer = new() { IsHitTestVisible = false };
-    private IReadOnlyList<(string Text, TextBox Box)> regionTexts = [];
+    private IReadOnlyList<PreviewLabel> regionTexts = [];
     private WriteableBitmap? bitmap;
     private long lastDraw;
     private IReadOnlyList<SubtitleStack.Line> shown = [];
@@ -128,7 +128,7 @@ public sealed class LivePreview : ContentControl
     }
 
     /// <summary>Çevirgen: ek alanların TV'de görünen çevirileri (karedeki yerleriyle).</summary>
-    public void SetRegions(IReadOnlyList<(string Text, TextBox Box)> texts)
+    public void SetRegions(IReadOnlyList<PreviewLabel> texts)
     {
         regionTexts = texts;
         Layout();
@@ -169,26 +169,30 @@ public sealed class LivePreview : ContentControl
         // Çevirgen: ek alan çevirileri İngilizce yazının yerinde, küçük koyu kutuda (TV'deki gibi).
         regionLayer.Children.Clear();
         regionLayer.Opacity = lines.Opacity;
-        foreach (var (text, box) in regionTexts)
+        foreach (var item in regionTexts)
         {
+            var (text, box) = (item.Text, item.Box);
             var boxWidth = Math.Max(24, w * (box.Right - box.Left));
             // Önizleme ölçeğinde iç boşluk (TV'deki kutunun payı).
             var inset = Math.Max(1, h * 0.002);
             var label = new TextBlock
             {
-                Text = text, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold,
+                // Tuş etiketi TV'deki gibi tek satır; oyunda soluk olan seçenek açık gri.
+                Text = text, Foreground = item.Dim ? PerdeColors.Frozen(PerdeColors.Rgb(0xA9, 0xAD, 0xB6)) : Brushes.White,
+                TextWrapping = item.Key ? TextWrapping.NoWrap : TextWrapping.Wrap, FontWeight = FontWeights.SemiBold,
                 FontSize = Math.Clamp(h * (box.Bottom - box.Top) * 0.7, 7, 16), LineHeight = double.NaN,
             };
             label.SetResourceReference(TextBlock.FontFamilyProperty, "TextFont");
             var plate = new Border
             {
                 Child = label, Background = PerdeColors.Frozen(Color.FromArgb(0xD9, 0x10, 0x10, 0x14)), Padding = new Thickness(inset * 2, inset, inset * 2, inset),
-                MinWidth = boxWidth, MaxWidth = Math.Max(boxWidth, w * 0.35),
+                MinWidth = boxWidth, MaxWidth = item.Key ? double.PositiveInfinity : Math.Max(boxWidth, w * 0.35),
             };
-            plate.Measure(new Size(plate.MaxWidth, double.PositiveInfinity));
+            plate.Measure(new Size(double.IsInfinity(plate.MaxWidth) ? w : plate.MaxWidth, double.PositiveInfinity));
             var plateWidth = plate.DesiredSize.Width;
-            // Sağ yarıdaki yazı sağa yaslanır (tuş listesi), sol yarıdaki sola; kutu karenin dışına taşmaz.
-            var plateLeft = (box.Left + box.Right) / 2 > 0.5 ? x + w * box.Right - plateWidth : x + w * box.Left;
+            // Yaslanma TV ile aynı: bilgisayarın bildirdiği yan (tuş etiketi); yoksa sağ yarıdaki yazı sağa, sol yarıdaki sola.
+            var leansRight = item.Align is { } side ? side == "right" : (box.Left + box.Right) / 2 > 0.5;
+            var plateLeft = leansRight ? x + w * box.Right - plateWidth : x + w * box.Left;
             Canvas.SetLeft(plate, Math.Clamp(plateLeft, x, Math.Max(x, x + w - plateWidth)));
             Canvas.SetTop(plate, Math.Clamp(y + h * box.Top, y, Math.Max(y, y + h - plate.DesiredSize.Height)));
             regionLayer.Children.Add(plate);
@@ -238,10 +242,10 @@ internal sealed class LiveStage
     /// <summary>Yığın değişti (yeni satır, satır kalktı ya da soldu).</summary>
     public event Action? Changed;
 
-    private readonly Dictionary<string, IReadOnlyList<(string Text, TextBox Box)>> regions = [];
+    private readonly Dictionary<string, IReadOnlyList<PreviewLabel>> regions = [];
 
     /// <summary>Çevirgen: ek alanların şu an TV'de görünen çevirileri (alan alan, karedeki yerleriyle).</summary>
-    public IReadOnlyList<(string Text, TextBox Box)> Regions => [.. regions.Values.SelectMany(list => list)];
+    public IReadOnlyList<PreviewLabel> Regions => [.. regions.Values.SelectMany(list => list)];
 
     /// <summary>Oyundaki İngilizce satırın son bilinen yeri.</summary>
     public TextBox? EnglishBox { get; private set; }
@@ -285,8 +289,10 @@ internal sealed class LiveStage
             case SubtitleEventKind.Region when e.Id is { } id:
                 if (e.Text.Length == 0) regions.Remove(id);
                 else if (e.Blocks is { Count: > 0 } blocks)
-                    regions[id] = [.. blocks.Where(block => block.Translation.Length > 0).Select(block => (block.Translation, block.Box))];
-                else if (e.Box is { } regionBox) regions[id] = [(e.Text, regionBox)];
+                    regions[id] = [.. blocks.Where(block => block.Translation.Length > 0).Select(block => new PreviewLabel(
+                        block.Translation, block.Box, block.Key, block.Key ? block.Look?.Align : null,
+                        block.Key && block.Style?.Foreground == RegionWatcher.KeyDim))];
+                else if (e.Box is { } regionBox) regions[id] = [new PreviewLabel(e.Text, regionBox)];
                 break;
             case SubtitleEventKind.RegionClear:
                 regions.Clear();
@@ -314,3 +320,9 @@ internal sealed class LiveStage
         Changed?.Invoke();
     }
 }
+
+/// <summary>
+/// Çevirgen: önizlemede bir ek alan çevirisi. Tuş etiketinde (<paramref name="Key"/>) yaslanılan yan ve soluk renk TV'ye
+/// gidenle aynıdır (bilgisayar yerleşimden ve etiketin parlaklığından çıkarır; bkz. RegionWatcher).
+/// </summary>
+public sealed record PreviewLabel(string Text, TextBox Box, bool Key = false, string? Align = null, bool Dim = false);
