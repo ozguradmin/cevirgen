@@ -35,10 +35,16 @@ public class DiagnosticReplayTests(ITestOutputHelper output)
     /// </summary>
     private sealed class Prefixed : ITextTranslator
     {
+        /// <summary>CEVIRGEN_TV_TRANSLATIONS bir JSON dosyası gösterirse ({"İngilizce": "Türkçe"}) bilinen parçalar oradan çevrilir (tanıtım görselleri).</summary>
+        private static readonly Dictionary<string, string> Known =
+            Environment.GetEnvironmentVariable("CEVIRGEN_TV_TRANSLATIONS") is { } file && File.Exists(file)
+                ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(file)) ?? [] : [];
+
         public List<string> Texts { get; } = [];
         public Task<string> TranslateAsync(string text, CancellationToken cancellationToken = default)
         {
             lock (Texts) Texts.Add(text);
+            if (Known.TryGetValue(text, out var known)) return Task.FromResult(known);
             return Task.FromResult(string.Join(' ', text.Split(' ').Select(word =>
                 word.Count(char.IsLetter) < 2 ? word : new string([.. word.Reverse()]) + (word.Any(char.IsLower) ? "e" : "E"))));
         }
