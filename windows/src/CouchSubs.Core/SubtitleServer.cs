@@ -50,6 +50,10 @@ public enum SubtitleBackgroundShape
 /// <param name="NameOnly">Konuşan rengi yalnız adı boyar (yeni arayüz). TV'ye <c>nameOnly</c>.</param>
 /// <param name="Outline">Çevirgen: yazının çevresine siyah kenarlık (zeminsiz okunurluk). TV'ye <c>outline</c>.</param>
 /// <param name="HdmiInput">Kurulumda seçilen TV girişi (1–4); yoksa null. TV'ye <c>hdmiInput</c>.</param>
+/// <param name="OutlineWidth">
+/// Çevirgen: kenarlığın kalınlığı, 1920 genişlikli TV'nin pikseliyle (0–4; 0 kenarlık yok). TV'ye <c>outlineWidth</c>; alanı
+/// tanımayan eski TV (1.0.1 ve öncesi) kalınlığı yazı boyundan çıkarır.
+/// </param>
 public sealed record SubtitleStyle(
     int FontSize = 32,
     int BottomPercent = 7,
@@ -67,9 +71,17 @@ public sealed record SubtitleStyle(
     IReadOnlyDictionary<string, string>? CharacterColors = null,
     bool NameOnly = false,
     int? HdmiInput = null,
-    bool Outline = true)
+    bool Outline = true,
+    int OutlineWidth = SubtitleStyle.DefaultOutlineWidth)
 {
     public const string DefaultBackgroundColor = "#101014";
+    /// <summary>Kenarlığın varsayılan kalınlığı (32 px yazıda eski TV'nin çizdiğiyle aynı).</summary>
+    public const int DefaultOutlineWidth = 2;
+    /// <summary>Kenarlığın en kalın hâli (TV piksel).</summary>
+    public const int MaxOutlineWidth = 4;
+
+    /// <summary>Kenarlığın gerçekten çizilen kalınlığı (TV piksel): kenarlık kapalıysa 0, değilse 0–4.</summary>
+    public int OutlinePx => Outline ? Math.Clamp(OutlineWidth, 0, MaxOutlineWidth) : 0;
 
     /// <summary>Geçerli "#RRGGBB" ise büyük harfle; değilse null (Mac SubtitleStyle.hex ile aynı).</summary>
     public static string? Hex(string? value) =>
@@ -1029,7 +1041,8 @@ public sealed class SubtitleServer(int port = 8787, TimeSpan? pingInterval = nul
                 _ => "inApp",
             },
             ["fontSize"] = style.FontSize,
-            ["outline"] = style.Outline,
+            ["outline"] = style.OutlinePx > 0,
+            ["outlineWidth"] = style.OutlinePx,
             ["placement"] = style.Placement.ToString().ToLowerInvariant(),
             ["setApart"] = setApart,
             ["stackPrevious"] = style.StackPrevious,

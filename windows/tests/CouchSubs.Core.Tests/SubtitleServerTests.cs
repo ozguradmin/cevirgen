@@ -469,6 +469,29 @@ public class SubtitleServerTests
         Assert.Contains(lines, l => l.Contains("Kapıyı tut, evlat!"));
     }
 
+    /// <summary>Çevirgen: kenarlık kalınlığı TV'ye outlineWidth olarak gider; kenarlık kapalıysa ya da kalınlık 0'sa outline false.</summary>
+    [Theory]
+    [InlineData(true, 3, "\"outline\":true", "\"outlineWidth\":3")]
+    [InlineData(true, 0, "\"outline\":false", "\"outlineWidth\":0")]
+    [InlineData(false, 2, "\"outline\":false", "\"outlineWidth\":0")]
+    [InlineData(true, 9, "\"outline\":true", "\"outlineWidth\":4")]
+    public async Task StyleCarriesOutlineWidth(bool outline, int width, string expectedOutline, string expectedWidth)
+    {
+        using var server = new SubtitleServer(0);
+        var port = await server.StartAsync();
+        server.SendStyle(new SubtitleStyle(Outline: outline, OutlineWidth: width));
+
+        using var response = await Http.GetAsync($"http://127.0.0.1:{port}/events", HttpCompletionOption.ResponseHeadersRead);
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync());
+        string? data = null;
+        while (await reader.ReadLineAsync() is { } line)
+            if (line.StartsWith("data:") && line.Contains("fontSize")) { data = line; break; }
+        Assert.Contains(expectedOutline, data);
+        Assert.Contains(expectedWidth, data);
+        // Eski ayar dosyasında alan yok: varsayılan 2 px.
+        Assert.Equal(2, System.Text.Json.JsonSerializer.Deserialize<SubtitleStyle>("{\"FontSize\":32}")!.OutlineWidth);
+    }
+
     [Fact]
     public async Task NewClientReceivesLastStyle()
     {

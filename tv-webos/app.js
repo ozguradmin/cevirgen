@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json, tv-tizen/config.xml ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.1';
+  var APP_VERSION = '1.0.2';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -1943,11 +1943,21 @@
 
   // Bilgisayardaki "Yazı kenarlığı" (style.outline): yazının çevresine düz siyah kontur; zemin kutusu olmadan da
   // (koyuluk %0) okunur. -webkit-text-stroke eski WebView'lerde yok ve harfin içine taşar; bunun yerine sekiz yöne
-  // kaydırılmış bulanıksız gölge kullanılır. Kalınlık yazı boyuyla büyür (46 px'de 3 px, en az 2 px).
+  // kaydırılmış bulanıksız gölge kullanılır. Kalınlık bilgisayardan gelir (style.outlineWidth, 0–4, fontSize ile aynı
+  // CSS pikseli; 0: kenarlık yok); alanı göndermeyen eski bilgisayarda yazı boyuyla büyür (46 px'de 3 px, en az 2 px).
   var outlineOn = false;
+  // null: bilgisayar kalınlık göndermedi (eski sürüm), yazı boyundan hesaplanır.
+  var outlineWidth = null;
 
-  function outlineShadow(fontSize) {
-    var w = Math.max(2, Math.round(fontSize / 16));
+  // Ana satırın kontur kalınlığı (px); küçük üst satırlarda (0,8 kat yazı) small true.
+  function outlineThickness(fontSize, small) {
+    if (outlineWidth === null) return Math.max(2, Math.round(fontSize / 16));
+    if (outlineWidth <= 0) return 0;
+    return small ? Math.max(1, Math.round(outlineWidth * 0.8)) : outlineWidth;
+  }
+
+  function outlineShadow(w) {
+    if (!(w > 0)) return '';
     var shadows = [];
     for (var dx = -1; dx <= 1; dx++) {
       for (var dy = -1; dy <= 1; dy++) {
@@ -1962,10 +1972,11 @@
   // Kenarlık kapalıyken satır içi gölge silinir: style.css'teki eski görünüm (yumuşak gölge, ince zeminde body.thin-bg
   // konturu) geçerli olur.
   function applyOutline() {
-    var small = Math.round(fontBase * 0.8);
-    $('subtitle-text').style.textShadow = outlineOn ? outlineShadow(fontBase) : '';
-    $('subtitle-prev-text').style.textShadow = outlineOn ? outlineShadow(small) : '';
-    $('subtitle-prev2-text').style.textShadow = outlineOn ? outlineShadow(small) : '';
+    var main = outlineOn ? outlineShadow(outlineThickness(fontBase, false)) : '';
+    var small = outlineOn ? outlineShadow(outlineThickness(Math.round(fontBase * 0.8), true)) : '';
+    $('subtitle-text').style.textShadow = main;
+    $('subtitle-prev-text').style.textShadow = small;
+    $('subtitle-prev2-text').style.textShadow = small;
   }
 
   function applyStyle(style) {
@@ -1977,6 +1988,9 @@
     }
     // Alanı göndermeyen bilgisayarda (eski sürüm) kenarlık yok.
     outlineOn = style.outline === true;
+    // Kalınlık 0–4'e sıkıştırılır; sayı gelmezse (eski bilgisayar) yazı boyundan hesaplanır.
+    outlineWidth = typeof style.outlineWidth === 'number' && !isNaN(style.outlineWidth)
+      ? Math.max(0, Math.min(4, Math.round(style.outlineWidth))) : null;
     applyOutline();
     if (PLACEMENTS[style.placement]) placement = style.placement;
     bandShape = style.backgroundShape === 'band';
