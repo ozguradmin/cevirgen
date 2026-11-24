@@ -625,6 +625,11 @@ public sealed record UserSettings
     /// <summary>Şu an uygulanan profilin anahtarı; genel alanlar kullanılıyorsa null.</summary>
     public string? ActiveAreaProfile { get; init; }
     /// <summary>
+    /// Çevirgen: "Kayıtlı alanlar var, kullanılsın mı?" sorusuna "Kullan" denen profiller: o oyun bir daha tanınınca alanlar
+    /// sorulmadan uygulanır (önceden her açılışta yeniden soruluyordu). "Geri al" denince listeden çıkar.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedAreaProfiles { get; init; } = [];
+    /// <summary>
     /// Profil uygulanırken kenara alınan genel alanlar; profil bırakılınca (oyun değişti, "Geri al", oturum bitti) geri
     /// gelir. Uygulama oturum sürerken kapanırsa açılışta geri yüklenir.
     /// </summary>

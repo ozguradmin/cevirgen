@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.6';
+  var APP_VERSION = '1.0.7';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;
@@ -1459,8 +1459,11 @@
       // Çevirgen: elle çizilen ek alanın kısa satırı da etiket gibi tek satırda kalır ("ARAYÜ / ZÜ GİZLE" diye kırılıyordu).
       var manual = !phone && !styled && !!regionId && regionId.indexOf('auto-') !== 0;
       var manualAlign = manual ? neighbourAlign(items, i, box) : null;
-      var label = (styled ? !bubble : manual) && item.text.indexOf('\n') < 0
-        && (item.text.split(/\s+/).length <= 2 || singleOriginal);
+      // Çevirgen: bilgisayarın tuş etiketi dediği blok (item.key) kaç sözcük olursa olsun tek satır etikettir
+      // ("KONTROL NOKTASINDAN TEKRAR DENE" iki satıra kırılıp simgenin üstüne biniyordu).
+      var keyItem = item.key === true && !!regionId && !phone;
+      var label = keyItem || ((styled ? !bubble : manual) && item.text.indexOf('\n') < 0
+        && (item.text.split(/\s+/).length <= 2 || singleOriginal));
       if (styled) floor = Math.max(label ? 10 : SCREEN_MIN_FONT, Math.round(size * (label ? STYLED_LABEL_MIN_SCALE : STYLED_MIN_SCALE)));
       else if (manual && label) floor = Math.max(10, Math.round(size * STYLED_LABEL_MIN_SCALE));
       if (manual && label) el.style.textAlign = manualAlign;
@@ -1469,7 +1472,7 @@
       // örtülmez. Sola yaslıysa sol kenar zaten sabit.
       var labelAlign = label && regionId && !phone ? ((item.style && item.style.align) || manualAlign) : null;
       // Yalnız bilgisayarın tuş etiketi dediği blok (item.key) simge yanındaki kenara dayanır.
-      var keyAlign = item.key === true && labelAlign ? labelAlign : null;
+      var keyAlign = keyItem ? (labelAlign || 'right') : null;
       if (labelAlign === 'right' && left * width + itemWidth > (Math.min(1, box.right + pad)) * width + 1)
         el.style.left = Math.max(0, Math.round(Math.min(1, box.right + pad) * width - itemWidth)) + 'px';
       if (keyAlign) el.className += ' key-label';
@@ -1492,7 +1495,7 @@
         size = Math.max(floor, size - 1);
         el.style.fontSize = size + 'px';
       }
-      if (label && el.scrollWidth > el.clientWidth + 1 && item.text.split(/\s+/).length > 2) {
+      if (label && !keyItem && el.scrollWidth > el.clientWidth + 1 && item.text.split(/\s+/).length > 2) {
         el.style.whiteSpace = '';
         el.style.lineHeight = '';
       }

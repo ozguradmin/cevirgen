@@ -2972,7 +2972,12 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     /// <summary>"Kullan": önerilen profil uygulanır.</summary>
     public void UseOfferedAreaProfile()
     {
-        if (settings.FindAreaProfile(offeredAreaProfile) is { } profile) ApplyAreaProfile(profile);
+        if (settings.FindAreaProfile(offeredAreaProfile) is { } profile)
+        {
+            ApplyAreaProfile(profile);
+            if (!settings.AcceptedAreaProfiles.Contains(profile.Key))
+                Settings = settings with { AcceptedAreaProfiles = [.. settings.AcceptedAreaProfiles, profile.Key] };
+        }
         SetOfferedAreaProfile(null);
     }
 
@@ -2988,6 +2993,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     {
         if (settings.ActiveAreaProfile is not { } key) return;
         declinedAreaProfiles.Add(key);
+        if (settings.AcceptedAreaProfiles.Contains(key))
+            Settings = settings with { AcceptedAreaProfiles = [.. settings.AcceptedAreaProfiles.Where(item => item != key)] };
         Settings = settings.WithGeneralAreas();
         SubtitleLog.Write("alan profili geri alındı: " + key);
     }
@@ -3037,6 +3044,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         }
         var decision = AreaProfiles.Decide(settings.ActiveAreaProfile, gameSense.Current?.Name, gameSense.Source, settings.AreaSource,
                                            key => settings.FindAreaProfile(key) is not null, declinedAreaProfiles.Contains);
+        // Çevirgen: daha önce "Kullan" denen profil sorulmadan uygulanır.
+        if (decision.Step == AreaProfiles.Step.Offer && decision.Key is { } accepted && settings.AcceptedAreaProfiles.Contains(accepted))
+            decision = decision with { Step = AreaProfiles.Step.Apply };
         SetOfferedAreaProfile(decision.Step == AreaProfiles.Step.Offer ? decision.Key : null);
         switch (decision.Step)
         {

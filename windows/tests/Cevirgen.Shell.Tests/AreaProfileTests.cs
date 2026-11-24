@@ -221,6 +221,32 @@ public class AreaProfileTests
         Assert.Equal(2, controller.Settings.AreaProfiles.Count);
     }
 
+    /// <summary>Çevirgen: "Kullan" denen profil sonraki oturumlarda sorulmadan uygulanır; "Geri al" bunu unutturur.</summary>
+    [Fact]
+    public async Task AcceptedProfileIsAppliedWithoutAskingAgain()
+    {
+        var (controller, _) = Ready();
+        controller.Settings = controller.Settings.WithCustomRegion(General);
+        await controller.StartAsync();
+        controller.ChooseGame("GTA 6");
+        controller.Settings = controller.Settings.WithCustomRegion(GtaArea);
+        controller.SaveAreaProfile();
+        controller.Stop();
+
+        await controller.StartAsync();
+        Assert.Equal("GTA 6", controller.OfferedAreaProfileGame);
+        controller.UseOfferedAreaProfile();
+        Assert.Equal(GtaArea, controller.Settings.Region);
+        controller.Stop();
+
+        await controller.StartAsync();
+        Assert.Null(controller.OfferedAreaProfileGame);
+        Assert.Equal(GtaArea, controller.Settings.Region);
+        controller.UndoAreaProfile();
+        Assert.DoesNotContain("gta 6|stream", controller.Settings.AcceptedAreaProfiles);
+        controller.Stop();
+    }
+
     [Fact]
     public void ProfilesCanBeAddedRenamedDuplicatedAndDeletedWhileStopped()
     {
