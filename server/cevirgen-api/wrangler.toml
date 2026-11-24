@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Çevirgen API: uzaktan ayarlar (reklam, duyuru), anonim kullanım sayımı, yönetim paneli.
+# Çevirgen API: uzaktan ayarlar (reklam, duyuru), anonim kullanım sayımı, ortak havuz (satır toplama), yönetim paneli.
 # ADMIN_TOKEN bir secret'tır: `wrangler secret put ADMIN_TOKEN`; depoya yazılmaz.
 name = "cevirgen-api"
 main = "src/index.js"
@@ -7,6 +7,10 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 # Kendi alan adımız (Türkiye ağlarında workers.dev sorun çıkarırsa diye):
 routes = [{ pattern = "cevirgen.ozgurguler.tech", custom_domain = true }]
+
+# Gece bakımı (ücretsiz planda 5 cron hakkı): ortak havuzun 180 günden eski kurulum–satır eşleşmeleri silinir.
+[triggers]
+crons = ["23 2 * * *"]
 
 [[rules]]
 type = "Text"

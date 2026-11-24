@@ -4,8 +4,16 @@
 //                            (KV "config"); güncelleme gerektirmez
 //   GET  /v1/assets/<ad>     reklam görselleri (KV "asset:<ad>")
 //   POST /v1/ping            anonim sinyal {id, v, p, playing}; IP ve içerik saklanmaz
+//   POST /v1/lines           ortak havuz (yalnız toplama, src/lines.js): ekranda gösterilen İngilizce satırlar, modeldeki
+//                            çevirileri ve oyun {id, v, game:{id?, title?}, lines:[{en, tr, engine, area, at, n?}]};
+//                            süzülür (oyun dışı yazı, tuş ipucu, kişisel bilgi), kurulum kimliği yalnız tuzlu özet olarak
+//                            yazılır, kurulum başına günde 2000 satır
 //   GET  /admin              yönetim paneli (Basic auth, şifre ADMIN_TOKEN secret'ı)
 //   GET  /admin/stats.json   istatistikler; POST /admin/config, POST /admin/asset
+//   GET  /admin/lines/games.json        havuz: oyun başına satır, ≥2 kurulumun gördüğü satır, katkı veren kurulum, son 7 gün
+//   GET  /admin/lines.json?game=&q=&limit=&offset=   bir oyunun satırları (en çok görülen başta) ve motor başına çeviriler
+//   GET  /admin/lines.csv?game=         bir oyunun bütün satırları CSV olarak
+//   Cron (her gece 02:23 UTC): 180 günden eski kurulum–satır eşleşmeleri ve 7 günden eski günlük sayaçlar silinir.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PLATFORMS = new Set(['ps5', 'xbox', 'pc', 'capture', 'unknown']);
@@ -16,6 +24,8 @@ const HTTPS = /^https:\/\/[^\s/]+\S*$/;
 const MAX_GAMES = 500;
 const ONLINE_SECONDS = 6 * 60; // uygulama 5 dakikada bir sinyal yollar
 const REPO = 'ozguradmin/cevirgen';
+
+import { gamesSummary, linesCsv, linesList, pruneLines, submitLines, unavailableFor } from './lines.js';
 
 const json = (body, status = 200, extra = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...extra } });
@@ -159,11 +169,23 @@ export default {
       return new Response(value, { headers: { 'content-type': metadata?.type || 'application/octet-stream', 'cache-control': 'public, max-age=3600' } });
     }
     if (request.method === 'POST' && path === '/v1/ping') return ping(request, env);
+    if (request.method === 'POST' && path === '/v1/lines') {
+      try {
+        return await submitLines(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ error: 'lines', message: String(error?.message || error).slice(0, 300) }));
+        const wait = unavailableFor(error);
+        return json({ error: wait ? 'unavailable' : 'server_error' }, wait ? 503 : 500, wait ? { 'retry-after': String(wait) } : {});
+      }
+    }
 
     if (path === '/admin' || path.startsWith('/admin/')) {
       if (!authorized(request, env)) return unauthorized();
       if (request.method === 'GET' && path === '/admin') return new Response(ADMIN_HTML, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
       if (request.method === 'GET' && path === '/admin/stats.json') return json(await stats(env), 200, { 'cache-control': 'no-store' });
+      if (request.method === 'GET' && path === '/admin/lines/games.json') return json(await gamesSummary(env), 200, { 'cache-control': 'no-store' });
+      if (request.method === 'GET' && path === '/admin/lines.json') return linesList(url, env);
+      if (request.method === 'GET' && path === '/admin/lines.csv') return linesCsv(url, env);
       if (request.method === 'GET' && path === '/admin/config') return json(await getConfig(env), 200, { 'cache-control': 'no-store' });
       if (request.method === 'POST' && path === '/admin/config') {
         let c;
@@ -185,6 +207,12 @@ export default {
       return new Response('Yok', { status: 404 });
     }
     return new Response('Çevirgen API', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  },
+
+  // Saklama süresi (wrangler.toml [triggers]): ham kurulum–satır eşleşmeleri 180 gün tutulur; toplam sayılar kalır.
+  // TODO(paketler): ileride gece paketi (installs >= 2 satırları çevir, gözden geçir, imzala, yayınla) buraya eklenecek.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(pruneLines(env).then((r) => console.log(JSON.stringify({ prune: r }))));
   },
 };
 

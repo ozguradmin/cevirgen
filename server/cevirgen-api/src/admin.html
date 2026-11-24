@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,600..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Yönetim: üstte anlık sayılar, ortada 30 günlük grafik, altta uzaktan ayarlar (reklam, duyuru, oyun kapakları, destek alanı) ve görsel yükleme. */
+/* Yönetim: üstte anlık sayılar, ortada 30 günlük grafik (analiz verileri), ortak havuzun satırları, altta uzaktan ayarlar (reklam, duyuru, oyun kapakları, destek alanı) ve görsel yükleme. */
 :root{--ink:#0F1014;--panel:#16181E;--line:#272B34;--text:#ECEDEF;--muted:#9097A3;--sub:#FFD23F;--ok:#5BD08A;--err:#FF6B5E;
 --display:'Archivo','Arial Narrow',sans-serif;--body:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;color-scheme:dark}
 *{box-sizing:border-box}
@@ -42,6 +42,20 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .msg.ok{color:var(--ok)}.msg.err{color:var(--err)}
 code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-all}
 @media (prefers-reduced-motion:no-preference){.num b{transition:color .3s}}
+nav.jump{display:flex;gap:16px;margin-left:auto}
+nav.jump a{color:var(--sub);text-decoration:none;font-weight:600}
+nav.jump a:hover{text-decoration:underline}
+[id]{scroll-margin-top:16px}
+.scroll{overflow-x:auto;border:1px solid var(--line)}
+table.grid{min-width:640px}
+table.grid td,table.grid th{padding:8px 10px;vertical-align:top;text-align:left}
+table.grid th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;white-space:nowrap}
+table.grid td.n,table.grid th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.grid tr.pick{cursor:pointer}
+table.grid tr.pick:hover td,table.grid tr.on td{background:#1C1F27}
+table.grid td.tr{color:#C9CCD2;min-width:180px}
+select{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:inherit;min-height:40px}
+a.btn{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:6px;border:1px solid #3A3F4B;background:#1C1F27;color:var(--text);font:600 14px var(--body);text-decoration:none}
 </style>
 </head>
 <body>
@@ -49,7 +63,10 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
   <header>
     <span class="mark"><span>ç</span>evirgen</span>
     <span class="muted">Yönetim · <span id="updated" class="mono">yükleniyor…</span></span>
+    <nav class="jump" aria-label="Bölümler"><a href="#analiz">Analiz verileri</a><a href="#satirlar">Satırlar</a><a href="#ayarlar">Uzaktan ayarlar</a></nav>
   </header>
+
+  <h2 id="analiz">Analiz verileri</h2>
 
   <div class="nums" aria-label="Özet">
     <div class="num hot"><span class="lbl">Şu an oynayan</span><b id="n-playing">–</b><span class="muted" style="font-size:13px">çeviri açık</span></div>
@@ -71,7 +88,35 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
     <section><h2>Sürüm</h2><table><tbody id="t-version"></tbody></table></section>
   </div>
 
-  <section>
+  <section id="satirlar">
+    <h2>Satırlar</h2>
+    <p class="muted" style="margin:0;max-width:80ch">Ortak havuz: uygulamaların ekranda gösterdiği İngilizce satırlar ve modelin çevirileri, oyuna göre. Kişisel bilgiye benzeyen satırlar sunucuda atılır; kurulum kimlikleri burada görünmez. Şimdilik yalnız toplanıyor (paket üretimi yok). "Kurulum" son 180 günde satır gönderen tekil kurulum sayısıdır.</p>
+    <div class="nums" aria-label="Havuz özeti">
+      <div class="num hot"><span class="lbl">Satır</span><b id="l-lines">–</b><span class="muted" style="font-size:13px"><span id="l-games">–</span> oyun</span></div>
+      <div class="num"><span class="lbl">≥2 kurulum</span><b id="l-confirmed">–</b><span class="muted" style="font-size:13px">paket adayı</span></div>
+      <div class="num"><span class="lbl">Katkı veren</span><b id="l-installs">–</b><span class="muted" style="font-size:13px">kurulum, 180 gün</span></div>
+      <div class="num"><span class="lbl">Son 7 gün</span><b id="l-recent">–</b><span class="muted" style="font-size:13px"><span id="l-fresh">–</span> yeni satır</span></div>
+      <div class="num"><span class="lbl">Görülme</span><b id="l-sightings">–</b><span class="muted" style="font-size:13px">toplam</span></div>
+    </div>
+    <div class="scroll"><table class="grid">
+      <thead><tr><th>Oyun</th><th class="n">Satır</th><th class="n">≥2 kurulum</th><th class="n">Kurulum</th><th class="n">Son 7 gün</th><th class="n">Yeni (7 gün)</th><th class="n">Son görülme</th></tr></thead>
+      <tbody id="t-games"><tr><td class="muted" colspan="7">yükleniyor…</td></tr></tbody>
+    </table></div>
+    <form id="line-search" class="row">
+      <label for="game" class="lbl">Oyun</label><select id="game"></select>
+      <label for="q" class="lbl">Ara</label><input id="q" type="text" placeholder="İngilizce metinde ara">
+      <button type="submit">Göster</button>
+      <a id="csv" class="btn" href="#" download>CSV indir</a>
+      <span id="lines-msg" class="muted mono" role="status"></span>
+    </form>
+    <div class="scroll"><table class="grid">
+      <thead id="h-lines"></thead>
+      <tbody id="t-lines"><tr><td class="muted">Bir oyun seç.</td></tr></tbody>
+    </table></div>
+    <div class="row"><button type="button" id="more" hidden>Daha fazla</button></div>
+  </section>
+
+  <section id="ayarlar">
     <h2>Uzaktan ayarlar</h2>
     <p class="muted" style="margin:0;max-width:72ch">Uygulama bunu açılışta ve saatte bir okur. Kaydettiğin değişiklik güncelleme gerekmeden herkese gider (en geç birkaç dakika içinde). Bağlantılar https olmalı.</p>
     <div class="row">
@@ -133,6 +178,55 @@ code{font-family:var(--mono);font-size:13px;color:var(--sub);word-break:break-al
     }).catch(function () { $('updated').textContent = 'istatistik okunamadı'; });
   }
   load(); setInterval(load, 30000); window.addEventListener('resize', load);
+
+  // --- Satırlar (ortak havuz) ---
+  var esc = function (v) { return String(v === null || v === undefined ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var when = function (u) { return u ? new Date(u * 1000).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'; };
+  var page = { game: '', q: '', offset: 0, engines: [] };
+  function loadGames() {
+    fetch('/admin/lines/games.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+      var t = s.totals || {};
+      $('l-lines').textContent = fmt(t.lines); $('l-games').textContent = fmt(t.games); $('l-confirmed').textContent = fmt(t.confirmed);
+      $('l-installs').textContent = fmt(t.installs); $('l-recent').textContent = fmt(t.recent); $('l-fresh').textContent = fmt(t.fresh);
+      $('l-sightings').textContent = fmt(t.sightings);
+      var games = s.games || [];
+      $('t-games').innerHTML = games.length ? games.map(function (g) {
+        return '<tr class="pick' + (g.game === page.game ? ' on' : '') + '" data-game="' + esc(g.game) + '"><td>' + esc(g.title || g.game) + ' <span class="muted mono" style="font-size:12px">' + esc(g.game) + '</span></td>' +
+          '<td class="n">' + fmt(g.lines) + '</td><td class="n">' + fmt(g.confirmed) + '</td><td class="n">' + fmt(g.installs) + '</td><td class="n">' + fmt(g.recent) + '</td><td class="n">' + fmt(g.fresh) + '</td><td class="n">' + when(g.last_seen) + '</td></tr>';
+      }).join('') : '<tr><td class="muted" colspan="7">Henüz satır gelmedi.</td></tr>';
+      var sel = $('game'), keep = page.game || sel.value;
+      sel.innerHTML = games.map(function (g) { return '<option value="' + esc(g.game) + '">' + esc(g.title || g.game) + ' (' + fmt(g.lines) + ')</option>'; }).join('');
+      if (keep) sel.value = keep;
+      if (!page.game && games.length) showLines(games[0].game, '', false);
+    }).catch(function () { $('t-games').innerHTML = '<tr><td class="muted" colspan="7">Satırlar okunamadı.</td></tr>'; });
+  }
+  function showLines(game, q, append) {
+    if (!append) page = { game: game, q: q, offset: 0, engines: [] };
+    $('game').value = game;
+    $('csv').href = '/admin/lines.csv?game=' + encodeURIComponent(game);
+    Array.prototype.forEach.call(document.querySelectorAll('#t-games tr.pick'), function (tr) { tr.classList.toggle('on', tr.getAttribute('data-game') === game); });
+    var url = '/admin/lines.json?game=' + encodeURIComponent(game) + '&limit=100&offset=' + page.offset + (q ? '&q=' + encodeURIComponent(q) : '');
+    $('lines-msg').textContent = 'yükleniyor…';
+    fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.error) { $('lines-msg').textContent = d.error; return; }
+      page.engines = d.engines || [];
+      $('h-lines').innerHTML = '<tr><th>İngilizce</th><th class="n">Kurulum</th><th class="n">Görülme</th><th class="n">Son görülme</th>' + page.engines.map(function (e) { return '<th>' + esc(e) + '</th>'; }).join('') + '</tr>';
+      var rows = (d.lines || []).map(function (l) {
+        return '<tr><td>' + esc(l.en) + '</td><td class="n">' + fmt(l.installs) + '</td><td class="n">' + fmt(l.sightings) + '</td><td class="n">' + when(l.last_seen) + '</td>' +
+          page.engines.map(function (e) { return '<td class="tr">' + esc((l.translations || {})[e] || '') + '</td>'; }).join('') + '</tr>';
+      }).join('');
+      if (append) $('t-lines').insertAdjacentHTML('beforeend', rows);
+      else $('t-lines').innerHTML = rows || '<tr><td class="muted" colspan="' + (4 + page.engines.length) + '">Satır yok.</td></tr>';
+      page.offset += (d.lines || []).length;
+      $('lines-msg').textContent = fmt(Math.min(page.offset, d.total)) + ' / ' + fmt(d.total) + ' satır';
+      $('more').hidden = page.offset >= d.total;
+    }).catch(function () { $('lines-msg').textContent = 'okunamadı'; });
+  }
+  $('t-games').onclick = function (e) { var tr = e.target.closest('tr.pick'); if (tr) { $('q').value = ''; showLines(tr.getAttribute('data-game'), '', false); } };
+  $('line-search').onsubmit = function (e) { e.preventDefault(); if ($('game').value) showLines($('game').value, $('q').value.trim(), false); };
+  $('game').onchange = function () { $('q').value = ''; showLines($('game').value, '', false); };
+  $('more').onclick = function () { showLines(page.game, page.q, true); };
+  loadGames(); setInterval(loadGames, 120000);
 
   fetch('/admin/config', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) { $('config').value = JSON.stringify(c, null, 2); });
   function edit(fn) { var c; try { c = JSON.parse($('config').value); } catch (e) { msg('save-msg', 'JSON bozuk: ' + e.message, false); return; } fn(c); $('config').value = JSON.stringify(c, null, 2); }
