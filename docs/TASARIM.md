@@ -1,8 +1,8 @@
-# CouchSubs tasarım standardı
+# Çevirgen tasarım standardı
 
-Mac ve Windows uygulamaları aynı görünür. Bu belge neyin nasıl göründüğünü, `design/tokens.json`
-ise sayısal değerleri tanımlar. Değer değişecekse yalnız `tokens.json` düzenlenir; uygulamalar onu
-doğrudan okur. Belge ile kod çelişirse `tokens.json` geçerlidir.
+Bu belge Windows uygulamasının neyin nasıl göründüğünü, `design/tokens.json` ise sayısal değerleri
+tanımlar (upstream'de Mac uygulamasıyla ortaktı; Mac'e özgü notlar tarihçe için kaldı). Değer değişecekse yalnız
+`tokens.json` düzenlenir; uygulama onu doğrudan okur. Belge ile kod çelişirse `tokens.json` geçerlidir.
 
 ## İlke
 
@@ -36,10 +36,8 @@ yazısı 17; dokunma alanı Android'de en az 48 dp, iOS'ta en az 44 pt kalır.
 
 ## Logo
 
-- Kaynak: `design/logo.svg` (vektör). Arkalığı ekran gibi duran, üstünde iki sarı altyazı satırı
-  olan bir kanepe; koyu grafit zemin.
-- Simgeler `swift scripts/make-icons.swift` ile üretilir (macOS simge seti, uygulama içi logo,
-  TV uygulaması simgeleri, `design/logo-1024.png`). Windows için `.ico` aynı SVG'den üretilir.
+- Kaynak: `design/cevirgen/logo.svg` (vektör); hazır boyutlar `design/cevirgen/logo-*.png`, Windows simgesi
+  `design/cevirgen/Cevirgen.ico`.
 - Logo değiştirilmez, yeniden renklendirilmez, gölge eklenmez. Uygulama içinde en az 32 pt.
 
 ## Renk
@@ -173,7 +171,7 @@ açıklama, numaralı üç satır ve "Ücretsiz anahtar al" (birincil, Google AI
 gizli anahtar alanı ve "Kaydet ve dene" (ikincil), altta veri kullanımı ve dakikalık sınır HintText'i.
 Anahtar yokken alttaki düğme "Şimdilik geç" (ikincil) olur; kaydedilince "Gemini hazır" (DoneLabel) ve "Devam".
 
-**Ana ekran** (bento, iki sütun): üstte logo + "CouchSubs" + sağda "Ayarlar" (ikincil, dişli simgeli).
+**Ana ekran** (bento, iki sütun): üstte logo + "Çevirgen" + sağda "Ayarlar" (ikincil, dişli simgeli).
 Sol sütun: "Çeviriyi başlat" (birincil) ya da "Çeviriyi durdur" (tehlikeli), 52 yükseklik; altında iki sütunlu
 karolar: PS5 ve TV durum karoları (altyazı yalnız bilgisayar ekranındaysa TV karosu yoktur; TV seçili ama bağlı
 değilse "Kurulmadı" ve "TV bağla"), iki sütun genişliğinde "Altyazıyı göster: TV / Bilgisayar ekranı / İkisi de"
@@ -216,7 +214,7 @@ Play dahil) üstünde; odağı almaz, görev çubuğunda / Dock'ta görünmez. A
 1080 satırlık ekrana göre ölçeklenir, beyaz ya da sarı yazı, siyah yarı saydam zemin, üstteki satırlar küçük ve soluk,
 en çok üç satır). Altyazı yokken pencere gizlenir. "Tıklamalar geçsin" kapalıyken yazıdan tutup sürüklenir; açıkken
 fare alttaki pencereye gider, geri almak için Num 7 (ya da sayı tuş takımı olmayan
-klavyede Ctrl+Shift+7, Mac'te ⌃⇧7; Ayarlar › Kısayollar'dan değişir), Mac'te menü çubuğundaki CouchSubs simgesi ya da ana ekran. "Altyazı penceresini ayarla": `accent` kesik çizgili çerçeve (parıltısız), üstte açıklama ve "Bitti" (birincil),
+klavyede Ctrl+Shift+7, Mac'te ⌃⇧7; Ayarlar › Kısayollar'dan değişir), Mac'te menü çubuğundaki Çevirgen simgesi ya da ana ekran. "Altyazı penceresini ayarla": `accent` kesik çizgili çerçeve (parıltısız), üstte açıklama ve "Bitti" (birincil),
 iki yanda genişletme tutamakları; yer, genişlik ve ekran hatırlanır.
 
 **Hakkında**: 88 pt logo, ad, sürüm, lisans, teşekkür, bağlantılar, Sony ile ilişkisizlik notu.

@@ -78,6 +78,21 @@ Changes (2026-11-24, interface polish):
     a calm, non-dismissible support line after the first 20 translated lines;
     anonymous count switch only in Settings.
 
+Changes (2026-11-24, repository cleanup and rename):
+  - Parts of CouchSubs that Çevirgen does not build or ship were removed from the
+    repository (Mac, iPhone/iPad, Android phone, Samsung TV and Linux apps, the
+    Swift packages, upstream servers, website, store material and their scripts and
+    workflows). They remain available in this repository's git history and in the
+    upstream repository.
+  - Resources embedded by the Windows app and shared test fixtures moved to
+    shared/resources and shared/fixtures.
+  - The Windows solution and projects were renamed from CouchSubs.* to Cevirgen.*
+    (namespaces, assemblies, folders; solution windows/Cevirgen.slnx) and the
+    product name in interface texts, comments and documentation is Çevirgen.
+    Identifiers that existing installs or TV apps depend on (data folder
+    %LOCALAPPDATA%\CouchSubs, x-couchsubs-* headers, the "couchsubs" protocol
+    value, firewall rule names, TV app IDs, couchsubs_native.dll) are unchanged.
+
 "CouchSubs" and its logo belong to their author; Çevirgen is not affiliated
 with or endorsed by CouchSubs, Enmera, Sony Interactive Entertainment or
 Microsoft. Game translation packs of CouchSubs are not part of Çevirgen.

@@ -71,14 +71,26 @@ Güncellemeler uygulamanın içinden gelir; yeni sürüm çıkınca üstte bir b
 
 ## Geliştirme
 
-Windows uygulaması .NET 10 (WPF) ile yazılmıştır: `windows/CouchSubs.Windows.slnx`.
+Windows uygulaması .NET 10 (WPF) ile yazılmıştır: `windows/Cevirgen.slnx` (`windows/src/Cevirgen.*`, testler
+`windows/tests/Cevirgen.*.Tests`).
 
 ```powershell
-dotnet build windows/CouchSubs.Windows.slnx -c Release
-dotnet test windows/CouchSubs.Windows.slnx -c Release --no-build
+dotnet build windows/Cevirgen.slnx -c Release
+dotnet test windows/Cevirgen.slnx -c Release --no-build -m:1
+node --test --test-force-exit scripts/tv-*.test.js     # TV sayfası testleri
 ```
 
-TV uygulaması `tv-android/` (Android TV) ve `tv-webos/` (TV sayfası), sunucu `server/cevirgen-api/` (Cloudflare Worker) altındadır. Sürüm paketi: `scripts/release-cevirgen.ps1`.
+| Klasör | İçerik |
+|---|---|
+| `windows/` | Windows uygulaması, testleri, yerel kitaplık (`native/`, chiaki-ng üstünde) ve Xbox köprüsü |
+| `shared/` | Uygulamaya gömülen ortak kaynaklar (`resources/`: ekran metinleri, OBS ve ikinci ekran sayfaları, sözlük, model listesi) ve testlerin ortak deneme dosyaları (`fixtures/`) |
+| `tv-android/`, `tv-webos/` | Android TV uygulaması (`gradle testSideloadReleaseUnitTest assembleSideloadRelease`) ve onun gösterdiği TV sayfası |
+| `server/cevirgen-api/` | Çevirgen'in sunucusu (Cloudflare Worker) |
+| `design/`, `docs/` | Tasarım değerleri, logo; TV kurulum rehberleri |
+| `testdata/`, `tools/`, `third-party/` | Gerçek kare deneme seti, paket araçları, chiaki-ng alt modülü ve yamaları |
+
+Sürüm paketi: `scripts/release-cevirgen.ps1`. Mac, iPhone, Android telefon ve Samsung uygulamaları gibi Çevirgen'in
+kullanmadığı upstream parçaları bu depoda yok; git geçmişinde ve [upstream depoda](https://github.com/yorulmazsinan/couchsubs) durur.
 
 ## Lisans
 

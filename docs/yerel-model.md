@@ -4,10 +4,10 @@ Bu rehber, [@Diavelin](https://x.com/Diavelin)'in kendi testlerinden derlediği
 [gönderisinden](https://x.com/Diavelin/status/2123708728532763001) uyarlanmıştır; ölçümler onun ve CouchSubs katkıcısı
 lones8888'in ölçümleridir.
 
-> **Not:** Ollama, LM Studio ve PolyStrata üçüncü taraf yazılımlardır; CouchSubs bunları geliştirmez ve desteklemez.
+> **Not:** Ollama, LM Studio ve PolyStrata üçüncü taraf yazılımlardır; Çevirgen bunları geliştirmez ve desteklemez.
 > Kurulum adımları ve seçenek adları bu yazılımların yeni sürümlerinde değişebilir.
 
-CouchSubs'ın **Yerel model** çeviri motoruyla altyazıları kendi bilgisayarınızdaki yapay zekâ modeli çevirir: ücretsizdir,
+Çevirgen'in **Yerel model** çeviri motoruyla altyazıları kendi bilgisayarınızdaki yapay zekâ modeli çevirir: ücretsizdir,
 kota yoktur, altyazı metni bilgisayardan çıkmaz. Doğru **Ek talimat**la küfür ve argo da sansürsüz çevrilir. Genel kurulum
 için README'deki [Yerel yapay zekâ ile çeviri](../README.md#yerel-yapay-zekâ-ile-çeviri-ollama-lm-studio) bölümüne bakın.
 
@@ -78,14 +78,14 @@ PolyStrata bu kartlarda çalışmaz, en az 8 GB'lık kart ister.
 
 - **Yerel:** 6 GB kartta `gemma4:e4b-it-qat` (~6 GB, birazı RAM'e taşar); 4 GB kartta `gemma4:e2b-it-qat` (~4,3 GB).
   E2B en küçük Gemma 4'tür; hızlıdır ama çeviri kalitesi sınırlıdır. 6 GB kartta e4b yavaş gelirse e2b'ye inin.
-- **Bulut (bu sistemlerde daha mantıklı):** CouchSubs › **Ayarlar › Çeviri**'de **Ücretsiz anahtar al**'a basıp Google
+- **Bulut (bu sistemlerde daha mantıklı):** Çevirgen › **Ayarlar › Çeviri**'de **Ücretsiz anahtar al**'a basıp Google
   hesabınızla giriş yapın; çeviri motoru Gemini'ye geçer. Ekran kartını ve RAM'i hiç kullanmaz, **Ek talimat** da
   Gemini'ye gider. Dezavantajları: internet gerekir, altyazı metni Google'a gider ve ücretsiz anahtarın dakikalık sınırı
   vardır. Sınıra gelince o satırı ücretsiz çeviri çevirir. Küfürde ne kadar sansürsüz kaldığı denenmedi.
 
 ## Ollama kurulumu (Windows)
 
-1. CouchSubs'ı son sürüme güncelleyin. Eski sürümlerde Gemma 4 her satırdan önce "düşünüp" yavaşlıyor.
+1. Çevirgen'i son sürüme güncelleyin. Eski sürümlerde Gemma 4 her satırdan önce "düşünüp" yavaşlıyor.
 2. [ollama.com/download](https://ollama.com/download) adresinden Ollama'yı kurun.
 3. PowerShell'de modelinizi indirin:
 
@@ -100,7 +100,7 @@ PolyStrata bu kartlarda çalışmaz, en az 8 GB'lık kart ister.
    ```
 
    Model yüklenmeden çeviri başlarsa ilk satırlar ücretsiz çeviriyle gelir.
-5. CouchSubs › **Ayarlar › Çeviri**:
+5. Çevirgen › **Ayarlar › Çeviri**:
    - **Çeviri motoru:** Yerel model (Ollama, LM Studio)
    - **Ollama'yı kullan** düğmesine basın.
    - **Model adı:** indirdiğiniz model
@@ -125,7 +125,7 @@ Gereken: NVIDIA RTX 20 serisi ya da daha yeni, en az 8 GB'lık kart. 8 GB'lık k
 4. İndirme bitene kadar bekleyin. Yarıda kalırsa `START-HERE.bat`'ı yeniden çalıştırın, kaldığı yerden devam eder.
 5. Model yüklenirken bilgisayar 1-3 dakika kasabilir, pencereyi kapatmayın. Hazır olunca tarayıcıda `127.0.0.1:8080`
    açılır.
-6. CouchSubs › **Ayarlar › Çeviri**:
+6. Çevirgen › **Ayarlar › Çeviri**:
    - **Çeviri motoru:** Yerel model (Ollama, LM Studio)
    - **Sunucu adresi:** `http://127.0.0.1:8080/v1` (**Ollama'yı kullan**'a basmayın)
    - **Model adı:** PolyStrata adı önemsemez, örneğin `gemma4`
@@ -144,7 +144,7 @@ Gereken: NVIDIA RTX 20 serisi ya da daha yeni, en az 8 GB'lık kart. 8 GB'lık k
      MoE weights onto CPU**; en yüksek değer).
    - **Context Length:** 4096 yeterli.
 4. **Developer** sekmesinden yerel sunucuyu başlatın.
-5. CouchSubs › **Ayarlar › Çeviri**:
+5. Çevirgen › **Ayarlar › Çeviri**:
    - **Çeviri motoru:** Yerel model (Ollama, LM Studio)
    - **LM Studio'yu kullan** düğmesine basın.
    - **Model adı:** LM Studio'nun gösterdiği ad

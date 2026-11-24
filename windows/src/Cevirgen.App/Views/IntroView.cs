@@ -16,8 +16,8 @@ namespace Cevirgen.App.Views;
 
 /// <summary>
 /// Açılış (tuval 00): yalnız ilk kurulumun karşılama adımında. Koyu zeminde kanepe parçaları sırayla yükselir (arkalık
-/// 80 ms, oturak 300 ms), parıltı 650 ms, altyazı çubukları 780 / 920 ms'de soldan açılır, "CouchSubs" 1150 ms,
-/// "by Enmera" 1500 ms, "Hadi Başlayalım" 2300 ms. Açılış sesi (Ayarlar › Temel › Açılış Sesi açıksa) 2–3 sn çalar.
+/// 80 ms, oturak 300 ms), parıltı 650 ms, altyazı çubukları 780 / 920 ms'de soldan açılır, "Çevirgen" 1150 ms,
+/// alt satır 1500 ms, "Hadi Başlayalım" 2300 ms. Açılış sesi (Ayarlar › Temel › Açılış Sesi açıksa) 2–3 sn çalar.
 /// Atlanabilir; sesli ya da sessiz yeniden oynatılabilir. Hareket azaltılmışsa yalnız solma.
 /// </summary>
 public sealed class IntroView : UserControl
