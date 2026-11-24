@@ -101,6 +101,22 @@ public sealed class GameSense
     }
 
     /// <summary>Kullanıcının seçimi ("Hangi oyunu oynuyorsunuz?" ya da "Değiştir"); null seçimi siler.</summary>
+    /// <summary>
+    /// Çevirgen: uygulama yeniden açıldı, bu PS5'te son seçilen oyun kayıtlı: oturum <c>Remembered</c> olarak o oyunla başlar
+    /// ("Oyun tanınmadı" yazmaz; kayıtlı alanlar sorulur, sessizce uygulanmaz). Seçim ya da PS5'in bildirdiği oyun varsa dokunmaz.
+    /// </summary>
+    public void Recall(string? name)
+    {
+        lock (gate)
+        {
+            if (chosen is not null || console is not null || RunningGame.Named(name) is not { } game) return;
+            chosen = game;
+            chosenWhileRunning = true;
+            carried = true;
+            asked = true;
+        }
+    }
+
     public void Choose(string? name)
     {
         lock (gate)

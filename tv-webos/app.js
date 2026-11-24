@@ -6,7 +6,7 @@
   'use strict';
 
   // TV uygulamasının sürümü: appinfo.json ve tv-android/app/build.gradle ile aynı tutulur.
-  var APP_VERSION = '1.0.2';
+  var APP_VERSION = '1.0.4';
   var t = window.t;
   var config = window.COUCHSUBS_CONFIG || {};
   var platform = window.COUCHSUBS_PLATFORM;

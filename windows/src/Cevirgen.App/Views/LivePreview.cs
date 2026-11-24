@@ -33,6 +33,9 @@ public sealed class LivePreview : ContentControl
     private readonly TextBlock safeLabel = new() { Text = "güvenli alan %90", IsHitTestVisible = false };
     private readonly TextBlock hiddenTag = new() { Text = "Altyazı gizli", Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly Grid overlay = new();
+    /// <summary>Çevirgen: ek alanların (ipucu, seçenekler) TV'deki Türkçesi, kendi yerlerinde.</summary>
+    private readonly Canvas regionLayer = new() { IsHitTestVisible = false };
+    private IReadOnlyList<(string Text, TextBox Box)> regionTexts = [];
     private WriteableBitmap? bitmap;
     private long lastDraw;
     private IReadOnlyList<SubtitleStack.Line> shown = [];
@@ -59,6 +62,7 @@ public sealed class LivePreview : ContentControl
         hiddenTag.VerticalAlignment = VerticalAlignment.Top;
         stage.Children.Add(hiddenTag);
         stage.Children.Add(lines);
+        stage.Children.Add(regionLayer);
         stage.Children.Add(overlay);
         stage.SizeChanged += (_, _) => Layout();
         var frame = new Border { BorderThickness = new Thickness(1), Child = stage, SnapsToDevicePixels = true };
@@ -123,6 +127,13 @@ public sealed class LivePreview : ContentControl
         Layout();
     }
 
+    /// <summary>Çevirgen: ek alanların TV'de görünen çevirileri (karedeki yerleriyle).</summary>
+    public void SetRegions(IReadOnlyList<(string Text, TextBox Box)> texts)
+    {
+        regionTexts = texts;
+        Layout();
+    }
+
     private void Layout()
     {
         var width = stage.ActualWidth;
@@ -155,6 +166,34 @@ public sealed class LivePreview : ContentControl
             visual.Opacity = line.Role switch { SubtitleStack.Role.Current => 1, SubtitleStack.Role.Previous => 0.78, _ => 0.6 } * (line.Fading ? 0.5 : 1);
             lines.Children.Add(visual);
         }
+        // Çevirgen: ek alan çevirileri İngilizce yazının yerinde, küçük koyu kutuda (TV'deki gibi).
+        regionLayer.Children.Clear();
+        regionLayer.Opacity = lines.Opacity;
+        foreach (var (text, box) in regionTexts)
+        {
+            var boxWidth = Math.Max(24, w * (box.Right - box.Left));
+            // Önizleme ölçeğinde iç boşluk (TV'deki kutunun payı).
+            var inset = Math.Max(1, h * 0.002);
+            var label = new TextBlock
+            {
+                Text = text, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold,
+                FontSize = Math.Clamp(h * (box.Bottom - box.Top) * 0.7, 7, 16), LineHeight = double.NaN,
+            };
+            label.SetResourceReference(TextBlock.FontFamilyProperty, "TextFont");
+            var plate = new Border
+            {
+                Child = label, Background = PerdeColors.Frozen(Color.FromArgb(0xD9, 0x10, 0x10, 0x14)), Padding = new Thickness(inset * 2, inset, inset * 2, inset),
+                MinWidth = boxWidth, MaxWidth = Math.Max(boxWidth, w * 0.35),
+            };
+            plate.Measure(new Size(plate.MaxWidth, double.PositiveInfinity));
+            var plateWidth = plate.DesiredSize.Width;
+            // Sağ yarıdaki yazı sağa yaslanır (tuş listesi), sol yarıdaki sola; kutu karenin dışına taşmaz.
+            var plateLeft = (box.Left + box.Right) / 2 > 0.5 ? x + w * box.Right - plateWidth : x + w * box.Left;
+            Canvas.SetLeft(plate, Math.Clamp(plateLeft, x, Math.Max(x, x + w - plateWidth)));
+            Canvas.SetTop(plate, Math.Clamp(y + h * box.Top, y, Math.Max(y, y + h - plate.DesiredSize.Height)));
+            regionLayer.Children.Add(plate);
+        }
+
         var anchor = LivePreviewLayout.Anchor(style, english);
         var fullBand = style.BackgroundShape == SubtitleBackgroundShape.Band;
         var left = x + (fullBand ? 0 : w * anchor.Left);
@@ -199,6 +238,11 @@ internal sealed class LiveStage
     /// <summary>Yığın değişti (yeni satır, satır kalktı ya da soldu).</summary>
     public event Action? Changed;
 
+    private readonly Dictionary<string, IReadOnlyList<(string Text, TextBox Box)>> regions = [];
+
+    /// <summary>Çevirgen: ek alanların şu an TV'de görünen çevirileri (alan alan, karedeki yerleriyle).</summary>
+    public IReadOnlyList<(string Text, TextBox Box)> Regions => [.. regions.Values.SelectMany(list => list)];
+
     /// <summary>Oyundaki İngilizce satırın son bilinen yeri.</summary>
     public TextBox? EnglishBox { get; private set; }
 
@@ -222,7 +266,7 @@ internal sealed class LiveStage
         timer.Stop();
     }
 
-    /// <summary>Bir altyazı olayı (yayın penceresiyle aynı olaylar; ekran yazısı ve ek alanlar önizlemede gösterilmez).</summary>
+    /// <summary>Bir altyazı olayı (yayın penceresiyle aynı olaylar; ek alanlar da önizlemede, ekran yazısı gösterilmez).</summary>
     public void OnEvent(SubtitleEvent e)
     {
         stack.StackPrevious = controller.Settings.Style.StackPrevious;
@@ -237,6 +281,15 @@ internal sealed class LiveStage
                 break;
             case SubtitleEventKind.Clear:
                 stack.Clear(Now);
+                break;
+            case SubtitleEventKind.Region when e.Id is { } id:
+                if (e.Text.Length == 0) regions.Remove(id);
+                else if (e.Blocks is { Count: > 0 } blocks)
+                    regions[id] = [.. blocks.Where(block => block.Translation.Length > 0).Select(block => (block.Translation, block.Box))];
+                else if (e.Box is { } regionBox) regions[id] = [(e.Text, regionBox)];
+                break;
+            case SubtitleEventKind.RegionClear:
+                regions.Clear();
                 break;
             default:
                 return;

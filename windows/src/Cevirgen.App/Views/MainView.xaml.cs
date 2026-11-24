@@ -161,6 +161,7 @@ public partial class MainView : UserControl
     {
         var englishBox = stage.EnglishBox ?? LivePreviewLayout.FromRegion(controller.Settings.Region);
         Preview.SetLines(stage.Lines, controller.Settings.Style, englishBox, controller.SubtitlesHidden);
+        Preview.SetRegions(stage.Regions);
         ShowFeed();
     }
 
@@ -451,7 +452,8 @@ public partial class MainView : UserControl
     private NoticeItem DescribeTv(LiveNoticeKind kind, LiveNoticeLevel level)
     {
         var text = Localizer.Current;
-        if (controller.TvAppUpdating)
+        // Çevirgen: güncelleme bitti ama TV bağlı değil: "TV uygulamasını aç" öne geçer.
+        if (controller.TvAppUpdating && !(controller.ShowTvAppUpdateDone && controller.ShowTvOpenHint))
             return new(kind, level, controller.ShowTvAppUpdateDone ? "TV uygulaması güncel." : "TV uygulaması güncelleniyor…",
                 controller.ShowTvAppUpdateDone ? text["Close"] : null, controller.ShowTvAppUpdateDone ? controller.DismissTvAppUpdate : null,
                 () => new Steps.TvAppCard(), AutoExpand: true);

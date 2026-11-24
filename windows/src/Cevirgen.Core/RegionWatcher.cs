@@ -617,9 +617,14 @@ public sealed partial class RegionWatcher
         // açıklamaya katılıp ikisi tek kutuda, görev resminin üstünde çiziliyordu (#856).
         var cards = !phone && lines.Count > 0 && boxes.Count == lines.Count
             ? Cevirgen.Core.MissionCard.Find(lines, place) : [];
-        var groups = (phone || styled || lines.Count > 1) && boxes.Count == lines.Count
+        // Çevirgen: kullanıcının alanındaki tuş/seçenek listesi (bütün satırlar kısa etiket: "RECENTER", "2D VIEW", "EXIT")
+        // satır satır blok olur ve oyunun yazı stiliyle çizilir. Önceden liste tek, yarı saydam siyah kutuda sola yaslı
+        // çiziliyor, İngilizcesi arkadan görünüyordu.
+        var labelList = !phone && !styled && lines.Count >= 2 && boxes.Count == lines.Count && cards.Count == 0 && lines.All(IsLabelLine);
+        var groups = labelList ? [.. lines.Select(LineGroup)]
+            : (phone || styled || lines.Count > 1) && boxes.Count == lines.Count
             ? (phone ? GamePhoneText.Groups(reading) : styled ? AutoGroups(lines, menuRows, menu, cards) : CardGroups(lines, menuRows, cards)) : [];
-        if (((phone || styled) && groups.Count > 0) || groups.Count is > 1 and < ScreenTranslation.MaxGroups)
+        if (((phone || styled || labelList) && groups.Count > 0) || groups.Count is > 1 and < ScreenTranslation.MaxGroups)
         {
             paragraphs = [.. groups.SelectMany(group => group.Paragraphs)];
             icons = [.. groups.SelectMany(group => group.Icons
@@ -630,7 +635,7 @@ public sealed partial class RegionWatcher
             {
                 var style = phone && frame is not null ? GamePhonePalette.Sample(frame, group.Box) : null;
                 TextLook? look = null;
-                if (styled && frame is not null)
+                if ((styled || labelList) && frame is not null)
                 {
                     // Çeviri özgün yazının stilinde çizilsin: renkler, kalınlık, dar aile, hiza, büyük harf.
                     var own = lines.Where(line => Inside(line.Box!.Value, group.Box)).ToList();
@@ -640,7 +645,7 @@ public sealed partial class RegionWatcher
                                    phone ? group.Phone : null));
                 start += group.Paragraphs.Count;
             }
-            if (styled) list = AlignByNeighbours(list);
+            if (styled || labelList) list = AlignByNeighbours(list);
             blocks = list;
             key = TextKey(paragraphs) + "|" + string.Join(',', list.Select(block => block.Count));
         }
@@ -673,25 +678,19 @@ public sealed partial class RegionWatcher
         var result = (cards ?? []).SelectMany(card => Cevirgen.Core.MissionCard.Groups(card, lines)).ToList();
         var taken = (cards ?? []).SelectMany(card => card.All).ToHashSet();
         var rest = Enumerable.Range(0, lines.Count).Where(i => !taken.Contains(i)).Select(i => lines[i]).ToList();
-        static ScreenTranslation.Group Single(TextLine line)
-        {
-            var icons = ScreenTranslation.ParagraphIcons([line]);
-            return new ScreenTranslation.Group(ScreenTranslation.Paragraphs([line]), line.Box!.Value,
-                line.Box!.Value.Bottom - line.Box!.Value.Top, icons.Any(list => list.Count > 0) ? icons : null);
-        }
         foreach (var group in ScreenTranslation.GroupsFromLines(rest, menuRows))
         {
             var members = rest.Where(line => Inside(line.Box!.Value, group.Box)).OrderBy(line => line.Box!.Value.Top).ToList();
             if (members.Count == 0) { result.Add(group); continue; }
             if (members.All(IsLabelLine))
             {
-                result.AddRange(members.Select(Single));
+                result.AddRange(members.Select(LineGroup));
                 continue;
             }
             var body = members;
             if (members.Count >= 2 && IsLabelLine(members[0]) && TextStyleSampler.IsUpper(members[0].Text))
             {
-                result.Add(Single(members[0]));
+                result.Add(LineGroup(members[0]));
                 body = members.Skip(1).ToList();
             }
             // Arayüz yazısı perspektifsizdir: menü dışında satır yükseklikleri ±%15'ten çok farklı paragraf (eğik ya da
@@ -710,6 +709,14 @@ public sealed partial class RegionWatcher
         var rest = Enumerable.Range(0, lines.Count).Where(i => !taken.Contains(i)).Select(i => lines[i]).ToList();
         return [.. cards.SelectMany(card => Cevirgen.Core.MissionCard.Groups(card, lines))
             .Concat(ScreenTranslation.GroupsFromLines(rest, menuRows)).OrderBy(group => group.Box.Top)];
+    }
+
+    /// <summary>Tek satır kendi grubu (kendi kutusu ve simgeleriyle).</summary>
+    private static ScreenTranslation.Group LineGroup(TextLine line)
+    {
+        var icons = ScreenTranslation.ParagraphIcons([line]);
+        return new ScreenTranslation.Group(ScreenTranslation.Paragraphs([line]), line.Box!.Value,
+            line.Box!.Value.Bottom - line.Box!.Value.Top, icons.Any(list => list.Count > 0) ? icons : null);
     }
 
     private static bool IsLabelLine(TextLine line) =>

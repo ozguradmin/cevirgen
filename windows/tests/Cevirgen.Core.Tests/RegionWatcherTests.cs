@@ -1303,18 +1303,21 @@ public partial class RegionWatcherTests
         Assert.Equal(InQuest(new TextBox(0.76, 0.65, 0.92, 0.75)), blocks[1].Box);
     }
 
-    /// <summary>Menü satırlarını bölme yalnız GTA 6'da: başka oyunda (ya da oyun bilinmiyorsa) yerleşim değişmez.</summary>
+    /// <summary>
+    /// Çevirgen: bütün satırları kısa etiket olan liste (tuş/menü listesi) her oyunda (oyun bilinmese de) satır satır blok olur;
+    /// önceden GTA 6 dışında tek kutuda, sola yaslı çiziliyordu.
+    /// </summary>
     [Theory]
     [InlineData("Red Dead Redemption 2")]
     [InlineData(null)]
-    public async Task MenuRowsStayInOneBoxOutsideGta6(string? game)
+    public async Task MenuLabelRowsAreSplitInEveryGame(string? game)
     {
         var reader = new Reader { Lines = Gta6Menu() };
         var server = new Server();
         var watcher = new RegionWatcher(reader, new Translator(), server) { Game = () => game };
         await watcher.PassAsync(Shade(10), [Quest]);
         await watcher.PassAsync(Shade(10), [Quest]);
-        Assert.Equal([null], server.Blocks);
+        Assert.NotNull(Assert.Single(server.Blocks));
     }
 
     /// <summary>GTA 6'da da büyük-küçük harfli bilgi kutusu bölünmez: tek cümle, tek kutu.</summary>

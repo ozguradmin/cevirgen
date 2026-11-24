@@ -380,6 +380,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     /// <summary>Ana ekrandaki güncelleme kartı sonucu gösteriyor: "Kapat" görünür.</summary>
     public bool ShowTvAppUpdateDone => tvAppUpdating && tvApp.Kind == TvAppKind.UpToDate;
 
+    /// <summary>Çevirgen: güncelleme bitti kartı bu kadar görünür.</summary>
+    public static readonly TimeSpan TvAppUpdateDoneFor = TimeSpan.FromSeconds(5);
+
     /// <summary>Ana ekrandaki TV uygulaması kartını kapatır.</summary>
     public void DismissTvAppUpdate() => TvAppUpdating = false;
 
@@ -1255,6 +1258,10 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         {
             tvApp = value;
             Changed(nameof(TvApp), nameof(ShowTvAppUpdateDone));
+            // Çevirgen: "TV uygulaması güncel." birkaç saniye görünür, sonra kendiliğinden kalkar (Kapat beklemez; TV koparsa
+            // "TV uygulamasını aç" uyarısının yerini tutmasın).
+            if (value.Kind == TvAppKind.UpToDate && tvAppUpdating)
+                _ = Task.Delay(TvAppUpdateDoneFor).ContinueWith(_ => post(() => { if (ShowTvAppUpdateDone) TvAppUpdating = false; }), TaskScheduler.Default);
             // Kurulum ya da sürüm denetimi TV'deki uygulamayı güncel buldu: "TV uygulamasını güncelle" kalkar.
             if (value is { Kind: TvAppKind.UpToDate, Version: { } current } && tvAppOutdated is { } outdated
                 && !DevModeInstaller.IsNewer(outdated.Bundled, current)) TvAppOutdated = null;
@@ -3073,6 +3080,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private void StartGameSense()
     {
         gameSense.StartSession();
+        // Çevirgen: uygulama yeniden açıldıysa bu PS5'te son seçilen oyun hatırlanır (yalnız PS5/Xbox akışında; demo değil).
+        if (!demoMode && gameSense.Current is null && LastPlayedGame is { } last) gameSense.Recall(last);
         publishedGame = null;
         AskingGame = false;
         PublishGame();
