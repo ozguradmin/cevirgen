@@ -388,6 +388,8 @@ public class AdbConnectionTests
     [Theory]
     [InlineData("    * Hist #0: ActivityRecord{6c1b2f0 u0 com.cevirgen.tv/.MainActivity t42}", true)]
     [InlineData("  * ServiceRecord{9f3e2a1 u0 com.cevirgen.tv/.OverlayService}", true)]
+    [InlineData("  * ServiceRecord{9f3e2a1 u0 com.cevirgen.tv/com.cevirgen.tv.OverlayService}", true)]
+    [InlineData("  * ServiceRecord{7bc12b6 u0 com.cevirgen.tv/org.chromium.content.app.SandboxedProcessService0:0}", false)]
     [InlineData("    * Hist #0: ActivityRecord{2a1d9e1 u0 com.android.tv.launcher/.MainActivity t1}", false)]
     [InlineData("  mLastPausedActivity: ActivityRecord{6c1b2f0 u0 com.cevirgen.tv/.MainActivity t42}", false)]
     [InlineData("/system/bin/sh: grep: not found", false)]

@@ -691,13 +691,32 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             ? TvOpenText.Shown(problem, brand, !string.IsNullOrEmpty(store.Load<string>(StoreKeys.TvKey))) : null;
 
     /// <summary>Ana ekrandaki "Otomatik açmayı dene": bekçi TV uygulamasını beklemeden yeniden açmaya çalışır.</summary>
-    public void RetryTvOpen()
+    public async void RetryTvOpen()
     {
         OpenProblem = null;
-        if (!isRunning) return;
+        if (!isRunning || OpeningTvAppForTest) return;
         if (keeper is null) StartKeeper();
         else keeper.Reconnect();
+        // Çevirgen: düğmeye basınca bir şey olduğu görünsün: bağlanana kadar (en çok TestTvWait) "TV'de açılıyor…".
+        OpeningTvAppForTest = true;
+        try
+        {
+            var deadline = DateTime.UtcNow + TestTvWait;
+            while (server.ConnectedClients == 0 && isRunning && DateTime.UtcNow < deadline) await Task.Delay(250);
+        }
+        catch { }
+        finally { OpeningTvAppForTest = false; }
+        TvOpenTimedOut = isRunning && server.ConnectedClients == 0;
     }
+
+    /// <summary>Son "TV uygulamasını aç" denemesi süresinde bağlanmadı (ayrıntıda kumandayla açma yolu yazılır).</summary>
+    public bool TvOpenTimedOut
+    {
+        get => tvOpenTimedOut;
+        private set => Set(ref tvOpenTimedOut, value);
+    }
+
+    private bool tvOpenTimedOut;
 
     private bool TestTvNotConnected { get => testTvNotConnected; set => Set(ref testTvNotConnected, value, [nameof(ShowTestTvHint)]); }
 

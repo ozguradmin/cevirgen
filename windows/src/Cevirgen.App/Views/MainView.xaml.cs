@@ -453,7 +453,10 @@ public partial class MainView : UserControl
         if (controller.ShowTvAppUpdate)
             return new(kind, level, controller.TvStatusText, text["Update the TV App"], UpdateTvApp, TvDetails());
         if (controller.ShowTvOpenHint)
-            return new(kind, level, controller.TvStatusText, text["Open the TV App"], controller.RetryTvOpen, TvDetails());
+            return controller.OpeningTvAppForTest
+                ? new(kind, level, "TV uygulaması açılıyor, bağlanması bekleniyor…", "Açılıyor…", null, TvDetails(), ActionEnabled: false)
+                : new(kind, level, controller.TvOpenTimedOut ? "TV uygulaması bağlanmadı." : controller.TvStatusText,
+                    text["Open the TV App"], controller.RetryTvOpen, TvDetails(), AutoExpand: controller.TvOpenTimedOut);
         return new(kind, level, "Deneme altyazısı TV'ye gitmedi: TV uygulaması bağlı değil.", text["Connect TV"],
             () => controller.RunSetupStep(OnboardingStep.Tv), TvDetails());
     }
@@ -463,6 +466,8 @@ public partial class MainView : UserControl
         var text = Localizer.Current;
         var lines = new List<string>();
         if (controller.ShowTvOpenHint && controller.TvOpenHintText.Length > 0) lines.Add(controller.TvOpenHintText);
+        if (controller.ShowTvOpenHint && controller.TvOpenTimedOut)
+            lines.Add("Kumandayla aç: TV'nin ana ekranında Uygulamalar'dan \"Çevirgen\"i başlat (eski \"CouchSubs\" değil). Açılınca birkaç saniyede bağlanır; TV 6 haneli kod gösterirse bu bilgisayarda açılan onay penceresinden onayla.");
         if (controller.HasTvOpenReason) lines.Add(controller.TvOpenReasonText);
         if (controller.ShowTestTvHint)
             lines.Add(text["The test subtitle did not reach the TV because the TV app is not connected. Open Çevirgen on the TV. If the TV shows a 6-digit code, don't type it anywhere: approve it in the “Pair this TV?” window that opens on this computer, then test again."]);

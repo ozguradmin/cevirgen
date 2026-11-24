@@ -75,6 +75,16 @@
                     <TextBlock Text="altyazıyı gizle" FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp 'xxs,0,0,0'}" />
                 </StackPanel>
                 <WrapPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <!-- Çevirgen: alan düzenleme sık kullanılır; metin bağlantısı gözden kaçıyordu, çerçeveli düğme oldu. -->
+                    <Button Style="{StaticResource SmallSecondaryButton}" Click="OnEditAreas" Height="32" MinHeight="32" Padding="{t:Sp 's,0'}"
+                            Margin="{t:Sp '0,0,l,0'}" VerticalAlignment="Center" ToolTip="Okunan alanları son karenin üstünde sürükleyip büyüt"
+                            AutomationProperties.Name="Alanları düzenle">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7A8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
+                                       Foreground="{DynamicResource amberTextBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,xs,0'}" />
+                            <TextBlock Text="Alanları düzenle" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <TextBlock FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,l,0'}">
                         <Run Text="Gecikme" /> <Run x:Name="DelayValue" FontFamily="{StaticResource MonoFont}" Foreground="{DynamicResource textBrush}" />
                     </TextBlock>
@@ -85,7 +95,6 @@
                         <TextBlock Text="Görünüm" FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,xxs,0'}" />
                         <Button x:Name="LookLink" Style="{StaticResource TextLink}" Click="OnLook" />
                     </StackPanel>
-                    <Button Style="{StaticResource TextLink}" Content="Alanları düzenle" Click="OnEditAreas" Margin="{t:Sp '0,0,l,0'}" />
                 </WrapPanel>
             </DockPanel>
             </StackPanel>

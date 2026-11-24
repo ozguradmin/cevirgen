@@ -49,10 +49,15 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
     /// <see cref="RunningCommand"/> çıktısında Çevirgen TV'nin ekranı ya da katman servisi var mı. Boş ya da tanınmayan
     /// çıktı (çok eski TV'de <c>grep</c> yok) çalışmıyor sayılır: eski yol, bekçinin açma sınırı yine geçerli.
     /// </summary>
+    /// <remarks>
+    /// Çevirgen: yalnız paketin kendi sınıfları sayılır. Ekran kapanınca WebView'ın yardımcı süreci
+    /// (<c>com.cevirgen.tv/org.chromium.content.app.SandboxedProcessService0</c>) yığında kalabiliyor; eskiden bu da "açık"
+    /// sayılıyor, <c>am start</c> hiç gönderilmiyor, "TV uygulamasını aç" hiçbir şey yapmıyordu (2026-11-24, TCL Android TV).
+    /// </remarks>
     public static bool IsRunning(string output) =>
         output.Split('\n').Any(line =>
             ((line.Contains("Hist") && line.Contains("ActivityRecord{")) || line.Contains("ServiceRecord{"))
-            && line.Contains(PackageName + "/"));
+            && (line.Contains(PackageName + "/.") || line.Contains(PackageName + "/" + PackageName + ".")));
 
     /// <summary>TV'de ADB açık mı (port yanıt veriyor mu)?</summary>
     public static async Task<bool> IsReachableAsync(string host, int port = DefaultPort, TimeSpan? timeout = null)
