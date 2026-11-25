@@ -123,7 +123,10 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
     public async Task<(string Version, bool Installed)> EnsureInstalledAsync(string apkPath, string version,
         CancellationToken cancellationToken = default)
     {
+        Stall?.Enter("approve");
         await using var adb = await ConnectAsync(cancellationToken);
+        Stall?.OnStall(() => _ = adb.DisposeAsync().AsTask().ContinueWith(t => _ = t.Exception, TaskScheduler.Default));
+        Stall?.Enter("reading");
         var dumpsys = await adb.RunAsync($"shell:dumpsys package {PackageName}", cancellationToken: cancellationToken);
         var installed = VersionFromDumpsys(dumpsys);
         if (IsForeign(dumpsys))
@@ -131,6 +134,7 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
             // Bizim kimliğimizle (com.couchsubs.tv) başka imzalı bir uygulama: sürümü bizimkinden yüksekse "güncel" sayılıp
             // o açılıyordu. Kullanıcı onaylamadan dokunulmaz; onaylarsa kaldırılır ve Çevirgen kurulur.
             if (!ReplaceForeign) throw new AndroidInstallException(AndroidInstallError.ForeignApp, ForeignDetail(dumpsys, installed));
+            Stall?.Enter("uninstalling");
             await adb.RunAsync($"shell:pm uninstall {PackageName}", cancellationToken: cancellationToken);
             installed = null;
             dumpsys = "";
@@ -145,10 +149,35 @@ public sealed partial class AndroidTvInstaller(string host, string keyDirectory,
         // Play'de ve TV'de Play Store varsa Play'den (PlayStoreRedirect.cs); olmazsa APK ile.
         if (await InstallFromPlayAsync(adb, installed, InstalledFromPlay(dumpsys), cancellationToken) is { } fromPlay)
             return (fromPlay, true);
+        // Güncellemede TV'de çalışan eski uygulama önce kapatılır (am force-stop); kurulumdan sonra temiz açılır.
+        if (installed is not null) await ForceStopAsync(adb, Stall, cancellationToken);
+        Stall?.Enter("installing");
         await InstallAsync(adb, apkPath, ReplaceForeign || IsOurs(dumpsys), cancellationToken);
+        Installed = true;
+        Stall?.Enter("launching");
         await GrantOverlayAsync(adb, cancellationToken);
         await adb.RunAsync(StartCommand(LaunchParams), cancellationToken: cancellationToken);
         return (version, true);
+    }
+
+    /// <summary>Kurulumun bekçisi (AndroidTvApp verir); adımların süresini ölçer, takılınca bağlantıyı kapatır.</summary>
+    internal TvStall? Stall { get; set; }
+
+    /// <summary>Bu kurucu APK ile kurdu (ikinci deneme güncel bulsa da "kuruldu" sayılır).</summary>
+    internal bool Installed { get; set; }
+
+    /// <summary>Çalışan uygulamayı kapatan komut (Mac/iPhone ve Android telefondaki forceStopCommand ile aynı).</summary>
+    public const string ForceStopCommand = $"shell:am force-stop {PackageName}";
+
+    /// <summary>
+    /// Güncellemeden önce TV'deki Çevirgen'i kapatır. Kapatılamasa da kurulum sürer (paket yöneticisi de kapatır); TV
+    /// yanıt vermezse bekçi adımı takılmış sayar.
+    /// </summary>
+    internal static async Task ForceStopAsync(AdbConnection adb, TvStall? stall, CancellationToken cancellationToken)
+    {
+        stall?.Enter("closing");
+        try { await adb.RunAsync(ForceStopCommand, cancellationToken: cancellationToken); }
+        catch (Exception error) when (error is not OperationCanceledException and not AndroidInstallException) { }
     }
 
     /// <summary>

@@ -50,26 +50,54 @@ public static partial class AndroidTvApp
     /// <summary>pm install-existing başarılı mı ("Package com.couchsubs.tv installed for user: 0")?</summary>
     public static bool InstallExistingSucceeded(string output) => output.Contains("installed for user", StringComparison.Ordinal);
 
-    /// <summary>Kalıntıyı kaldırır, uygulamayı gerekirse kurar; <paramref name="openIfInstalled"/> ise güncel uygulamayı da açar.</summary>
+    /// <summary>
+    /// Kalıntıyı kaldırır, uygulamayı gerekirse kurar; <paramref name="openIfInstalled"/> ise güncel uygulamayı da açar.
+    /// Her adımın süre sınırı vardır (<see cref="TvStall"/>): TV yanıt vermeyi keserse bağlantı kapatılır ve yeni bağlantıyla
+    /// bir kez daha denenir; ikinci denemede güncel bulunan uygulama da açılır.
+    /// </summary>
+    /// <param name="stallLimits">Testler için adım süreleri; verilmezse <see cref="TvStall.LimitFor"/>.</param>
     public static async Task<(string Version, bool Installed)> EnsureInstalledAsync(AndroidTvInstaller installer, string host,
         string keyDirectory, string apkPath, string version, bool openIfInstalled, Action? onApprovalNeeded, Action<string>? log,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Func<string, TimeSpan?>? stallLimits = null)
     {
         return await LoggedAsync($"TV {host}:{AndroidTvInstaller.DefaultPort}, paket {version}", log, async () =>
         {
-            await RemoveLeftoverAsync(host, keyDirectory, onApprovalNeeded, log, cancellationToken);
+            installer.Installed = false;
             if (installer.ReplaceForeign)
                 log?.Invoke($"Android TV: kullanıcı onayladı; {Package} kimliğini kullanan başka imzalı uygulama varsa kaldırılıp Çevirgen kurulacak.");
-            var result = await installer.EnsureInstalledAsync(apkPath, version, cancellationToken);
-            if (!result.Installed && openIfInstalled)
+            var result = await TvStall.RetryOnceAsync(async attempt =>
             {
-                await using var adb = await ConnectAsync(host, keyDirectory, onApprovalNeeded, cancellationToken);
-                var started = await adb.RunAsync(AndroidTvInstaller.StartCommand(installer.LaunchParams), cancellationToken: cancellationToken);
-                log?.Invoke($"Android TV: uygulama güncel ({result.Version}), açıldı: {started.Trim()}");
-            }
-            return result;
+                using var stall = new TvStall(cancellationToken, stallLimits);
+                installer.Stall = stall;
+                try
+                {
+                    return await stall.RunAsync(async token =>
+                    {
+                        await RemoveLeftoverAsync(host, keyDirectory, onApprovalNeeded, log, stall, token);
+                        var found = await installer.EnsureInstalledAsync(apkPath, version, token);
+                        if (!found.Installed && (openIfInstalled || attempt > 1))
+                        {
+                            stall.Enter("launching");
+                            await using var adb = await ConnectAsync(host, keyDirectory, onApprovalNeeded, token);
+                            stall.OnStall(() => _ = adb.DisposeAsync().AsTask().ContinueWith(t => _ = t.Exception, TaskScheduler.Default));
+                            var started = await adb.RunAsync(AndroidTvInstaller.StartCommand(installer.LaunchParams), cancellationToken: token);
+                            log?.Invoke($"Android TV: uygulama güncel ({found.Version}), açıldı: {started.Trim()}");
+                        }
+                        return found;
+                    });
+                }
+                finally
+                {
+                    installer.Stall = null;
+                }
+            }, IsRetryable, log);
+            return (result.Version, result.Installed || installer.Installed);
         });
     }
+
+    /// <summary>Takılma ya da bağlantı kopması: yeni bağlantıyla bir kez daha denenir.</summary>
+    internal static bool IsRetryable(Exception error) =>
+        error is TvStepTimeoutException or IOException or System.Net.Sockets.SocketException;
 
     /// <summary>
     /// Kurulumun başı, sonucu ve hatası günlüğe telefonlardaki satırlarla yazılır ("--- Android TV kurulumu … başlıyor",
@@ -91,6 +119,12 @@ public static partial class AndroidTvApp
             log?.Invoke($"HATA {error.Message}");
             throw;
         }
+        catch (TvStepTimeoutException error)
+        {
+            // Arayüz "Kurulum sırasında TV bağlantısı koptu" ve "Tekrar dene" gösterir (ConnectionLost).
+            log?.Invoke($"HATA ConnectionLost: {TvStall.GaveUp(error)}");
+            throw;
+        }
         catch (OperationCanceledException)
         {
             log?.Invoke("Kurulum iptal edildi.");
@@ -104,9 +138,12 @@ public static partial class AndroidTvApp
     }
 
     private static async Task RemoveLeftoverAsync(string host, string keyDirectory, Action? onApprovalNeeded, Action<string>? log,
-        CancellationToken cancellationToken)
+        TvStall stall, CancellationToken cancellationToken)
     {
+        stall.Enter("approve");
         await using var adb = await ConnectAsync(host, keyDirectory, onApprovalNeeded, cancellationToken);
+        stall.OnStall(() => _ = adb.DisposeAsync().AsTask().ContinueWith(t => _ = t.Exception, TaskScheduler.Default));
+        stall.Enter("reading");
         var dumpsys = await adb.RunAsync($"shell:dumpsys package {Package}", cancellationToken: cancellationToken);
         if (!IsLeftover(dumpsys)) return;
         // Kalıntı başka imzalı bir uygulamanınsa (bizim kimliğimizle) geri getirilmez ve sessizce silinmez: kurulum adımı

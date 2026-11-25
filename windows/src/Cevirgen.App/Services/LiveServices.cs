@@ -450,6 +450,12 @@ public sealed class LiveServices : IAppServices
                 _ => DevModeError.InstallFailed,
             }, error.Message);
         }
+        catch (TvInstall.TvStepTimeoutException error)
+        {
+            // İki denemede de takıldı (TvStall): kart "Kurulum sırasında TV bağlantısı koptu" ve "Tekrar dene" gösterir.
+            StartupGuard.Log("Android TV kurulumu", error);
+            throw new DevModeException(DevModeError.ConnectionLost, TvInstall.TvStall.GaveUp(error));
+        }
         catch (Exception error) when (error is not DevModeException)
         {
             StartupGuard.Log("TV kurulumu", error);

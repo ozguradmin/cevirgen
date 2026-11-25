@@ -53,6 +53,8 @@ public sealed partial class AndroidTvInstaller
         var opened = await adb.RunAsync($"shell:am start -a android.intent.action.VIEW -d market://details?id={PackageName}",
             cancellationToken: cancellationToken);
         if (opened.Contains("Error", StringComparison.OrdinalIgnoreCase)) return null;
+        // Kullanıcı TV'de Yükle'ye basacak: bu adımın süre sınırı Play beklemesidir, bekçi durur.
+        Stall?.Enter("play");
         OnPlayOpened?.Invoke();
         var deadline = DateTime.UtcNow + PlayWait;
         while (DateTime.UtcNow < deadline)

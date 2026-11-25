@@ -26,6 +26,8 @@ public class AdbConnectionTests
         /// <summary>Açılan bütün hizmetler, sırasıyla (ör. kurulumdan sonra izin ve açma komutları).</summary>
         public List<string> OpenedServices { get; } = [];
         public string Reply { get; set; } = "Success\n";
+        /// <summary>Bu önekle açılan hizmete hiç yanıt verilmez (TV takıldı).</summary>
+        public string? HangOn { get; set; }
         private Task? serving;
 
         public FakeAdbd() => listener.Start();
@@ -72,6 +74,7 @@ public class AdbConnectionTests
                     case AdbConnection.Open:
                         OpenedService = Encoding.UTF8.GetString(packet.Data).TrimEnd('\0');
                         OpenedServices.Add(OpenedService);
+                        if (HangOn is not null && OpenedService.StartsWith(HangOn, StringComparison.Ordinal)) break;
                         await Send(AdbConnection.Okay, 77, packet.Arg0, []);
                         if (!OpenedService.StartsWith("exec:"))
                         {
@@ -209,6 +212,68 @@ public class AdbConnectionTests
         Assert.False(installed);
         // Güncel uygulama da katman izni alır (eski Çevirgen kurmuşsa izin yoktur).
         Assert.Contains("shell:appops set com.cevirgen.tv SYSTEM_ALERT_WINDOW allow", tv.OpenedServices);
+    }
+
+    /// <summary>Güncellemede TV'de çalışan eski uygulama önce kapatılır, sonra kurulur ve temiz açılır.</summary>
+    [Fact]
+    public async Task UpdateStopsTheRunningAppBeforeInstalling()
+    {
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        var apk = Path.Combine(dir, "couchsubs.apk");
+        await File.WriteAllBytesAsync(apk, RandomNumberGenerator.GetBytes(3000));
+        using var key = AndroidTvInstaller.LoadOrCreateKey(dir);
+        await using var tv = new FakeAdbd
+        {
+            TrustedKey = key,
+            Reply = "Success\n  versionName=0.9.90\n  signatures=PackageSignatures{a1b2c3 version:2, signatures:[c14db603], past signatures:[]}\n",
+        };
+        tv.Serve();
+        var (version, installed) = await new AndroidTvInstaller("127.0.0.1", dir, tv.Port).EnsureInstalledAsync(apk, "0.9.104");
+        Assert.True(installed);
+        Assert.Equal("0.9.104", version);
+        var stop = tv.OpenedServices.IndexOf(AndroidTvInstaller.ForceStopCommand);
+        var install = tv.OpenedServices.FindIndex(s => s.StartsWith("exec:cmd package install"));
+        var open = tv.OpenedServices.IndexOf("shell:am start -n com.cevirgen.tv/.MainActivity");
+        Assert.True(stop >= 0 && install > stop && open > install, string.Join(" | ", tv.OpenedServices));
+    }
+
+    /// <summary>İlk kurulumda kapatılacak uygulama yok: force-stop gönderilmez.</summary>
+    [Fact]
+    public async Task FirstInstallDoesNotStopAnything()
+    {
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        var apk = Path.Combine(dir, "couchsubs.apk");
+        await File.WriteAllBytesAsync(apk, RandomNumberGenerator.GetBytes(3000));
+        using var key = AndroidTvInstaller.LoadOrCreateKey(dir);
+        await using var tv = new FakeAdbd { TrustedKey = key };
+        tv.Serve();
+        await new AndroidTvInstaller("127.0.0.1", dir, tv.Port).EnsureInstalledAsync(apk, "0.9.104");
+        Assert.DoesNotContain(AndroidTvInstaller.ForceStopCommand, tv.OpenedServices);
+    }
+
+    /// <summary>
+    /// TV kurulum akışına hiç yanıt vermiyor: önceden ADB akışı sonsuza dek bekliyordu ("kuruluyor"da kalan kart). Bekçi
+    /// adımın süresi dolunca bağlantıyı kapatır ve kurulumu "takıldı" diye bitirir.
+    /// </summary>
+    [Fact]
+    public async Task StalledInstallStreamEndsWithATimeout()
+    {
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        var apk = Path.Combine(dir, "couchsubs.apk");
+        await File.WriteAllBytesAsync(apk, RandomNumberGenerator.GetBytes(3000));
+        using var key = AndroidTvInstaller.LoadOrCreateKey(dir);
+        await using var tv = new FakeAdbd { TrustedKey = key, HangOn = "exec:cmd package install" };
+        tv.Serve();
+        var installer = new AndroidTvInstaller("127.0.0.1", dir, tv.Port);
+        using var stall = new TvStall(CancellationToken.None,
+            step => step == "installing" ? TimeSpan.FromMilliseconds(300) : TimeSpan.FromSeconds(10));
+        installer.Stall = stall;
+        var started = DateTime.UtcNow;
+        var error = await Assert.ThrowsAsync<TvStepTimeoutException>(() =>
+            stall.RunAsync(token => installer.EnsureInstalledAsync(apk, "0.9.104", token)));
+        Assert.Equal("installing", error.Step);
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(8));
+        Assert.False(installer.Installed);
     }
 
     /// <summary>Bizim kimliğimizle başka imzalı uygulama: sürümü yüksek olsa da "güncel" sayılmaz, onaysız silinmez.</summary>

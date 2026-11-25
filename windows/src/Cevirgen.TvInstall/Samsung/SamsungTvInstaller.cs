@@ -186,11 +186,27 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
         CancellationToken cancellationToken = default)
     {
         Log.Write($"--- Samsung kurulumu başlıyor: TV {host}, paket {Path.GetFileName(wgtPath)}");
+        installCompleted = false;
         try
         {
-            var result = await InstallCoreAsync(wgtPath, version, cancellationToken);
+            // Her adımın süre sınırı var (TvStall); takılırsa ya da bağlantı koparsa yeni bağlantıyla bir kez daha denenir.
+            // İkinci denemede güncel bulunan uygulama da açılır (ilk deneme kurup açamadan takılmış olabilir).
+            var result = await TvStall.RetryOnceAsync(async attempt =>
+            {
+                using var stall = new TvStall(cancellationToken, StallLimits);
+                stallWatch = stall;
+                try { return await stall.RunAsync(token => InstallCoreAsync(wgtPath, version, OpenIfInstalled || attempt > 1, token)); }
+                finally { stallWatch = null; }
+            }, IsRetryable, Log.Write);
+            result = (result.Version, result.Installed || installCompleted);
             Log.Write(result.Installed ? "Kurulum tamam." : $"TV'de {result.Version} sürümü var; kurulum gerekmedi.");
             return result;
+        }
+        catch (TvStepTimeoutException error)
+        {
+            var detail = TvStall.GaveUp(error);
+            Log.Write($"HATA {SamsungInstallError.ConnectionLost}: {detail}");
+            throw new SamsungInstallException(SamsungInstallError.ConnectionLost, detail);
         }
         catch (SamsungInstallException error)
         {
@@ -209,10 +225,35 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
         }
     }
 
-    private async Task<(string Version, bool Installed)> InstallCoreAsync(string wgtPath, string? version, CancellationToken cancellationToken)
+    /// <summary>Takılma ya da bağlantı kopması: yeni bağlantıyla bir kez daha denenir.</summary>
+    internal static bool IsRetryable(Exception error) =>
+        error is TvStepTimeoutException or IOException or SocketException ||
+        error is SamsungInstallException { Error: SamsungInstallError.ConnectionLost };
+
+    /// <summary>Testler için adım süreleri; verilmezse <see cref="TvStall.LimitFor"/>.</summary>
+    internal Func<string, TimeSpan?>? StallLimits { get; init; }
+
+    /// <summary>Sürmekte olan denemenin bekçisi.</summary>
+    private TvStall? stallWatch;
+
+    /// <summary>Bu çağrıda paket kuruldu mu (ikinci deneme güncel bulsa da "kuruldu" sayılır).</summary>
+    private bool installCompleted;
+
+    /// <summary>Yeni adım: bekçinin süresi baştan başlar; <paramref name="report"/> ise arayüze de bildirilir.</summary>
+    private void Step(string step, bool report = true)
     {
+        stallWatch?.Enter(step);
+        if (report) Progress?.Invoke(step);
+    }
+
+    private async Task<(string Version, bool Installed)> InstallCoreAsync(string wgtPath, string? version, bool openIfCurrent,
+        CancellationToken cancellationToken)
+    {
+        Step("connecting", report: false);
         await using var device = await ConnectAsync(cancellationToken);
-        Progress?.Invoke("reading");
+        // Takılınca bağlantı kapatılır: iptal belirteci almayan TizenSdb kurulumu da bekleyen okumadan hatayla döner.
+        stallWatch?.OnStall(() => _ = device.DisposeAsync().AsTask().ContinueWith(t => _ = t.Exception, TaskScheduler.Default));
+        Step("reading");
         var capabilities = await device.CapabilityAsync(cancellationToken);
         var platform = capabilities.GetValueOrDefault("platform_version", "").Trim();
         var toolPath = capabilities.GetValueOrDefault("sdk_toolpath")?.Trim() is { Length: > 0 } path ? path : "/opt/usr/apps/tmp";
@@ -229,7 +270,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
             // Samsung'da imza her kullanıcının kendi Samsung sertifikasıdır, ayırt edici değildir; ada (Çevirgen) bakılır.
             Log.Write($"TV'de Çevirgen kimliğiyle başka bir uygulama var: \"{lastTitle}\" {onTv}.");
             if (!ReplaceForeign) throw new SamsungInstallException(SamsungInstallError.ForeignApp, $"\"{lastTitle}\" {onTv}");
-            Progress?.Invoke("uninstalling");
+            Step("uninstalling");
             foreach (var id in new[] { PackageId, AppId })
             {
                 try { Log.Write($"Kullanıcı onayıyla kaldırılıyor {id}: {(await device.ShellCommandAsync($"0 vd_appuninstall {id}", cancellationToken)).Trim()}"); }
@@ -239,7 +280,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
         }
         if (version is not null && onTv is not null && !Versions.IsNewer(version, onTv))
         {
-            if (OpenIfInstalled) await LaunchAsync(device, cancellationToken);
+            if (openIfCurrent) await LaunchAsync(device, cancellationToken);
             return (onTv, false);
         }
         Log.Write(onTv is null ? "TV'de Çevirgen görünmüyor; kuruluyor." : $"TV'de {onTv} var, {version ?? "yeni sürüm"} kuruluyor.");
@@ -252,18 +293,18 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
         if (!profile.IsValid(DateTime.UtcNow) || !profile.IsFor(duid))
         {
             if (SignIn is null) throw new SamsungInstallException(SamsungInstallError.LoginFailed, "giriş gerekiyor");
-            Progress?.Invoke("signin");
+            Step("signin");
             Log.Write("Samsung hesabıyla giriş bekleniyor (tarayıcı açılıyor).");
             var account = await SignIn(cancellationToken);
             Log.Write("Samsung girişi tamam; sertifika isteniyor.");
-            Progress?.Invoke("certificate");
+            Step("certificate");
             profile = await certificates.CreateAsync(duid, account, directory, cancellationToken);
             Log.Write($"Yeni sertifika: {profile.Describe(DateTime.UtcNow, duid)}");
         }
 
         if (NeedsDeviceProfile(platform)) await PushDeviceProfileAsync(device, profile, platform, toolPath, cancellationToken);
 
-        Progress?.Invoke("signing");
+        Step("signing");
         DeleteLeftovers(Path.GetTempPath());
         var staged = Path.Combine(Path.GetTempPath(), $"couchsubs-{Guid.NewGuid():N}.wgt");
         File.Copy(wgtPath, staged);
@@ -292,10 +333,13 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
                 await TizenWgtSigner.ReSignWgtWithCertsInPlace(staged, profile.AuthorP12, profile.DistributorP12, profile.Password);
             }
             Log.Write("Paket imzalandı.");
-            Progress?.Invoke("installing");
+            // Güncellemede TV'de çalışan eski uygulama önce kapatılır: kurulum açık sayfanın altından paketi değiştirmesin,
+            // sonra açılan uygulama yeni sürümü temiz yüklesin.
+            if (onTv is not null) await CloseRunningAppAsync(device, cancellationToken);
+            Step("installing");
             try
             {
-                await InstallWithRecoveryAsync(new SdbShell(device, () => packages[^1], toolPath), Progress, Log, cancellationToken,
+                await InstallWithRecoveryAsync(new SdbShell(device, () => packages[^1], toolPath), step => Step(step), Log, cancellationToken,
                     alternative: !legacy ? null : () =>
                     {
                         var lean = Path.Combine(Path.GetTempPath(), $"couchsubs-{Guid.NewGuid():N}.wgt");
@@ -306,6 +350,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
                         Log.Write($"Tizen {platform}: yalın paket hazırlandı ({LegacyTizenPackage.LeanRemoved} de çıkarıldı), imza SHA-256.");
                         return "yalın paket";
                     }, keepExisting: legacy && (onTv is not null || !lastListRead));
+                installCompleted = true;
                 if (legacy) Log.Write($"Tizen {platform}: {(packages.Count > 1 ? "yalın paket SHA-256" : "tam paket SHA-512")} imzayla kuruldu.");
             }
             catch (SamsungInstallException error)
@@ -487,6 +532,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
     /// </summary>
     private async Task LaunchAsync(SdbTcpDevice device, CancellationToken cancellationToken)
     {
+        Step("launching", report: false);
         try
         {
             var reply = await device.ShellCommandAsync($"0 was_execute {AppId}", cancellationToken);
@@ -496,6 +542,36 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
         {
             Log.Write($"Uygulama açılamadı (kurulum yine tamam): {error.Message}");
         }
+    }
+
+    /// <summary>
+    /// Güncellemeden önce TV'de çalışan Çevirgen'i kapatır (<c>was_kill</c>, uygulama ve paket kimliğiyle; bekçinin
+    /// kapat-aç'ıyla aynı komutlar). Kapatılamazsa (uygulama zaten kapalı, eski TV komutu tanımıyor) kurulum yine sürer.
+    /// </summary>
+    private async Task CloseRunningAppAsync(SdbTcpDevice device, CancellationToken cancellationToken)
+    {
+        Step("closing", report: false);
+        await CloseWithAsync(command => device.ShellCommandAsync(command, cancellationToken), Log,
+            () => Task.Delay(KillSettle, cancellationToken));
+    }
+
+    /// <summary>Kapatma ile kuruluma geçme arasındaki bekleme (TV süreci bırakabilsin).</summary>
+    internal static readonly TimeSpan KillSettle = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>Çalışan uygulamayı kapatma komutları: önce uygulama kimliği, sonra paket kimliği (TV yazılımına göre biri tutar).</summary>
+    internal static string[] KillCommands => [$"0 was_kill {AppId}", $"0 was_kill {PackageId}"];
+
+    /// <summary><see cref="CloseRunningAppAsync"/>'in komutları (testlerde sahte kabukla).</summary>
+    internal static async Task CloseWithAsync(Func<string, Task<string>> shell, InstallLog log, Func<Task> pause)
+    {
+        foreach (var kill in KillCommands)
+        {
+            string reply;
+            try { reply = await shell(kill); }
+            catch (Exception error) when (error is not OperationCanceledException) { reply = error.Message; }
+            log.Write($"Güncellemeden önce eski uygulama kapatılıyor ({kill}): {reply.Trim()}");
+        }
+        await pause();
     }
 
     /// <summary>
@@ -677,9 +753,10 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
     /// <summary>TizenInstaller sonucu konsola yazar; çıktıyı yakalayıp hatayı oradan anlarız.</summary>
     private static readonly SemaphoreSlim ConsoleGate = new(1, 1);
 
-    private static async Task<string> CaptureAsync(Func<Task> body)
+    private static async Task<string> CaptureAsync(Func<Task> body, CancellationToken cancellationToken)
     {
-        await ConsoleGate.WaitAsync();
+        // Takılıp bırakılmış önceki kurulum kapıyı tutuyorsa bekleme de adımın süresiyle sınırlıdır.
+        await ConsoleGate.WaitAsync(cancellationToken);
         var original = Console.Out;
         var writer = new StringWriter();
         Console.SetOut(writer);
@@ -703,7 +780,7 @@ public sealed partial class SamsungTvInstaller(string host, string profilesDirec
     private sealed class SdbShell(SdbTcpDevice device, Func<string> stagedPackage, string toolPath) : ISamsungTvShell
     {
         public Task<string> InstallAsync(CancellationToken cancellationToken) =>
-            CaptureAsync(() => new TizenInstaller(stagedPackage(), device, toolPath).InstallApp());
+            CaptureAsync(() => new TizenInstaller(stagedPackage(), device, toolPath).InstallApp(), cancellationToken);
 
         public Task<string> ShellAsync(string command, CancellationToken cancellationToken) =>
             device.ShellCommandAsync(command, cancellationToken);

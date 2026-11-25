@@ -133,6 +133,12 @@ catch (SamsungInstallException error)
     Emit("error", ("code", error.Error.ToString()), ("message", error.Detail ?? error.Error.ToString()));
     return 1;
 }
+catch (TvStepTimeoutException error)
+{
+    // Android TV kurulumu iki denemede de takıldı: Mac "Kurulum sırasında TV bağlantısı koptu" ve "Tekrar dene" gösterir.
+    Emit("error", ("code", "ConnectionLost"), ("message", TvStall.GaveUp(error)));
+    return 1;
+}
 catch (Exception error) when (error is not OperationCanceledException)
 {
     // Beklenmeyen hata da sessiz kalmasın: türü ve iletisi kullanıcıya, yığın günlüğe.
