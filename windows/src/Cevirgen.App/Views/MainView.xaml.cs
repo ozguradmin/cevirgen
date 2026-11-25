@@ -375,6 +375,9 @@ public partial class MainView : UserControl
                 return controller.NeedsXboxLink
                     ? new(kind, level, $"{controller.ConsoleTitle}: {controller.Ps5StatusText}", controller.XboxLinkTitle, controller.LinkXbox)
                     : new(kind, level, $"{controller.ConsoleTitle}: {controller.Ps5StatusText}", text["Connect Again"], () => controller.Reconnect());
+            case LiveNoticeKind.WindowMissing:
+                return new(kind, level, $"\"{controller.CaptureWindowTitle}\" penceresi açık değil ya da simge durumunda.", null, null,
+                    WindowChoices, AutoExpand: true, Signature: "window:" + controller.CaptureWindowTitle);
             case LiveNoticeKind.PictureStopped:
             {
                 var gap = controller.LastFrameAt is { } last ? (int)(DateTime.UtcNow - last).TotalSeconds : 0;
@@ -515,6 +518,23 @@ public partial class MainView : UserControl
     private async void AllowFirewall() => await controller.AllowThroughFirewallAsync();
 
     /// <summary>Ayrıntı: açıklama satırları ve çerçeveli ek düğmeler.</summary>
+    /// <summary>
+    /// Çevirgen: "pencere açık değil" bildiriminin ayrıntısı: oyunu aç ya da açık pencerelerden birini seç (Ayarlar'a gitmeden).
+    /// Tam ekran oyun Çevirgen'e geçince küçülür; oyuna dönünce okuma kendiliğinden başlar.
+    /// </summary>
+    private FrameworkElement WindowChoices()
+    {
+        var windows = controller.AvailableCaptureWindows().Where(window => window != controller.Settings.CaptureWindow).Take(8).ToList();
+        var buttons = windows.Select(window => (window.Title, (Action)(() => { controller.ChooseCaptureWindow(window); ShowNotices(); }))).ToList();
+        buttons.Add(("Yenile", ShowNotices));
+        string[] lines =
+        [
+            "Oyunu aç ya da oyuna geri dön: tam ekran oyunlar Çevirgen'e geçince küçülür, oyuna dönünce okuma kendiliğinden başlar.",
+            windows.Count > 0 ? "Başka bir pencere okunacaksa aşağıdan seç:" : "Şu an seçilebilecek başka pencere yok; oyunu açıp Yenile'ye bas.",
+        ];
+        return Details(lines, [.. buttons])();
+    }
+
     private static Func<FrameworkElement> Details(string[] lines, params (string Label, Action Run)[] buttons) => () =>
     {
         var panel = new StackPanel { MaxWidth = 720, HorizontalAlignment = HorizontalAlignment.Left };

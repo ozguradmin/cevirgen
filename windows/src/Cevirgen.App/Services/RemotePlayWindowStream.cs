@@ -283,9 +283,11 @@ public sealed class RemotePlayWindowStream : IStreamSession
         var windows = new List<WindowCaptureTarget>();
         Native.EnumWindows((hwnd, _) =>
         {
-            if (!Native.IsWindowVisible(hwnd) || Native.IsIconic(hwnd) || Native.GetWindow(hwnd, Native.GwOwner) != IntPtr.Zero
-                || !Native.GetWindowRect(hwnd, out var rect)
-                || rect.Right - rect.Left < MinimumWidth || rect.Bottom - rect.Top < MinimumHeight) return true;
+            // Çevirgen: simge durumundaki pencere de listelenir: tam ekran oyun Çevirgen'e geçince küçülür ve listede hiç
+            // görünmüyordu (Life Is Strange). Küçültülmüş pencerenin boyutu ölçülemez (159×27), boyut süzgeci ona uygulanmaz.
+            if (!Native.IsWindowVisible(hwnd) || Native.GetWindow(hwnd, Native.GwOwner) != IntPtr.Zero) return true;
+            if (!Native.IsIconic(hwnd) && (!Native.GetWindowRect(hwnd, out var rect)
+                || rect.Right - rect.Left < MinimumWidth || rect.Bottom - rect.Top < MinimumHeight)) return true;
             Native.GetWindowThreadProcessId(hwnd, out var pid);
             if (pid == Environment.ProcessId) return true; // Çevirgen altyazı penceresini seçip geri besleme oluşturma.
             var title = WindowTitle(hwnd);

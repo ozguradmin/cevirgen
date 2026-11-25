@@ -178,6 +178,17 @@ public sealed class CevirgenLiveTests
         Assert.Null(GamePicker.TagText(GameTileTag.None));
     }
 
+    /// <summary>Çevirgen: okunan pencere açık değilse uyarı çıkar; "görüntü gelmiyor" onun yerine geçmez. Çeviri durmuşken çıkmaz.</summary>
+    [Fact]
+    public void AMissingWindowIsTheNoticeNotAStoppedPicture()
+    {
+        var missing = new LiveNoticeState { Running = true, WindowMissing = true, Problem = HomeProblemKind.PictureStopped };
+        Assert.Equal(LiveNoticeKind.WindowMissing, LiveNotices.For(missing)[0]);
+        Assert.DoesNotContain(LiveNoticeKind.PictureStopped, LiveNotices.For(missing));
+        Assert.Equal(LiveNoticeLevel.Blocking, LiveNotices.Level(LiveNoticeKind.WindowMissing));
+        Assert.DoesNotContain(LiveNoticeKind.WindowMissing, LiveNotices.For(missing with { Running = false }));
+    }
+
     [Fact]
     public void ChoosingAGameUpdatesTheRecentList()
     {

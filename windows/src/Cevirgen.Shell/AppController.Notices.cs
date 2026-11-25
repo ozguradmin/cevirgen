@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 using Cevirgen.Core;
+using Cevirgen.RemotePlay;
 
 namespace Cevirgen.Shell;
 
@@ -42,8 +43,22 @@ public sealed partial class AppController
             MainAccountTip = ShowsMainAccountTip,
             RemotePlayPopup = ShowsRemotePlayHint,
             AutoScreenTextNotice = ShowsAutoScreenTextNotice,
+            WindowMissing = CaptureWindowMissing,
         };
     }
+
+    /// <summary>
+    /// Çevirgen: çeviri sürüyor, görüntü bir pencereden okunuyor (Bilgisayar, Diğer) ve o pencere bulunamıyor: kapalı ya da
+    /// simge durumunda (tam ekran oyun Çevirgen'e geçince küçülür). Canlı ekran uyarır, buradan başka pencere seçilir.
+    /// </summary>
+    public bool CaptureWindowMissing => isRunning && !demoMode && ReadsCaptureWindow && settings.CaptureWindow is not null
+                                        && sessionState.Phase == SessionPhase.Connecting;
+
+    /// <summary>Okunan pencerenin adı (bildirim metni için); seçilmediyse boş.</summary>
+    public string CaptureWindowTitle => settings.CaptureWindow?.Title ?? "";
+
+    /// <summary>Canlı ekrandan pencere seçimi: okunan pencere değişir, çeviri sürüyorsa yeni pencereye geçilir.</summary>
+    public void ChooseCaptureWindow(WindowCaptureTarget target) => Settings = settings with { CaptureWindow = target };
 
     /// <summary>Görünen bildirimler, en önemlisi başta (<see cref="LiveNotices.For"/>).</summary>
     public IReadOnlyList<LiveNoticeKind> Notices(bool crashPending) => LiveNotices.For(NoticeState(crashPending));

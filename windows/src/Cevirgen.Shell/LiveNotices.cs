@@ -26,6 +26,8 @@ public enum LiveNoticeKind
     OcrMissing,
     /// <summary>Konsola bağlanılamıyor: Xbox girişi/seçimi eksik ya da oturum yeniden denemeyi bıraktı.</summary>
     Console,
+    /// <summary>Çevirgen: okunacak pencere (Bilgisayar, Diğer) açık değil ya da simge durumunda; buradan başka pencere seçilir.</summary>
+    WindowMissing,
     /// <summary>Çeviri sürerken görüntü 5 sn'dir gelmiyor.</summary>
     PictureStopped,
 
@@ -85,6 +87,8 @@ public sealed record LiveNoticeState
     public bool MainAccountTip { get; init; }
     public bool RemotePlayPopup { get; init; }
     public bool AutoScreenTextNotice { get; init; }
+    /// <summary>Çevirgen: seçilen pencere bulunamıyor (çeviri sürerken).</summary>
+    public bool WindowMissing { get; init; }
 }
 
 /// <summary>Canlı ekranın bildirimleri: hangileri görünür, önemleri ve sıraları (arayüzden bağımsız; sınanır).</summary>
@@ -116,10 +120,12 @@ public static class LiveNotices
         if (state.OcrMissing) kinds.Add(LiveNoticeKind.OcrMissing);
         if (state.ConsoleNeedsLink || state.ConsoleOffersReconnect) kinds.Add(LiveNoticeKind.Console);
         // Sessizlik nedenleri yalnız çeviri sürerken (HomeProblem zaten öyle hesaplar).
+        // Pencere açık değilse görüntünün gelmemesi onun sonucudur; yalnız pencere bildirimi çıkar.
+        if (running && state.WindowMissing) kinds.Add(LiveNoticeKind.WindowMissing);
         if (running)
             switch (state.Problem)
             {
-                case HomeProblemKind.PictureStopped: kinds.Add(LiveNoticeKind.PictureStopped); break;
+                case HomeProblemKind.PictureStopped when !state.WindowMissing: kinds.Add(LiveNoticeKind.PictureStopped); break;
                 case HomeProblemKind.SubtitlesOff: kinds.Add(LiveNoticeKind.SubtitlesOff); break;
                 case HomeProblemKind.MenuOpen: kinds.Add(LiveNoticeKind.MenuOpen); break;
             }
