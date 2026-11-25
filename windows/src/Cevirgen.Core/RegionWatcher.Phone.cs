@@ -334,8 +334,13 @@ public sealed partial class RegionWatcher
                     try { fresh = ReadPhoneCandidate(latest.Frame, latest.Area, crop, state); }
                     catch { /* Okunamayan yeni kare eski çeviriyi doğrulayamaz. */ }
                     if (Volatile.Read(ref session) != started || area.PanelLifetime is { IsCancellationRequested: true }) return;
+                    // Bu okuma sürerken gelen kare okumayı yalnız telefon kaybolduysa geçersiz kılar. GTA 6'nın telefonu elde
+                    // durur, her karede birkaç piksel sallanır; yazı pikselleri ardışık iki karede hiç aynı kalmıyordu (gerçek
+                    // kayıtta 100 ms arayla %2, 300 ms arayla hiç). Önceden okuma "doğrulanamadı" sayılıyor, çeviri o turda
+                    // gösterilmiyordu (#1202, #1197, #1193, #1170). Sayfa gerçekten değiştiyse sonraki tur yeniden okur
+                    // (Mac/iPhone ve Android ile aynı).
                     if (LatestPhone(area) is { } newer && !ReferenceEquals(newer.Frame, latest.Frame)
-                        && (PhoneMissing(newer.Frame, newer.Area) || fresh?.PhonePage?.Changed(newer.Frame, newer.Area.Region) == true)) fresh = null;
+                        && PhoneMissing(newer.Frame, newer.Area)) fresh = null;
                     state.ReadRegion = latest.Area.Region;
                     state.ReadPhonePage = fresh?.PhonePage;
                     state.Signature = fresh is { Key.Length: > 0 } ? RegionCropper.Signature(crop) : null;

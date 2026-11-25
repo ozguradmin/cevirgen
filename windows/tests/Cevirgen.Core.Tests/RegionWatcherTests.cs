@@ -847,6 +847,40 @@ public partial class RegionWatcherTests
         }
     }
 
+    /// <summary>
+    /// GTA 6'nın telefonu elde durur, her karede birkaç piksel sallanır: okuma sürerken gelen her yeni karenin yazı
+    /// pikselleri değişir. Çeviriden sonra son kare yeniden okunur ve kabul edilir; o okuma sürerken bir kare daha geldi
+    /// diye atılmaz. Önceden çeviri o turda gösterilmiyor, sonraki turu bekliyordu; Mac/iPhone ve Android'de hiç
+    /// gösterilmiyordu (#1202, #1197, #1193, #1170).
+    /// </summary>
+    [Fact]
+    public async Task SwayingPhoneShowsTranslationsAndNewMessagesOnTheSameTurn()
+    {
+        using var lifetime = new CancellationTokenSource();
+        var area = Phone with { PanelLifetime = lifetime.Token, Region = new CropRegion(0, 1, 0, 1) };
+        var reader = new Reader { Lines = [Line("Where are you?")] };
+        var server = new Server();
+        var translator = new WaitingPhoneTranslator(together: true, waitFor: "-");
+        long clock = 0;
+        var watcher = new RegionWatcher(reader, translator, server, clock: () => clock);
+        byte shade = 10;
+        // Her okuma sürerken yeni bir kare gelir; yazının pikselleri her karede başka.
+        reader.OnRead = () =>
+        {
+            shade = (byte)(shade == 10 ? 60 : 10);
+            watcher.Offer(Shade(shade), [area]);
+        };
+        watcher.Offer(Shade(shade), [area]);
+        await WaitForPass(watcher);
+        Assert.Equal(["TR: Where are you?"], server.Blocks[^1]!.Select(item => item.Translation));
+
+        reader.Lines = [Line("Where are you?"), Line("Meet me outside.", .5)];
+        clock = 2000;
+        watcher.Offer(Shade(shade), [area]);
+        await WaitForPass(watcher);
+        Assert.Equal(["TR: Where are you?", "TR: Meet me outside."], server.Blocks[^1]!.Select(item => item.Translation));
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
