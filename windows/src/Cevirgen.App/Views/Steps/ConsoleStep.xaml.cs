@@ -115,7 +115,35 @@ public partial class ConsoleStep : UserControl
         NotFound.Visibility = ManualHost.Visibility = none ? Visibility.Visible : Visibility.Collapsed;
         ShowDone();
         if (none) await ShowChecksAsync(found.Count > 0);
-        else ChecksCard.Visibility = Visibility.Collapsed;
+        else
+        {
+            ChecksCard.Visibility = Visibility.Collapsed;
+            ShowPairArea();
+        }
+    }
+
+    /// <summary>
+    /// Çevirgen: PS5 bulundu, eşleşme bekleniyor: kod alanı ekrana getirilir ve odaklanır. Eskiden kod alanı pencerenin
+    /// altında kalıyordu; kullanıcı Devam'ın neden kapalı olduğunu ve aşağı kaydırması gerektiğini anlamıyordu (2026-11-25).
+    /// </summary>
+    private void ShowPairArea()
+    {
+        if (Controller.Console is not null || paired) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!IsLoaded) return;
+            // BringIntoView işe yaramıyor: kartın kendi kaydırma alanı isteği yutuyor. Sayfanın kayan alanı doğrudan kaydırılır;
+            // kod bölümü üst çubuğun hemen altına gelir.
+            for (DependencyObject? node = System.Windows.Media.VisualTreeHelper.GetParent(this); node is not null;
+                 node = System.Windows.Media.VisualTreeHelper.GetParent(node))
+            {
+                if (node is not ScrollViewer { ScrollableHeight: > 0 } scroll) continue;
+                var top = PairArea.TransformToAncestor(scroll).Transform(new Point(0, 0)).Y;
+                scroll.ScrollToVerticalOffset(Math.Clamp(scroll.VerticalOffset + top - 120, 0, scroll.ScrollableHeight));
+                break;
+            }
+            Pin.Focus();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>"Neyin Eksik Olduğuna Baktık": aynı ağ, PS5'in yanıtı, Uzaktan Oynama, dinlenme modunda internet, 5 GHz, VPN.</summary>

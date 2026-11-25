@@ -155,7 +155,8 @@ public partial class OnboardingView : UserControl
         OnboardingStep.Window => "Yalnız seçilen pencere okunur; sonra Ayarlar › Cihazlar'dan değiştirebilirsin.",
         OnboardingStep.Test when controller.ModelDownloading => "Ücretsiz çeviri modeli arka planda iniyor; bitince deneme çalışır.",
         OnboardingStep.PsnLogin when !controller.IsXbox => "If sign-in opens in the browser, finish it there; the app continues by itself.",
-        OnboardingStep.Console when !controller.IsXbox => "If the PS5 isn't found, tips open after 10 seconds.",
+        // Çevirgen: Devam eşleşmeden açılmaz; neden kapalı olduğu söylenir (eskiden yalnız "ipuçları 10 saniye sonra açılır" yazıyordu).
+        OnboardingStep.Console when !controller.IsXbox => "PS5'teki 8 haneli kodu girip Bağlan'a bas; eşleşince sonraki adıma geçilir.",
         OnboardingStep.Tv => controller.HasTv
             ? "If the installation continues in the background, it shows on the home screen when it's done."
             : "Approve the code on the TV to continue. If you don't have a TV, skip with \"I Don't Have a TV\".",
@@ -169,6 +170,13 @@ public partial class OnboardingView : UserControl
         if (controller.PartialSetup) controller.CancelPartialSetup();
         else ShellWindow.DeferSetup();
     }
+
+    /// <summary>Çevirgen: içerik alttaki çubuğun altında kalıyorsa "Aşağıda devamı var" görünür.</summary>
+    private void OnStepScrolled(object sender, System.Windows.Controls.ScrollChangedEventArgs e) =>
+        MoreBelow.Visibility = StepScroll.ScrollableHeight - StepScroll.VerticalOffset > 16 ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnMoreBelow(object sender, RoutedEventArgs e) =>
+        StepScroll.ScrollToVerticalOffset(Math.Min(StepScroll.ScrollableHeight, StepScroll.VerticalOffset + StepScroll.ViewportHeight * 0.6));
 
     private void OnBack(object sender, RoutedEventArgs e) => controller.Back();
 

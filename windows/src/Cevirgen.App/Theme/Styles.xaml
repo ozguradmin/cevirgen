@@ -111,7 +111,8 @@
     <system:Double x:Key="shell.topGlass">88</system:Double>
     <system:Double x:Key="shell.bottomGlass">112</system:Double>
     <!-- Kurulum: içerik üst çubuk (72) ve Geri / Devam çubuğu (48 + 32 + 40) kadar içeriden başlar ve biter; cam şerit +16. -->
-    <Thickness x:Key="wizard.inset">0,72,0,120</Thickness>
+    <!-- Çevirgen: alt boşluk alttaki çubuktan (wizard.bottomGlass, düz zemin) büyük olmalı; 120 iken en sona kaydırınca son satır çubuğun altında kalıyordu. -->
+    <Thickness x:Key="wizard.inset">0,72,0,176</Thickness>
     <system:Double x:Key="wizard.bottomGlass">136</system:Double>
 
     <!-- Canlı Akış sayıları (Mac LiveFeedCard.Stat): değer mono 17 yarı kalın, açıklama 12 gri; tek satır. -->

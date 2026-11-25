@@ -284,6 +284,15 @@ public static class ScreenRenderer
                 return Detach(Live(controller));
             }, w, h, Path.Combine(folder, $"v15-canli-uzaktan-{w}-{suffix}.png"));
         Save(() => new OnboardingView(Demo(OnboardingStep.Console)), Width, 1700, Path.Combine(folder, $"v15-kurulum-ps5-{suffix}.png"));
+        // Çevirgen: pencere boyunda PS5 adımı (PS5 bulununca kod alanına kayar; "Aşağıda devamı var") ve en sona kaydırılmışı
+        // (son satır alttaki çubuğun altında kalmamalı).
+        Save(() => new OnboardingView(Demo(OnboardingStep.Console)), Width, Height, Path.Combine(folder, $"v15-kurulum-ps5-pencere-{suffix}.png"));
+        Save(() =>
+        {
+            var view = new OnboardingView(Demo(OnboardingStep.Console));
+            view.Loaded += (_, _) => view.Dispatcher.BeginInvoke(() => view.StepScroll.ScrollToEnd(), System.Windows.Threading.DispatcherPriority.ContextIdle);
+            return view;
+        }, Width, Height, Path.Combine(folder, $"v15-kurulum-ps5-sonu-{suffix}.png"));
         Save(() => Detach(new AboutWindow()), 460, 900, Path.Combine(folder, $"v15-hakkinda-{suffix}.png"));
     }
 

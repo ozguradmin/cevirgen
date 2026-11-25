@@ -14,7 +14,7 @@
         <c:AmbientGlow x:Name="Ambient" Intensity="0.7" />
 
         <!-- Adım içeriği pencere boyu kayar; ilk açılışta çubukların arasında başlar, en alttaki içerik kaydırınca tam görünür. -->
-        <ScrollViewer x:Name="StepScroll" Style="{StaticResource CardScroll}">
+        <ScrollViewer x:Name="StepScroll" Style="{StaticResource CardScroll}" ScrollChanged="OnStepScrolled">
             <Border Padding="{DynamicResource wizard.inset}">
                 <StackPanel Margin="{t:Sp 'wizardSide,l,wizardSide,0'}">
                     <TextBlock x:Name="Counter" Style="{StaticResource EyebrowText}" Margin="{t:Sp '0,0,0,xs'}" />
@@ -26,6 +26,15 @@
         <!-- Cam çubuklar (e3): yarı saydam koyu degrade, tıklamayı geçirir. -->
         <Border VerticalAlignment="Top" Height="{DynamicResource shell.topGlass}" Background="{DynamicResource glassBarBrush}" IsHitTestVisible="False" />
         <Border VerticalAlignment="Bottom" Height="{DynamicResource wizard.bottomGlass}" Background="{DynamicResource glassBarBottomBrush}" IsHitTestVisible="False" />
+        <!-- Çevirgen: adımın devamı alttaki çubuğun altında kalıyorsa "Aşağıda devamı var" (tıklayınca kayar). Kaydırılması gerektiği
+             anlaşılmıyordu; PS5 adımında kod alanı görünmüyor, Devam neden kapalı belli olmuyordu (2026-11-25). -->
+        <Button x:Name="MoreBelow" Style="{StaticResource CompactButton}" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                Margin="0,0,0,144" Visibility="Collapsed" Click="OnMoreBelow" AutomationProperties.Name="Aşağıda devamı var">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE74B;" Style="{StaticResource GlyphText}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Text="Aşağıda devamı var" VerticalAlignment="Center" />
+            </StackPanel>
+        </Button>
 
         <Grid VerticalAlignment="Top" Height="{DynamicResource size.titleBarHeight}" Margin="{t:Sp 'l,0'}">
             <Grid.ColumnDefinitions>
