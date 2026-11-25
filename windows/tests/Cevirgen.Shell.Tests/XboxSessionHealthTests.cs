@@ -125,29 +125,44 @@ public class XboxSessionHealthTests
         plan.PictureArrived();
         // Görüntü geldi, bir dakikadan uzun sürdü: görüntüsüz bağlantı dizisi baştan sayılır, bu görüntüsüz bağlantı durdurmaz.
         Assert.Equal(5000, plan.Failed(false, noFirstFrame: true, streamedMs: XboxRetryPlan.HealthyStreamMs));
-        Assert.Null(plan.Failed(false, noFirstFrame: false, streamedMs: null));
+        // Görüntü gelmiş yayının kopma dizisi: ikinci deneme daha uzun bekler.
+        Assert.Equal(15_000, plan.Failed(false, noFirstFrame: false, streamedMs: null));
     }
 
     /// <summary>
-    /// Gerçek kopmada en çok bir kez, geri çekilerek (5 sn) yeniden bağlanılır; o da kopunca durulur. Eskiden 5, 15, 45 sn
-    /// aralarla üç deneme vardı, her biri Xbox'ta "uzaktan yürütme başlatıldı / durduruldu" bildirimi çıkarıyordu (Play,
-    /// Android beta.85). CouchSubsCore ve Android'deki aynı adlı testle aynı.
+    /// Oynanan (görüntü gelmiş) yayın koparsa kullanıcıya sormadan en çok üç kez, geri çekilerek (5, 15, 30 sn) yeniden
+    /// bağlanılır; üçü de kısa sürede koparsa durulur. Eskiden tek deneme vardı: ilk deneme tutmayınca kullanıcı birkaç
+    /// dakikada bir "Yeniden bağlan"a basmak zorunda kalıyordu (#1185, #1190). Görüntü hiç gelmediyse yine tek deneme.
+    /// CouchSubsCore ve Android'deki aynı adlı testle aynı.
     /// </summary>
     [Fact]
-    public void RealDropReconnectsAtMostOnceWithBackoff()
+    public void RealDropReconnectsSilentlyUpToThreeTimes()
     {
         var plan = new XboxRetryPlan();
         plan.PictureArrived();
+        Assert.Equal(3, plan.MaxRetries);
         Assert.Equal(5000, plan.Failed(false, false, 120_000));
         Assert.Equal(1, plan.Failures);
-        // Yeniden bağlanma da kısa sürede koptu: ikinci deneme yok.
+        // Yeniden bağlanmalar da kısa sürede koptu: 15 ve 30 sn sonra yine denenir, dördüncü kopmada durulur.
+        plan.PictureArrived();
+        Assert.Equal(15_000, plan.Failed(false, false, 10_000));
+        plan.PictureArrived();
+        Assert.Equal(30_000, plan.Failed(false, false, 10_000));
         plan.PictureArrived();
         Assert.Null(plan.Failed(false, false, 10_000));
-        // Bağlanırken hata (görüntü hiç gelmedi): yine en çok bir deneme.
+        // Bağlanırken hata (görüntü hiç gelmedi): eskisi gibi en çok bir deneme.
         var fresh = new XboxRetryPlan();
+        Assert.Equal(1, fresh.MaxRetries);
         Assert.Equal(5000, fresh.Failed(false, false, null));
         Assert.Null(fresh.Failed(false, false, null));
         Assert.Null(new XboxRetryPlan().Failed(permanent: true, noFirstFrame: false, streamedMs: null));
+    }
+
+    [Fact]
+    public void RetryLine()
+    {
+        Assert.Equal("sessiz yeniden bağlanma 2/3: 15 sn sonra", XboxEndCauses.RetryLine(2, 3, 15_000));
+        Assert.Equal("sessiz yeniden bağlanma ek deneme: 15 sn sonra", XboxEndCauses.RetryLine(4, 3, 15_000));
     }
 
     [Fact]

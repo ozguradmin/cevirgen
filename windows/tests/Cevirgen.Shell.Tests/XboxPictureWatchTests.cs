@@ -66,11 +66,11 @@ public class XboxPictureWatchTests
     /// Sahte Xbox oturumu (bekçiler XboxStreamSession'daki gibi saniyede bir; canlı tutma 30 sn'de bir). Play'deki bildirim
     /// (Android beta.85): "uzaktan yürütme başlatıldı, hemen ardından durdu, tekrar başladı/durdu". Yayın başında görüntü
     /// birkaç saniye bekliyor, canlı tutma 404 dönüyor: ilk 30 sn'de (ve görüntü akarken sonrasında da) oturum kapatılmıyor,
-    /// yeniden açılmıyor. Sonra gerçek kopma: en çok bir kez, 5 sn sonra yeniden bağlanılıyor. CouchSubsCore ve Android'deki
+    /// yeniden açılmıyor. Sonra gerçek kopma: sessizce en çok üç kez (5, 15, 30 sn) yeniden bağlanılıyor. CouchSubsCore ve Android'deki
     /// aynı adlı testle aynı senaryo.
     /// </summary>
     [Fact]
-    public void FakeXboxSessionDoesNotLoopAndReconnectsAtMostOnce()
+    public void FakeXboxSessionDoesNotLoopAndReconnectsAtMostThreeTimes()
     {
         var session = new FakeXboxSession();
         session.Connect();
@@ -88,18 +88,27 @@ public class XboxPictureWatchTests
         Assert.Single(session.Ends);
         Assert.Equal(new int?[] { 5000 }, session.Retries);
         Assert.Equal(2, session.Plays);
-        // Yeniden bağlanma da kısa sürede kopuyor: ikinci deneme yok, yayın durur ("Yeniden bağlan" düğmesi).
-        session.Frames(96_000, 100_000);
-        session.IceLost(100_500);
-        for (long at = 96_000; at <= 160_000; at += 1000) session.Tick(at);
-        Assert.Equal(new int?[] { 5000, null }, session.Retries);
-        Assert.Equal(2, session.Plays);
+        // Yeniden bağlanmalar da kısa sürede kopuyor: kullanıcıya sormadan 15 ve 30 sn sonra yine denenir, sonra yayın
+        // durur ("Yeniden bağlan" düğmesi). Döngü sınırlı: dört kopmada üç yeniden bağlanma. (Bu kısımda canlı tutma yanıt
+        // veriyor; görüntü bekçisi, yayın başındaki 30 sn'lik tanıma süresinden sonra kapatır.)
+        session.KeepaliveFails = null;
+        long start = 96_000;
+        for (var i = 0; i < 3; i++)
+        {
+            session.Frames(start, start + 4000);
+            session.IceLost(start + 4500);
+            for (var at = start; at <= start + 35_000; at += 1000) session.Tick(at);
+            start = session.Clock + 1000;
+        }
+        Assert.Equal(new int?[] { 5000, 15_000, 30_000, null }, session.Retries);
+        Assert.Equal(4, session.Plays);
     }
 
     /// <summary>XboxStreamSession'ın bekçi döngüsünün ağsız kopyası (yeniden deneme planı, görüntü bekçisi, canlı tutma).</summary>
     private sealed class FakeXboxSession
     {
         private long now;
+        public long Clock => now;
         private readonly XboxRetryPlan retries = new();
         private XboxPictureWatch watch = new();
         private XboxKeepalive keepalive = new();

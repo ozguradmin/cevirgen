@@ -190,7 +190,7 @@ internal sealed class XboxStreamSession(XboxBridge bridge, XboxConsole console, 
                 StateChanged?.Invoke(SessionState.Disconnected(DisconnectKind.Refused, XboxStop.Message(Localizer.Current, reason, noFirstFrame)));
                 break;
             }
-            Log($"yeniden deneme {retries.Failures}: {delay / 1000} sn sonra");
+            Log(XboxEndCauses.RetryLine(retries.Failures, retries.MaxRetries, delay.Value));
             // Ekranda kapanmanın türü kısa metinle (sunucu kapattı / yanıt yok / bağlantı koptu); ham neden günlükte.
             StateChanged?.Invoke(SessionState.Disconnected(DisconnectKind.Other,
                 Localizer.Current[noFirstFrame ? XboxStop.NoPictureRetrying : XboxEndCauses.RetryMessage(cause)]));

@@ -844,7 +844,10 @@ public sealed class StreamSession : IStreamSession
         Emit(new SessionState(SessionPhase.Disconnected, reason));
         if (!IsCurrent(current)) return;
         var delay = policy.NextDelay(inUse: reason.Kind == DisconnectKind.InUse);
-        RemotePlayLog.Note($"PS5 oturumu: {delay} sn sonra yeniden denenecek");
+        // Kopmanın nedeni ve kaçıncı sessiz deneme olduğu tek satırda (Mac/iPhone ve Android'de aynı biçim).
+        RemotePlayLog.Note($"PS5 oturumu: kopma nedeni {reason.Kind}; sessiz yeniden bağlanma (ağ {retryLimit.NetworkFailures}/" +
+            $"{ReconnectLimit.MaxNetworkRetries}, PS5 kapattı {retryLimit.ConsoleClosed}/{ReconnectLimit.MaxConsoleClosedRetries}): " +
+            $"{delay} sn sonra yeniden denenecek");
         queue.PostAfter(TimeSpan.FromSeconds(delay), () => Connect(current));
     }
 

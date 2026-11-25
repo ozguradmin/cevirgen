@@ -71,6 +71,11 @@ public static class XboxEndCauses
     /// <summary>Günlük satırı, ör. <c>kapanma nedeni: ağ (Xbox ICE bağlantısı koptu (failed))</c>.</summary>
     public static string Line(XboxEndCause cause, string? detail) => $"kapanma nedeni: {cause.Text()} ({XboxStop.Shorten(detail)})";
 
+    /// <summary>Sessiz yeniden bağlanma satırı, ör. <c>sessiz yeniden bağlanma 2/3: 15 sn sonra</c> (CouchSubsCore ve
+    /// Android'de aynı biçim). Deneme sınırı aşıldıysa (kopmadan sonraki ret için tanınan ek deneme) "ek deneme" yazılır.</summary>
+    public static string RetryLine(int attempt, int max, int delayMs) =>
+        $"sessiz yeniden bağlanma {(attempt <= max ? $"{attempt}/{max}" : "ek deneme")}: {delayMs / 1000} sn sonra";
+
     /// <summary>Yeniden bağlanırken ana ekranda gösterilen kısa metin (Mac/iPhone XboxText.session, Android xbox_error_*).</summary>
     public static string RetryMessage(XboxEndCause cause) => cause switch
     {
@@ -92,8 +97,10 @@ public static class XboxConnectWatch
 
 /// <summary>
 /// Kopmadan sonra yeniden denenir mi, ne kadar sonra (Android/CouchSubsCore XboxSessionMachine.fail ile aynı kurallar).
-/// Hata ya da kopmada bir kez, 5 sn sonra baştan denenir (eskiden 5, 15, 45 sn aralarla üç deneme her seferinde Xbox'ta
-/// "uzaktan yürütme başlatıldı / durduruldu" bildirimi çıkarıyordu); yayın <see cref="HealthyStreamMs"/> ayakta kaldıysa
+/// Görüntü gelmeden biten bağlantıda bir kez, 5 sn sonra baştan denenir (eskiden 5, 15, 45 sn aralarla üç deneme her
+/// seferinde Xbox'ta "uzaktan yürütme başlatıldı / durduruldu" bildirimi çıkarıyordu). Görüntü gelmiş (oynanan) yayın
+/// beklenmedik koparsa kullanıcıya sormadan en çok <see cref="DropDelaysMs"/> kadar (5, 15, 30 sn) yeniden bağlanılır: tek
+/// deneme tutmayınca kullanıcı birkaç dakikada bir "Yeniden bağlan"a basmak zorunda kalıyordu (#1185, #1190). Yayın <see cref="HealthyStreamMs"/> ayakta kaldıysa
 /// sayaç sıfırlanır. Xbox'tan hiç görüntü gelmeyen bağlantılar ayrıca sayılır: <see cref="MaxNoPictureAttempts"/> ardışık
 /// bağlantıda ilk kare gelmezse yeniden denenmez. Eskiden her biri Xbox'ta "uzaktan oynatma başlatıldı / durduruldu"
 /// bildirimiyle dört kez (yaklaşık beş dakika) açılıp kapanıyor, ekranda yalnız "WebRTC bağlantısı kesildi" görünüyordu (#403).
@@ -101,6 +108,9 @@ public static class XboxConnectWatch
 public sealed class XboxRetryPlan
 {
     public static readonly int[] DelaysMs = [5000];
+    /// <summary>Görüntü gelmiş yayın koptuktan sonraki sessiz yeniden bağlanma aralıkları (CouchSubsCore
+    /// <c>dropRetryDelaysMs</c>, Android <c>dropRetryDelaysMs</c> ile aynı).</summary>
+    public static readonly int[] DropDelaysMs = [5000, 15_000, 30_000];
     public const long HealthyStreamMs = 60_000;
     public const int MaxNoPictureAttempts = 2;
 
@@ -110,6 +120,11 @@ public sealed class XboxRetryPlan
     private int noPicture;
     private bool hadPicture;
     private bool graceUsed;
+
+    private int[] Delays => hadPicture ? DropDelaysMs : DelaysMs;
+
+    /// <summary>Sessiz yeniden bağlanmanın en çok deneme sayısı (günlükte "deneme 2/3").</summary>
+    public int MaxRetries => Delays.Length;
 
     /// <summary>Ardışık başarısız deneme (1; kopmadan sonraki retten sonra 2).</summary>
     public int Failures { get; private set; }
@@ -136,12 +151,14 @@ public sealed class XboxRetryPlan
         // Görüntü gelmiş yayın koptuktan hemen sonra Xbox eski oturumu bırakmadan yenisini reddedebiliyor ("bir kez
         // kopunca Xbox yeniden başlatılmadan bağlanmıyor"): bu ret bir kez, eski oturum kapansın diye uzun beklenip denenir.
         var grace = refused && hadPicture && !graceUsed;
-        // Kopma dizisinde en çok DelaysMs kadar (bir) yeniden bağlanma; kopmadan sonraki ret için tanınan tek deneme bu
-        // sınırın dışındadır (reddedilen oturumda Xbox yayın açmaz).
-        var retry = (!refused && Failures <= DelaysMs.Length) || grace;
+        // Kopma dizisinde görüntü gelmiş yayından sonra en çok DropDelaysMs kadar (üç), görüntü hiç gelmediyse DelaysMs
+        // kadar (bir) yeniden bağlanma; kopmadan sonraki ret için tanınan tek deneme bu sınırın dışındadır (reddedilen
+        // oturumda Xbox yayın açmaz).
+        var delays = Delays;
+        var retry = (!refused && Failures <= delays.Length) || grace;
         if (!retry || noPicture >= MaxNoPictureAttempts) return null;
         if (grace) graceUsed = true;
-        var backoff = DelaysMs[Math.Min(Failures, DelaysMs.Length) - 1];
+        var backoff = delays[Math.Min(Failures, delays.Length) - 1];
         return grace ? Math.Max(ReconnectGraceMs, backoff) : backoff;
     }
 }
