@@ -81,6 +81,8 @@ public partial class ConsoleStep : UserControl
         Consoles.Children.Clear();
         found = await Controller.DiscoverConsolesAsync();
         searching = false;
+        // Arama sürerken adımdan çıkıldı (DataContext boşaldı): kapanmış adım çizilmez; uygulama hatası veriyordu (#1184).
+        if (DataContext is not AppController) return;
         selected ??= found.FirstOrDefault()?.Host;
         var text = Localizer.Current;
         foreach (var console in found)

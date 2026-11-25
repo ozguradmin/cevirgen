@@ -93,7 +93,7 @@ public partial class TvStep : UserControl
     /// <summary>Liste, çizelge, hata kutusu ve TV uygulaması kartları bir arada yenilenir.</summary>
     private void ShowState()
     {
-        if (controller is null) return;
+        if (controller is null || DataContext is not AppController) return;
         Layout.Message = Localizer.Current[Controller.Tv is not null
             ? "We found a TV on the network. Choose it and Çevirgen installs its app on the TV by itself."
             : "We're looking for TVs on the network. Choose yours and Çevirgen installs its app on the TV by itself."];
@@ -267,6 +267,8 @@ public partial class TvStep : UserControl
         searching = true;
         ShowList();
         var result = await Controller.DiscoverTvsAsync();
+        // Arama sürerken adımdan çıkıldı (DataContext boşaldı): kapanmış adım çizilmez; uygulama hatası veriyordu (#1184).
+        if (DataContext is not AppController) return;
         // Elle eklenenler yeni aramada kaybolmasın (eski listede satırlar yalnız arama başında silinirdi).
         found.Clear();
         found.AddRange(result);
