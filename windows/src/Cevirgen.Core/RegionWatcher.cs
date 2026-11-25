@@ -92,10 +92,11 @@ public sealed partial class RegionWatcher
         /// <summary>Son gönderilen düzen, ayarı ve Yanda Panel'in dayandığı telefon yeri (<see cref="PhoneSteady.SteadyPose"/>).</summary>
         public IReadOnlyList<ScreenTranslation.Item>? SentPhoneShown;
         public PhonePanelOptions? SentPhoneOptions;
-        public GamePhoneGeometry.Pose? PhoneAnchor;
+        /// <summary>Yanda Panel'in kilitli telefon yeri ve yazı boyu (#1152): el titremesiyle değişmez.</summary>
+        public PhonePanelSteady PhonePanelSteady = new();
+        public double PhoneScale;
         /// <summary>Boş okumanın art arda kaç turdur sürdüğü: <see cref="PhoneSteady.MissTurns"/> tur sürmeden ekran silinmez.</summary>
         public int PhoneEmpties;
-        public double PhoneScale;
         /// <summary>Telefonun okunduğu karenin eni / boyu (sohbet panelinin yeri için).</summary>
         public double PhoneAspect = 16.0 / 9;
         public Frame? LastReadCrop;
@@ -1281,13 +1282,18 @@ public sealed partial class RegionWatcher
             if (area.PanelLifetime.HasValue)
             {
                 double scale = area.Region.Bottom - area.Region.Top;
-                // Telefon gerçekten yakınlaşıp uzaklaşınca yeni boyutlar hemen kullanılır.
+                // Telefon gerçekten yakınlaşıp uzaklaşınca balonların yerindeki görünüşü hemen yenilenir (Balonların Üstünde).
                 if (Math.Abs(scale - state.PhoneScale) > state.PhoneScale * 0.03)
                 {
                     state.PhoneScale = scale;
                     state.SentPhoneBlocks = null;
-                    state.PhoneAnchor = null;
                 }
+                // Yanda Panel'in dayandığı telefon yeri ve yazı boyu ise el titremesiyle değişmez (PhonePanelSteady): yalnız
+                // belirgin ve kalıcı yakınlaşma/kaymada yenilenir. Ekran silinince sonraki gönderi baştan ölçer.
+                var time = now();
+                if (blocks is not { Count: > 0 }) state.PhonePanelSteady.Reset();
+                var placed = blocks is { Count: > 0 } && area.PhonePose is { } seen
+                    ? state.PhonePanelSteady.SteadyPose(seen, time) : ((GamePhoneGeometry.Pose Pose, bool Resized)?)null;
                 if (blocks is not null && state.SentPhoneBlocks is { } previous)
                     blocks = PhoneSteady.SteadyPositions(StablePhoneBlocks(blocks, previous), previous, state.PhoneAspect);
                 state.SentPhoneBlocks = blocks;
@@ -1295,10 +1301,9 @@ public sealed partial class RegionWatcher
                 if (blocks is { Count: > 0 })
                 {
                     // Yanda Panel: mesajlar telefonun yanındaki sohbet panelinde; Balonların Üstünde: her biri kendi balonunda.
-                    // Panel telefonun el titremesiyle kaymaz (PhoneSteady.SteadyPose).
-                    var pose = area.PhonePose is { } found ? PhoneSteady.SteadyPose(found, state.PhoneAnchor) : (GamePhoneGeometry.Pose?)null;
-                    if (pose is not null) state.PhoneAnchor = pose;
-                    var arranged = ArrangedPhone(blocks, pose, state.PhoneAspect, options);
+                    // Panel telefonun el titremesiyle kaymaz, yazı boyu değişmez (PhonePanelSteady).
+                    var line = state.PhonePanelSteady.SteadyLine(ScreenPhoneCard.MeasuredLine(blocks), time);
+                    var arranged = ArrangedPhone(blocks, placed?.Pose, state.PhoneAspect, options, line);
                     if (arranged.Any(item => item.Panel == ScreenPhoneCard.PanelPart.Card))
                     {
                         text = string.Join('\n', arranged.Where(item => !ScreenPhoneCard.IsBackdrop(item)).Select(item => item.Translation));
@@ -1322,11 +1327,11 @@ public sealed partial class RegionWatcher
     /// olanlar atılır). Telefonun yeri bilinmiyorsa balonlar yerinde kalır (Mac: PhoneRegionSession.arranged).
     /// </summary>
     internal static IReadOnlyList<ScreenTranslation.Item> ArrangedPhone(IReadOnlyList<ScreenTranslation.Item> items,
-        GamePhoneGeometry.Pose? pose, double aspect, PhonePanelOptions options)
+        GamePhoneGeometry.Pose? pose, double aspect, PhonePanelOptions options, double? line = null)
     {
         if (!options.Enabled || pose is not { } found || items.Count == 0) return [.. items.Where(item => !item.Unchanged)];
         var handset = new ScreenPhoneCard.Handset(found, aspect);
-        return [.. ScreenPhoneCard.Layout(items, handset, options.TextScale).Where(item => !item.Unchanged)];
+        return [.. ScreenPhoneCard.Layout(items, handset, options.TextScale, line).Where(item => !item.Unchanged)];
     }
 
     // Aynı balon hareket ederken konumu her pakette izlenir. Küçük OCR kutu farkları punto ve satır

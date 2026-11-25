@@ -248,17 +248,19 @@ public static class ScreenPhoneCard
     /// döner. Çevrilmemiş öğeler (<c>Unchanged</c>: kişi adı, "ok") kartta aslıyla görünür; kart dışındakiler sonra atılır.
     /// Balonlar arasında en az <see cref="BubbleSpacing"/> satır boşluk kalır; mesajlar telefon boyuna sığmazsa kart uzar,
     /// yine sığmazsa en eski mesajlar düşer. Kartın altında kalan başka bir çeviri kartın dışına, yanına alınır.
+    /// <paramref name="lockedLine"/>: telefondaki satır yüksekliği yerine kullanılacak kilitli ölçüm
+    /// (<see cref="PhonePanelSteady.SteadyLine"/>, #1152); verilmezse bu karenin ölçümü (<see cref="MeasuredLine"/>).
     /// </summary>
     public static IReadOnlyList<ScreenTranslation.Item> Layout(IReadOnlyList<ScreenTranslation.Item> items, Handset handset,
-                                                               double textScale = 1)
+                                                               double textScale = 1, double? lockedLine = null)
     {
         var onPhone = items.Where(item => item.Phone?.Role.InCard() == true).OrderBy(item => item.Phone!.Spot.Top).ToList();
         if (!onPhone.Any(item => !item.Unchanged)) return items;
         var others = items.Where(item => item.Phone?.Role.InCard() != true).ToList();
         var card = CardBox(handset.Bounds, [.. others.Where(item => !item.Unchanged).Select(item => item.Box)]);
         var cardWidth = card.Right - card.Left;
-        var heights = onPhone.Select(item => item.LineHeight).OrderBy(h => h).ToList();
-        var line = Math.Max(MinLine * Math.Min(MaxScale, Math.Max(MinScale, textScale)), heights[heights.Count / 2]);
+        var measured = lockedLine ?? MeasuredLine(onPhone) ?? 0;
+        var line = Math.Max(MinLine * Math.Min(MaxScale, Math.Max(MinScale, textScale)), measured);
         double pad = cardWidth * 0.05, padY = line * 0.4, spacing = line * BubbleSpacing;
         static TextLook Flat(string align, bool bold) => new(bold, false, align, false, true);
 
@@ -366,6 +368,13 @@ public static class ScreenPhoneCard
     }
 
     /// <summary>Metni sözcük sözcük en çok <paramref name="perLine"/> harflik satırlara böler (çok uzun sözcük kendi satırında kalır).</summary>
+    /// <summary>Kartta dizilecek telefon yazılarının satır yüksekliklerinin ortancası (panelin yazı boyu); yoksa null.</summary>
+    public static double? MeasuredLine(IReadOnlyList<ScreenTranslation.Item> items)
+    {
+        var heights = items.Where(item => item.Phone?.Role.InCard() == true).Select(item => item.LineHeight).OrderBy(h => h).ToList();
+        return heights.Count == 0 ? null : heights[heights.Count / 2];
+    }
+
     internal static List<string> Wrap(string text, int perLine)
     {
         var limit = Math.Max(4, perLine);

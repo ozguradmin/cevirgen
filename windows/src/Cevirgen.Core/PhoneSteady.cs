@@ -160,3 +160,107 @@ internal static class PhoneSteady
         return true;
     }
 }
+
+/// <summary>
+/// Yanda Panel'in yazı boyu ve yeri oturum boyunca kararlı (#1152, GTA 6: "telefon titreyince sohbet panelinin yazıları
+/// büyüyüp küçülüyor, balonlar yer değiştiriyor"). Panel ilk ölçümde kilitlenir: telefonun yeri ancak belirgin biçimde
+/// (boyu <see cref="SizeShare"/>'den, ortası boyunun <see cref="MoveShare"/>'inden fazla) ve kesintisiz
+/// <see cref="SettleMs"/> boyunca başka yerdeyse, satır yüksekliği ancak kilitliden <see cref="SizeShare"/>'den fazla ve
+/// kesintisiz <see cref="SettleMs"/> boyunca farklıysa yenilenir; telefonun boyu belirgin değişip yeni yer benimsenince
+/// yazı boyu yeniden ölçülür. Mac/iPhone (PhonePanelSteady, PhoneSteady.swift) ve Android (PhoneSteady.kt) aynı kuralı,
+/// aynı eşikleri kullanır.
+/// </summary>
+internal sealed class PhonePanelSteady
+{
+    internal const double SizeShare = 0.25;
+    internal const double MoveShare = 0.1;
+    internal const long SettleMs = 1000;
+
+    internal GamePhoneGeometry.Pose? Pose { get; private set; }
+    internal double? Line { get; private set; }
+    private long? poseSince;
+    private long? lineSince;
+
+    /// <summary>Panelin dayanacağı telefon yeri; <c>Resized</c>: boyu belirgin değişti (ya da ilk yer).</summary>
+    internal (GamePhoneGeometry.Pose Pose, bool Resized) SteadyPose(GamePhoneGeometry.Pose found, long now)
+    {
+        if (Pose is not { } locked)
+        {
+            Pose = found;
+            poseSince = null;
+            return (found, true);
+        }
+        if (SameSpot(found, locked))
+        {
+            poseSince = null;
+            return (locked, false);
+        }
+        if (poseSince is not { } since || now - since < SettleMs)
+        {
+            poseSince ??= now;
+            return (locked, false);
+        }
+        bool resized = Resized(found, locked);
+        Pose = found;
+        poseSince = null;
+        if (resized)
+        {
+            Line = null;
+            lineSince = null;
+        }
+        return (found, resized);
+    }
+
+    /// <summary>Panelin satır yüksekliği (<see cref="ScreenPhoneCard.MeasuredLine"/>); ölçüm yoksa kilitli değer.</summary>
+    internal double? SteadyLine(double? measured, long now)
+    {
+        if (measured is not { } value || value <= 0) return Line;
+        if (Line is not { } locked)
+        {
+            Line = value;
+            lineSince = null;
+            return value;
+        }
+        if (Math.Abs(value / locked - 1) <= SizeShare)
+        {
+            lineSince = null;
+            return locked;
+        }
+        if (lineSince is not { } since || now - since < SettleMs)
+        {
+            lineSince ??= now;
+            return locked;
+        }
+        Line = value;
+        lineSince = null;
+        return value;
+    }
+
+    /// <summary>Telefon kayboldu: sonraki bulunuşta her şey yeniden ölçülür.</summary>
+    internal void Reset()
+    {
+        Pose = null;
+        Line = null;
+        poseSince = null;
+        lineSince = null;
+    }
+
+    /// <summary>Kenarlar <see cref="PhoneSteady.PoseSlack"/> içinde ya da boy <see cref="SizeShare"/> içinde ve ortası az kaymış.</summary>
+    internal static bool SameSpot(GamePhoneGeometry.Pose a, GamePhoneGeometry.Pose b)
+    {
+        CropRegion x = a.Bounds, y = b.Bounds;
+        if (Math.Abs(x.Left - y.Left) <= PhoneSteady.PoseSlack && Math.Abs(x.Right - y.Right) <= PhoneSteady.PoseSlack
+            && Math.Abs(x.Top - y.Top) <= PhoneSteady.PoseSlack && Math.Abs(x.Bottom - y.Bottom) <= PhoneSteady.PoseSlack) return true;
+        double height = y.Bottom - y.Top, width = y.Right - y.Left;
+        if (height <= 0 || width <= 0 || Resized(a, b)) return false;
+        return Math.Abs((x.Top + x.Bottom) - (y.Top + y.Bottom)) / 2 <= MoveShare * height
+            && Math.Abs((x.Left + x.Right) - (y.Left + y.Right)) / 2 <= 2 * MoveShare * width;
+    }
+
+    /// <summary>Telefonun boyu belirgin değişti mi.</summary>
+    internal static bool Resized(GamePhoneGeometry.Pose a, GamePhoneGeometry.Pose b)
+    {
+        double x = a.Bounds.Bottom - a.Bounds.Top, y = b.Bounds.Bottom - b.Bounds.Top;
+        return y <= 0 || Math.Abs(x / y - 1) > SizeShare;
+    }
+}

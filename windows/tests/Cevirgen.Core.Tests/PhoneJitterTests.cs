@@ -92,4 +92,108 @@ public class PhoneJitterTests
         Assert.Null(PhoneSteady.Translation("On", known));
         Assert.Equal("Yeni", PhoneSteady.Translation("New rnessage", new Dictionary<string, string> { ["New message"] = "Yeni" }));
     }
+
+    // Yanda Panel'in yazı boyu ve yeri (#1152, GTA 6: "telefon titreyince panelin yazıları büyüyüp küçülüyor").
+
+    private static readonly GamePhoneGeometry.Pose Still = new(0.70, 0.19, 0.70, 0.87);
+
+    private static GamePhoneGeometry.Pose Shaken(double scale = 1, double dx = 0, double dy = 0)
+    {
+        double cy = (Still.TopY + Still.BottomY) / 2 + dy, half = (Still.BottomY - Still.TopY) / 2 * scale;
+        return new(Still.TopX + dx, cy - half, Still.BottomX + dx, cy + half);
+    }
+
+    /// <summary>Yakın kamerada el titremesi: boy ±%8, ortası boyun ±%5'i; okunan satır yüksekliği ±%20.</summary>
+    private static readonly (double Scale, double Dx, double Dy, double Line)[] Shakes =
+    [
+        (1.08, 0.004, -0.03, 1.2), (0.93, -0.006, 0.02, 0.82), (1.05, 0.003, 0.034, 1.15), (0.95, -0.002, -0.025, 0.85),
+        (1.07, 0.005, 0.01, 1.18), (0.92, -0.004, -0.034, 0.8), (1.03, 0.006, 0.028, 1.1), (0.97, -0.006, -0.01, 0.9),
+    ];
+
+    private static List<ScreenTranslation.Item> ChatItems(double line) =>
+    [
+        new("Where are you man", "Neredesin adamım bu saatte, herkes seni bekliyor", new(0.75, 0.2, 0.9, 0.2 + line), line)
+        {
+            Phone = new ScreenPhoneCard.Placement(ScreenPhoneCard.Role.Incoming, new(0.1, 0.2, 0.8, 0.23)),
+        },
+        new("On my way", "Yoldayım, beş dakikaya oradayım", new(0.75, 0.4, 0.9, 0.4 + line), line)
+        {
+            Phone = new ScreenPhoneCard.Placement(ScreenPhoneCard.Role.Outgoing, new(0.1, 0.4, 0.8, 0.43)),
+        },
+    ];
+
+    [Fact]
+    public void PanelKeepsItsSizeAndPlaceWhileThePhoneShakes()
+    {
+        var steady = new PhonePanelSteady();
+        var first = steady.SteadyPose(Still, 0);
+        Assert.True(first.Resized);
+        Assert.Equal(0.02, steady.SteadyLine(0.02, 0));
+        var drawn = ScreenPhoneCard.Layout(ChatItems(0.02), new ScreenPhoneCard.Handset(first.Pose, 16.0 / 9), lockedLine: 0.02);
+        for (int turn = 0; turn < Shakes.Length; turn++)
+        {
+            var shake = Shakes[turn];
+            long now = (turn + 1) * 450;
+            var placed = steady.SteadyPose(Shaken(shake.Scale, shake.Dx, shake.Dy), now);
+            Assert.Equal(Still, placed.Pose);
+            Assert.False(placed.Resized);
+            var measured = ScreenPhoneCard.MeasuredLine(ChatItems(0.02 * shake.Line));
+            Assert.Equal(0.02 * shake.Line, measured);
+            var line = steady.SteadyLine(measured, now);
+            Assert.Equal(0.02, line);
+            var laid = ScreenPhoneCard.Layout(ChatItems(0.02 * shake.Line), new ScreenPhoneCard.Handset(placed.Pose, 16.0 / 9),
+                                              lockedLine: line);
+            Assert.Equal(drawn, laid);
+        }
+    }
+
+    [Fact]
+    public void PanelFollowsARealZoomAfterItLastsASecond()
+    {
+        var steady = new PhonePanelSteady();
+        steady.SteadyPose(Still, 0);
+        steady.SteadyLine(0.02, 0);
+        var near = Shaken(scale: 1.4);
+        Assert.Equal(Still, steady.SteadyPose(near, 450).Pose);
+        Assert.Equal(Still, steady.SteadyPose(near, 900).Pose);
+        Assert.Equal(Still, steady.SteadyPose(Still, 1350).Pose);
+        Assert.Equal(Still, steady.SteadyPose(near, 1800).Pose);
+        Assert.Equal(Still, steady.SteadyPose(near, 2250).Pose);
+        var zoomed = steady.SteadyPose(near, 2800);
+        Assert.Equal(near, zoomed.Pose);
+        Assert.True(zoomed.Resized);
+        Assert.Equal(0.028, steady.SteadyLine(0.028, 2800));
+        Assert.Equal(0.028, steady.SteadyLine(0.025, 3250));
+    }
+
+    [Fact]
+    public void PanelFollowsARealMoveWithoutChangingItsTextSize()
+    {
+        var steady = new PhonePanelSteady();
+        steady.SteadyPose(Still, 0);
+        steady.SteadyLine(0.02, 0);
+        var moved = Shaken(dx: -0.2);
+        Assert.Equal(Still, steady.SteadyPose(moved, 450).Pose);
+        var placed = steady.SteadyPose(moved, 1450);
+        Assert.Equal(moved, placed.Pose);
+        Assert.False(placed.Resized);
+        Assert.Equal(0.02, steady.SteadyLine(0.023, 1450));
+        Assert.Equal(moved, steady.SteadyPose(Shaken(1.06, -0.196, 0.02), 1900).Pose);
+    }
+
+    [Fact]
+    public void WrongFirstTextSizeIsCorrectedOnlyWhenTheNewSizeLasts()
+    {
+        var steady = new PhonePanelSteady();
+        Assert.Equal(0.014, steady.SteadyLine(0.014, 0));
+        Assert.Equal(0.014, steady.SteadyLine(null, 200));
+        Assert.Equal(0.014, steady.SteadyLine(0.021, 450));
+        Assert.Equal(0.014, steady.SteadyLine(0.015, 900));
+        Assert.Equal(0.014, steady.SteadyLine(0.021, 1350));
+        Assert.Equal(0.014, steady.SteadyLine(0.022, 2000));
+        Assert.Equal(0.021, steady.SteadyLine(0.021, 2400));
+        steady.Reset();
+        Assert.Null(steady.Line);
+        Assert.True(steady.SteadyPose(Shaken(dx: 0.1), 2500).Resized);
+    }
 }
