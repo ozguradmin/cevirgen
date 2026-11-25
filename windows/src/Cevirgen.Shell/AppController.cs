@@ -2115,10 +2115,15 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         // uygulaması kapalıysa ya da bilgisayarı arıyorsa "TV'de test et"e TV'de hiçbir şey çıkmıyordu (Samsung 65S95F).
         // Önce TV uygulaması açılır (Samsung'da geliştirici bağlantısıyla) ve bağlanması beklenir.
         if (ShowsOnTv && HasTv && tv is { Brand: not TvBrand.AndroidTv } target && server.ConnectedClients == 0)
-            await OpenTvAppForTestAsync(target);
-        // Android TV uygulaması bilgisayarı kendisi bulur; eşleştirme onayı da gerekebilir. Yazı TV bağlanınca gitsin.
-        else if (ShowsOnTv && HasTv && tv is { Brand: TvBrand.AndroidTv } && server.ConnectedClients == 0)
-            await WaitForTvForTestAsync(TestPairWait);
+            await OpenTvAppForTestAsync(target, TestTvWait);
+        // Android TV: Çevirgen TV'de (ADB ile, adresi biliniyorsa) açılır; eşleştirme onayı da gerekebilir. Yazı TV bağlanınca
+        // gitsin. Çevirgen: eskiden yalnız bekleniyordu; TV'de uygulama kapalıysa deneme hiçbir yere gitmiyor, kullanıcı TV'de
+        // uygulamayı elle açması gerektiğini bilmiyordu (2026-11-25).
+        else if (ShowsOnTv && HasTv && tv is { Brand: TvBrand.AndroidTv } android && server.ConnectedClients == 0)
+        {
+            if (android.Host.Length > 0) await OpenTvAppForTestAsync(android, TestPairWait);
+            else await WaitForTvForTestAsync(TestPairWait);
+        }
         TestTvNotConnected = ShowsOnTv && HasTv && server.ConnectedClients == 0;
         SendTestSubtitle();
     }
@@ -2153,7 +2158,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     /// TV uygulamasını açar ve bağlanmasını bekler. Çeviri sürüyorsa bekçi hemen yeniden dener; sürmüyorsa geçici bir
     /// bekçi kurulur, bekleme bitince kapanır.
     /// </summary>
-    private async Task OpenTvAppForTestAsync(LgTv target)
+    private async Task OpenTvAppForTestAsync(LgTv target, TimeSpan wait)
     {
         IKeeper? temporary = null;
         if (keeper is not null) keeper.Reconnect();
@@ -2168,7 +2173,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         OpeningTvAppForTest = true;
         try
         {
-            var deadline = DateTime.UtcNow + TestTvWait;
+            var deadline = DateTime.UtcNow + wait;
             while (server.ConnectedClients == 0 && DateTime.UtcNow < deadline) await Task.Delay(250);
         }
         finally

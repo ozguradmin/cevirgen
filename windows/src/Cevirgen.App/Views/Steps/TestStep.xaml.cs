@@ -102,9 +102,27 @@ public partial class TestStep : UserControl
         AutoOpenNote.Visibility = Visibility.Collapsed;
     }
 
-    private void OnSend(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Çevirgen: deneme, TV uygulaması kapalıysa önce onu açar ve bağlanmasını (gerekirse eşleştirme onayını) bekler
+    /// (<see cref="AppController.SendTestSubtitleAsync"/>). Eskiden yalnız gönderiyordu; TV'de Çevirgen kapalıysa hiçbir şey
+    /// çıkmıyor, kullanıcı TV'de uygulamayı elle açması gerektiğini bilmiyordu (2026-11-25). Gitmezse ne yapılacağı yazılır.
+    /// </summary>
+    private async void OnSend(object sender, RoutedEventArgs e)
     {
-        Controller.SendTestSubtitle();
+        var text = Localizer.Current;
+        Send.IsEnabled = false;
+        Theme.PerdeProps.SetBusy(Send, true);
+        Send.Content = Controller.Settings.Output == SubtitleOutput.Computer ? Send.Content : "TV'de Çevirgen açılıyor…";
+        try { await Controller.SendTestSubtitleAsync(); }
+        catch (Exception error) { StartupGuard.Log("Deneme altyazısı gönderilemedi", error); }
+        if (!IsLoaded) return;
+        Theme.PerdeProps.SetBusy(Send, false);
+        Send.IsEnabled = true;
+        Send.Content = text["Send Test Subtitle"];
+        if (Controller.Settings.Output != SubtitleOutput.Computer)
+            Hint.Text = Controller.ShowTestTvHint
+            ? "Deneme altyazısı TV'ye gitmedi: TV'deki Çevirgen bağlanmadı. TV'de Çevirgen uygulamasını aç. TV'de 6 haneli kod çıkarsa onu bir yere yazma; bu bilgisayarda açılan \"Bu TV eşleşsin mi?\" penceresinde onayla ve yeniden gönder."
+            : text["If you don't see it, make sure the Çevirgen TV app is open and connect the TV again."];
         sent = true;
         Send.Style = (Style)FindResource("SecondaryButton");
         Question.Visibility = Visibility.Visible;

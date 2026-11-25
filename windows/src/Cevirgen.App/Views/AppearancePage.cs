@@ -304,7 +304,12 @@ public sealed class AppearancePage : UserControl
         foreach (var row in new[] { bold, band, previous, names, nameColors, regionsAbove }) switches.Children.Add(row);
         stack.Children.Add(switches);
 
-        var test = ScreenKit.Button("TV'de dene", "OutlineButton", (_, _) => controller.SendTestSubtitle());
+        // Çevirgen: TV uygulaması kapalıysa önce açılır (SendTestSubtitleAsync); eskiden TV'de Çevirgen kapalıysa hiçbir şey çıkmıyordu.
+        var test = ScreenKit.Button("TV'de dene", "OutlineButton", async (_, _) =>
+        {
+            try { await controller.SendTestSubtitleAsync(); }
+            catch (Exception error) { StartupGuard.Log("Deneme altyazısı gönderilemedi", error); }
+        });
         test.Margin = Sp.T("0", "m", "0", "0");
         stack.Children.Add(test);
         return stack;

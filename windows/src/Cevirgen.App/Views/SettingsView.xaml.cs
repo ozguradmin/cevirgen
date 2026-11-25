@@ -1301,9 +1301,10 @@ public partial class SettingsView : UserControl
 
     private async void OnTest(object sender, RoutedEventArgs e)
     {
-        controller.SendTestSubtitle();
-        // Eşli TV'ye ulaşılamıyorsa deneme altyazısı gitmez; kart bunu söyler (adres değişmiş olabilir).
-        await controller.EnsureTvReachableAsync();
+        // Çevirgen: TV uygulaması kapalıysa önce açılır, bağlanması (gerekirse eşleştirme onayı) beklenir; ulaşılamayan TV'yi
+        // kart söyler (adres değişmiş olabilir).
+        try { await controller.SendTestSubtitleAsync(); }
+        catch (Exception error) { StartupGuard.Log("Deneme altyazısı gönderilemedi", error); }
     }
 
     /// <summary>~10 sn'de bir eşli TV'nin adresine bakar (kart görünürken).</summary>

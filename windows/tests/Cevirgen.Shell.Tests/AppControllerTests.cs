@@ -1670,6 +1670,28 @@ public class AppControllerRunTests
         controller.Dispose();
     }
 
+    /// <summary>
+    /// Çevirgen (2026-11-25): Android TV'de deneme altyazısı TV uygulamasını açmıyordu (yalnız bağlanması bekleniyordu); TV'de
+    /// Çevirgen kapalıysa hiçbir şey çıkmıyordu. Adresi bilinen Android TV'de uygulama bekçiyle açılır, sonra bekçi durur.
+    /// </summary>
+    [Fact]
+    public async Task TestOnTvOpensTheAndroidTvApp()
+    {
+        var services = new FakeServices();
+        var store = new MemoryStore();
+        store.Save(StoreKeys.Tv, new LgTv("Oturma Odası TV'si", "127.0.0.1", TvBrand.AndroidTv));
+        // Android TV'de eşleşme anahtarı boş kaydedilir (bilgisayar TV'yi denetlemez).
+        store.Save(StoreKeys.TvKey, "");
+        var controller = AppControllerTests.Make(services, store);
+        controller.TestPairWait = TimeSpan.FromMilliseconds(300);
+        await controller.SendTestSubtitleAsync();
+        var keeper = Assert.Single(services.Keepers);
+        Assert.Equal(TvBrand.AndroidTv, Assert.Single(services.KeeperTvs).Brand);
+        Assert.False(keeper.Running);
+        Assert.True(controller.ShowTestTvHint);
+        controller.Dispose();
+    }
+
     /// <summary>TV'nin eşleştirme isteği (POST /pair) en çok 3 saniye içinde kabul edildi mi.</summary>
     private static async Task<bool> PairingAcceptedAsync(AppController controller)
     {
