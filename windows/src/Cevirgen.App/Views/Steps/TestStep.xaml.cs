@@ -11,6 +11,8 @@ namespace Cevirgen.App.Views.Steps;
 public partial class TestStep : UserControl
 {
     private bool sent;
+    /// <summary>Abone olunan denetleyici: sayfadan çıkınca DataContext boşalsa da aboneliği bununla kaldırırız.</summary>
+    private AppController? subscribed;
 
     public TestStep()
     {
@@ -19,11 +21,18 @@ public partial class TestStep : UserControl
         Preview.SetLine("Deniz:", "Hazır olduğunda haber ver, gidiyoruz.", 15);
         Loaded += (_, _) =>
         {
+            if (DataContext is not AppController controller) return;
             ShowTarget();
             ShowTimeline();
-            Controller.PropertyChanged += OnChanged;
+            if (subscribed is not null) subscribed.PropertyChanged -= OnChanged;
+            subscribed = controller;
+            controller.PropertyChanged += OnChanged;
         };
-        Unloaded += (_, _) => { if (DataContext is AppController controller) controller.PropertyChanged -= OnChanged; };
+        Unloaded += (_, _) =>
+        {
+            if (subscribed is not null) subscribed.PropertyChanged -= OnChanged;
+            subscribed = null;
+        };
     }
 
     private void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -39,6 +48,8 @@ public partial class TestStep : UserControl
     /// </summary>
     private void ShowTimeline()
     {
+        // Sayfadan çıkıldıktan sonra kuyruktan gelen çağrı: DataContext boş olabilir (#1189).
+        if (DataContext is not AppController) return;
         var text = Localizer.Current;
         var onComputer = Controller.Settings.Output == SubtitleOutput.Computer;
         var picture = Controller.Console is not null || Controller.IsXbox || Controller.CanStart;
