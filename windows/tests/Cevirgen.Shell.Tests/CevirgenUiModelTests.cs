@@ -199,6 +199,23 @@ public sealed class CevirgenUiModelTests
         controller.Dispose();
     }
 
+    /// <summary>Eski sürümde Bilgisayar'a geçip TV'de kalmış altyazı açılışta bir kez bu ekrana alınır; sonra kullanıcının seçimi kalır.</summary>
+    [Fact]
+    public void APcSetupLeftOnTheTvMovesToThisComputerOnce()
+    {
+        var store = new MemoryStore();
+        store.Save(StoreKeys.SetupPlatform, SetupPlatform.Pc);
+        var settings = new MemorySettings();
+        settings.Save(new UserSettings { FrameSource = FrameSource.CaptureWindow, Output = SubtitleOutput.Tv });
+        var first = AppControllerTests.Make(store: store, settings: settings);
+        Assert.Equal(SubtitleOutput.Computer, first.Settings.Output);
+        first.Settings = first.Settings with { Output = SubtitleOutput.Tv };
+        first.Dispose();
+        var second = AppControllerTests.Make(store: store, settings: settings);
+        Assert.Equal(SubtitleOutput.Tv, second.Settings.Output);
+        second.Dispose();
+    }
+
     [Fact]
     public void CancellingAPlatformChangeReturnsHomeWithoutChangingAnything()
     {

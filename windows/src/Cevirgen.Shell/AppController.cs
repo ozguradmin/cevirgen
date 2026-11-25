@@ -165,6 +165,14 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         if (settings.ActiveAreaProfile is not null || settings.GeneralAreas is not null) settings = settings.WithGeneralAreas();
         // Bir oyunun profiline kaydedilmiş ek alanlar genel alanlarda kalmışsa çıkar (başka oyunda okunmasın).
         settings = settings.WithoutProfileOnlyAreas();
+        // Çevirgen: eski sürümde platform Bilgisayar'a geçince altyazı TV'de kalıyordu (oyunun üstünde görünmüyor, ana ekran
+        // "TV uygulamasını aç" diyordu). Bilgisayar platformunda TV'de kalmış altyazı bir kez bu ekrana alınır.
+        if (store.Load<SetupPlatform?>(StoreKeys.SetupPlatform) == SetupPlatform.Pc && settings.Output == SubtitleOutput.Tv
+            && store.Load<bool?>(StoreKeys.PcOutputMigrated) != true)
+        {
+            settings = settings with { Output = SubtitleOutput.Computer };
+            store.Save(StoreKeys.PcOutputMigrated, true);
+        }
         services.Translation.SelectCpuThreads(settings.CpuTranslationThreads);
         services.Translation.SelectDevice(settings.TranslationDevice);
         // Listede olmayan model varsayılana döndüyse ayar hemen kaydedilir.

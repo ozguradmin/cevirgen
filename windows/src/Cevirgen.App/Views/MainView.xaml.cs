@@ -33,7 +33,7 @@ public partial class MainView : UserControl
     private readonly StackPanel emptyDevices = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = Sp.T("0", "l", "0", "0") };
     private readonly TextBlock emptyMessage = new()
     {
-        Text = "Çeviri başlayınca TV görüntüsü burada görünür", FontSize = 15, HorizontalAlignment = HorizontalAlignment.Center,
+        Text = "Çeviri başlayınca oyunun görüntüsü burada görünür", FontSize = 15, HorizontalAlignment = HorizontalAlignment.Center,
         TextAlignment = TextAlignment.Center, Margin = Sp.T("0", "0", "0", "m"), Foreground = PerdeColors.Frozen(Color.FromArgb(0xD9, 0xFF, 0xFF, 0xFF)),
     };
     private readonly Button startButton = new() { Content = "Çeviriyi başlat", HorizontalAlignment = HorizontalAlignment.Center };
@@ -250,7 +250,7 @@ public partial class MainView : UserControl
     {
         var text = Localizer.Current;
         var running = controller.IsRunning && !controller.DemoMode;
-        GameTitle.Text = controller.DemoMode ? text["Demo Mode"] : controller.PlayedGame ?? (running ? "Oyun tanınmadı" : "TV görüntüsü");
+        GameTitle.Text = controller.DemoMode ? text["Demo Mode"] : controller.PlayedGame ?? (running ? "Oyun tanınmadı" : "Oyun görüntüsü");
         GameChangeButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
         GameChangeButton.Content = controller.PlayedGame is null ? "Oyunu seç" : "Değiştir";
         var asking = controller.AskingGame;

@@ -49,6 +49,8 @@ public static class StoreKeys
     public const string StreamBackground = "streamBackground";
     /// <summary>Çevirgen: ilk açılışta seçilen platform (<see cref="SetupPlatform"/>; Bilgisayar ile Diğer'i ayırır).</summary>
     public const string SetupPlatform = "setupPlatform";
+    /// <summary>Çevirgen: Bilgisayar platformunda TV'de kalmış altyazı bir kez bu ekrana alındı.</summary>
+    public const string PcOutputMigrated = "pcOutputMigrated";
 }
 
 /// <summary>

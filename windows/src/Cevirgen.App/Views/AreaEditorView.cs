@@ -398,7 +398,7 @@ internal sealed class AreaSurface : FrameworkElement
         guide.Freeze();
         dc.DrawRectangle(null, guide, new Rect(size.Width * 0.05, size.Height * 0.05, size.Width * 0.9, size.Height * 0.9));
         var font = TryFindResource("TextFont") as FontFamily ?? new FontFamily("Segoe UI");
-        var text = new FormattedText("Çeviri başlayınca TV görüntüsü burada görünür", CultureInfo.GetCultureInfo("tr-TR"), FlowDirection.LeftToRight,
+        var text = new FormattedText("Çeviri başlayınca oyunun görüntüsü burada görünür", CultureInfo.GetCultureInfo("tr-TR"), FlowDirection.LeftToRight,
             new Typeface(font, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 15, Fill(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF)),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(text, new Point((size.Width - text.Width) / 2, size.Height * 0.42 - text.Height / 2));
