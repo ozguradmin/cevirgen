@@ -91,6 +91,10 @@
                     <TextBlock FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,l,0'}">
                         <Run Text="Okuma hızı ort." /> <Run x:Name="SpeedValue" FontFamily="{StaticResource MonoFont}" Foreground="{DynamicResource textBrush}" />
                     </TextBlock>
+                    <!-- Çevirgen: çeviri modu (Kaliteli / Hızlı); MainView.ShowMode kurar. -->
+                    <StackPanel x:Name="ModeRow" Orientation="Horizontal" VerticalAlignment="Center" Margin="{t:Sp '0,0,l,0'}">
+                        <TextBlock Text="Çeviri" FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,xs,0'}" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="{t:Sp '0,0,l,0'}">
                         <TextBlock Text="Görünüm" FontSize="13" Foreground="{DynamicResource mutedBrush}" VerticalAlignment="Center" Margin="{t:Sp '0,0,xxs,0'}" />
                         <Button x:Name="LookLink" Style="{StaticResource TextLink}" Click="OnLook" />

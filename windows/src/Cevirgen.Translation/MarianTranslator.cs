@@ -38,6 +38,15 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
     /// <summary>Motor bir kez açılamadıysa nedeni; yeniden denenmez (yerel DLL süreç içinde sonradan yüklenmez).</summary>
     private Exception? _engineFailure;
     private bool _disposed;
+    private volatile bool _fast;
+
+    /// <summary>
+    /// Çevirgen: hızlı mod (Canlı › Hızlı). Model tek adaylı aramayla çevirir. Önce kaliteli çeviri önbelleğine bakılır;
+    /// hızlı çeviriler ayrı anahtarla saklanır (<see cref="FastKey"/>), Kaliteli'ye dönünce o satırlar yeniden çevrilir.
+    /// </summary>
+    public bool Fast { get => _fast; set => _fast = value; }
+
+    internal static string FastKey(string key) => "fast|" + key;
 
     /// <summary>
     /// Motor açılamadı (ör. CTranslate2 çalışma zamanı eksik). Bir kez, arka plan iş parçacığından çağrılır;
@@ -145,13 +154,16 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
         // Konuşan etiketlerinden öğrenilen adlar cümle içinde de korunur ("Price, get down!"; #287).
         var glossary = _glossary.Current.KeepingNames(_speakers.Protected, context is null ? sentence : context + "\n" + sentence);
         var key = FreeTranslation.CacheKey(sentence, context, glossary);
+        var fast = _fast;
         if (_cache.TryGet(key, out var known)) return known;
+        if (fast && _cache.TryGet(FastKey(key), out var quick)) return quick;
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Beklerken başka bir çağrı aynı cümleyi çevirmiş olabilir.
             if (_cache.TryGet(key, out var cached)) return cached;
+            if (fast && _cache.TryGet(FastKey(key), out var quickCached)) return quickCached;
             if (_engineFailure is { } failure) throw new TranslatorException(TranslatorStatus.EngineFailed, failure);
             var engine = _engine ??= CreateEngine();
             var names = _names.Keys.ToHashSet(StringComparer.Ordinal);
@@ -162,7 +174,7 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
             {
                 translation = await Task.Run(() => FreeTranslation.Translate(sentence, context, glossary,
                     text => SubtitleSegmenter.NormalizeCase(text, names),
-                    input => engine.Translate(input, cancellationToken)), cancellationToken).ConfigureAwait(false);
+                    input => engine.Translate(input, fast, cancellationToken)), cancellationToken).ConfigureAwait(false);
             }
             catch (IOException error)
             {
@@ -172,7 +184,7 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
                 throw new TranslatorException(TranslatorStatus.EngineFailed, error);
             }
             // Sıra bırakılmadan önce önbelleğe yazılır; sırada bekleyen aynı cümle yeniden çevrilmez.
-            _cache.Store(key, translation);
+            _cache.Store(fast ? FastKey(key) : key, translation);
             return translation;
         }
         finally
@@ -220,4 +232,7 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
 internal interface ISentenceEngine : IDisposable
 {
     string Translate(string sentence, CancellationToken cancellationToken);
+
+    /// <summary>Çevirgen: hızlı modda tek adaylı arama; desteklemeyen çekirdek her zamanki gibi çevirir.</summary>
+    string Translate(string sentence, bool fast, CancellationToken cancellationToken) => Translate(sentence, cancellationToken);
 }

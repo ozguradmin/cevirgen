@@ -536,6 +536,7 @@ public sealed class LiveServices : IAppServices
         private Task? cudaDownload;
         private TranslationDevice device = TranslationDevice.Cpu;
         private int cpuThreads = CpuThreadOptions.Default;
+        private volatile bool fast;
         private int failed;
 
         public event Action? EngineFailure;
@@ -566,6 +567,13 @@ public sealed class LiveServices : IAppServices
             translator?.Dispose();
             translator = null;
             Interlocked.Exchange(ref failed, 0);
+        }
+
+        // Hızlı mod motoru yeniden açmaz: arama genişliği her istekte gönderilir.
+        public void SelectFast(bool selected)
+        {
+            fast = selected;
+            if (translator is { } current) current.Fast = selected;
         }
 
         public bool EngineFailed => Volatile.Read(ref failed) != 0;
@@ -632,6 +640,7 @@ public sealed class LiveServices : IAppServices
                 throw;
             }
             created.EngineFailed += Fail;
+            created.Fast = fast;
             translator = created;
             // WarmUpAsync hata fırlatmaz; motor açılamazsa EngineFailed ile bildirir.
             _ = created.WarmUpAsync();

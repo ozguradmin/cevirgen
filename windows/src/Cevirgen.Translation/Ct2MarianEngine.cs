@@ -98,7 +98,10 @@ internal sealed class Ct2MarianEngine : ISentenceEngine
         catch { Stop(process); throw; }
     }
 
-    public string Translate(string sentence, CancellationToken cancellationToken)
+    public string Translate(string sentence, CancellationToken cancellationToken) => Translate(sentence, false, cancellationToken);
+
+    /// <summary>Çevirgen: <paramref name="fast"/> ise tek adaylı arama (beam 1); kalite biraz düşer, süre kabaca yarıya iner.</summary>
+    public string Translate(string sentence, bool fast, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
@@ -126,7 +129,8 @@ internal sealed class Ct2MarianEngine : ISentenceEngine
                 onGpuFallback?.Invoke();
             }
         }
-        try { return TranslateCurrent(sentence, cancellationToken); }
+        var size = fast ? 1 : beams;
+        try { return TranslateCurrent(sentence, size, cancellationToken); }
         catch (Exception error) when (gpuActive && error is not OperationCanceledException)
         {
             Debug.WriteLine($"CTranslate2 CUDA translation failed: {error}");
@@ -134,11 +138,11 @@ internal sealed class Ct2MarianEngine : ISentenceEngine
             gpuActive = false;
             onGpuFallback?.Invoke();
             worker = Start("cpu");
-            return TranslateCurrent(sentence, cancellationToken);
+            return TranslateCurrent(sentence, size, cancellationToken);
         }
     }
 
-    private string TranslateCurrent(string sentence, CancellationToken cancellationToken)
+    private string TranslateCurrent(string sentence, int beams, CancellationToken cancellationToken)
     {
         // Sözlükte olmayan karakterler zararsız karşılığına (é → e, — → –); çıktıdaki ⁇ kaynaktan doldurulur.
         var tokens = tokenizer.EncodeTokens(UnknownPieces.Simplify(sentence, tokenizer.Knows));

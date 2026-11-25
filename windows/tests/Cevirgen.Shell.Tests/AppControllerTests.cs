@@ -73,6 +73,8 @@ internal sealed class FakeTranslation : ITranslationModel
     public TranslationDevice SelectedDevice { get; private set; } = TranslationDevice.Cpu;
     public event Action? GpuFallback;
     public void SelectDevice(TranslationDevice device) => SelectedDevice = device;
+    public bool SelectedFast { get; private set; }
+    public void SelectFast(bool fast) => SelectedFast = fast;
     public void FallBackToCpu() => GpuFallback?.Invoke();
     public bool Installed { get; set; } = true;
     public int Downloads { get; private set; }
@@ -1226,6 +1228,20 @@ public class AppControllerRunTests
 
         controller.Settings = controller.Settings with { TranslationDevice = TranslationDevice.Cpu };
         Assert.False(controller.GpuFallbackWarning);
+        controller.Dispose();
+    }
+
+    [Fact]
+    public void FastTranslationModeReachesTheFreeModel()
+    {
+        var (controller, services, _) = Ready();
+        Assert.False(controller.Settings.FastTranslation);
+        Assert.False(services.Translation.SelectedFast);
+
+        controller.Settings = controller.Settings with { FastTranslation = true };
+        Assert.True(services.Translation.SelectedFast);
+        controller.Settings = controller.Settings with { FastTranslation = false };
+        Assert.False(services.Translation.SelectedFast);
         controller.Dispose();
     }
 

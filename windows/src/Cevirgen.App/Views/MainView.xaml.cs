@@ -80,6 +80,7 @@ public partial class MainView : UserControl
         ShowFeed();
         ShowStats();
         ShowLook();
+        ShowMode();
         ShowNotices();
         OnTick();
     }
@@ -100,6 +101,7 @@ public partial class MainView : UserControl
         if (e.PropertyName is nameof(AppController.Settings) or nameof(AppController.SubtitlesHidden))
         {
             ShowLook();
+            ShowMode();
             ShowStage();
         }
         if (e.PropertyName is nameof(AppController.IsRunning) or nameof(AppController.DemoMode) or nameof(AppController.PlayedGame) or nameof(AppController.AskingGame)
@@ -283,6 +285,26 @@ public partial class MainView : UserControl
             : string.Create(CultureInfo.InvariantCulture, $"– / {ReadingSpeed.MaxCps:0} kr/sn");
         FeedCount.Text = string.Create(CultureInfo.InvariantCulture, $"{stats.Lines} satır · {stats.Corrections} düzeltme");
         ShowHideHint();
+    }
+
+    private Border? modePicker;
+
+    /// <summary>
+    /// Çevirgen: çeviri modu. Kaliteli: ücretsiz model 4 adaylı arar, yarım satır kısa süre beklenir (Gelişmiş'teki
+    /// süreler). Hızlı: tek adaylı arama, yarım satır beklenmez (<see cref="UserSettings.FastTranslation"/>).
+    /// </summary>
+    private void ShowMode()
+    {
+        var fast = controller.Settings.FastTranslation ? 1 : 0;
+        if (modePicker is null)
+        {
+            modePicker = ScreenKit.Segmented("Çeviri modu", ["Kaliteli", "Hızlı"], fast,
+                index => controller.Settings = controller.Settings with { FastTranslation = index == 1 });
+            modePicker.VerticalAlignment = VerticalAlignment.Center;
+            modePicker.ToolTip = "Kaliteli: daha doğru çeviri.\nHızlı: altyazı daha erken gelir; ücretsiz modelde çeviri biraz daha kaba olabilir, yarım cümle de görebilirsin.";
+            ModeRow.Children.Add(modePicker);
+        }
+        if (modePicker.Child is Panel row && row.Children[fast] is RadioButton chosen && chosen.IsChecked != true) chosen.IsChecked = true;
     }
 
     /// <summary>Görünüm bağlantısı: "İngilizcenin üstünde · 32 px · kenarlık 2 px".</summary>

@@ -342,6 +342,14 @@ public sealed record UserSettings
     public int MisreadWaitMs { get; init; } = 400;
     /// <summary>Gelişmiş: yarım görünen satırın tamamı için en çok bekletileceği süre (ms; 0: beklenmez).</summary>
     public int PartialWaitMs { get; init; } = SubtitlePipeline.CleanWaitMs;
+    /// <summary>
+    /// Çevirgen: Canlı'daki "Hızlı" çeviri modu. Ücretsiz model tek adaylı aramayla çevirir (4 yerine 1; satır başına
+    /// süre kabaca yarıya iner), yarım görünen satır beklenmez, bozuk okuma en çok <see cref="FastMisreadWaitMs"/> bekler.
+    /// Kapalıyken (Kaliteli) eskisi gibi: Gelişmiş'teki bekleme süreleri ve 4 adaylı arama.
+    /// </summary>
+    public bool FastTranslation { get; init; }
+    /// <summary>Hızlı modda bozuk okunan satırın en uzun bekleme süresi (ms).</summary>
+    public const int FastMisreadWaitMs = 200;
     public string SourceLanguage { get; init; } = "en";
     public string TargetLanguage { get; init; } = "tr";
     /// <summary>Eski ayar dosyalarında bulunmaz; varsayılan CPU'dur. GPU yalnız NVIDIA CUDA içindir.</summary>
@@ -888,6 +896,8 @@ public interface ITranslationModel
     /// <summary>Yeni çevirmen oluşturulurken kullanılacak aygıt.</summary>
     void SelectDevice(TranslationDevice device) { }
     void SelectCpuThreads(int threads) { }
+    /// <summary>Çevirgen: hızlı çeviri (tek adaylı arama) açık mı; kurulu çevirmen de hemen değişir.</summary>
+    void SelectFast(bool fast) { }
 
     /// <summary>Model kurulu ama çeviri motoru bu bilgisayarda açılamadı (ör. CTranslate2 çalışma zamanı eksik).</summary>
     bool EngineFailed => false;
