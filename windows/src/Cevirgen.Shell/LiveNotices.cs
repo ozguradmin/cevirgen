@@ -89,6 +89,9 @@ public sealed record LiveNoticeState
     public bool AutoScreenTextNotice { get; init; }
     /// <summary>Çevirgen: seçilen pencere bulunamıyor (çeviri sürerken).</summary>
     public bool WindowMissing { get; init; }
+    /// <summary>Çevirgen: görüntü bir pencereden okunuyor (Bilgisayar, Diğer). Oyun arka plana geçince (tam ekran oyun küçülür)
+    /// görüntünün durması beklenen hâldir; "görüntü gelmiyor" uyarısı çıkmaz (eskiden "PS5 görüntüsü gelmiyor" diyordu).</summary>
+    public bool ReadsWindow { get; init; }
 }
 
 /// <summary>Canlı ekranın bildirimleri: hangileri görünür, önemleri ve sıraları (arayüzden bağımsız; sınanır).</summary>
@@ -125,7 +128,7 @@ public static class LiveNotices
         if (running)
             switch (state.Problem)
             {
-                case HomeProblemKind.PictureStopped when !state.WindowMissing: kinds.Add(LiveNoticeKind.PictureStopped); break;
+                case HomeProblemKind.PictureStopped when !state.WindowMissing && !state.ReadsWindow: kinds.Add(LiveNoticeKind.PictureStopped); break;
                 case HomeProblemKind.SubtitlesOff: kinds.Add(LiveNoticeKind.SubtitlesOff); break;
                 case HomeProblemKind.MenuOpen: kinds.Add(LiveNoticeKind.MenuOpen); break;
             }

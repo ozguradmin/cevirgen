@@ -44,6 +44,7 @@ public sealed partial class AppController
             RemotePlayPopup = ShowsRemotePlayHint,
             AutoScreenTextNotice = ShowsAutoScreenTextNotice,
             WindowMissing = CaptureWindowMissing,
+            ReadsWindow = ReadsCaptureWindow || ReadsRemotePlayWindow,
         };
     }
 

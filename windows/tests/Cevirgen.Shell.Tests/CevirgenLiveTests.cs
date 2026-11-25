@@ -187,6 +187,10 @@ public sealed class CevirgenLiveTests
         Assert.DoesNotContain(LiveNoticeKind.PictureStopped, LiveNotices.For(missing));
         Assert.Equal(LiveNoticeLevel.Blocking, LiveNotices.Level(LiveNoticeKind.WindowMissing));
         Assert.DoesNotContain(LiveNoticeKind.WindowMissing, LiveNotices.For(missing with { Running = false }));
+        // Pencereden okurken (oyun arka planda) görüntünün durması uyarı değildir.
+        var background = new LiveNoticeState { Running = true, ReadsWindow = true, Problem = HomeProblemKind.PictureStopped };
+        Assert.DoesNotContain(LiveNoticeKind.PictureStopped, LiveNotices.For(background));
+        Assert.Contains(LiveNoticeKind.PictureStopped, LiveNotices.For(background with { ReadsWindow = false }));
     }
 
     [Fact]

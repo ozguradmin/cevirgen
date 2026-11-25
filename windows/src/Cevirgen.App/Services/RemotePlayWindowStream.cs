@@ -25,7 +25,8 @@ namespace Cevirgen.App.Services;
 public sealed class RemotePlayWindowStream : IStreamSession
 {
     /// <summary>Saniyedeki kare. Okuma bir önceki kare bitmeden yenisini zaten almaz; fazlası yalnız işlemciyi yorar.</summary>
-    private const int FramesPerSecond = 10;
+    // Çevirgen: 10'dan 15'e: pencereden okunan oyunda altyazı daha erken yakalanıp daha erken kalksın (PS5 akışı ~14 kare/sn).
+    private const int FramesPerSecond = 15;
     /// <summary>Remote Play'in küçük pencereleri (giriş, denetim) oyun penceresi sanılmasın.</summary>
     private const int MinimumWidth = 400, MinimumHeight = 250;
     private static readonly TimeSpan SearchInterval = TimeSpan.FromSeconds(2);
