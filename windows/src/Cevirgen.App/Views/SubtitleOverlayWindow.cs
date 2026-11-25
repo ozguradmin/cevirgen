@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 using System.ComponentModel;
+using System.Globalization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -296,6 +297,7 @@ public sealed partial class SubtitleOverlayWindow : Window
         var visible = controller.ShowsOnComputer && (lines.Count > 0 || regions.Count > 0) && (!controller.SubtitlesHidden || adjusting);
         if (visible && !IsVisible) Show();
         else if (!visible && IsVisible) Hide();
+        if (visible) Anchor(lines);
         // Arada öne gelen tam ekran/üstte duran pencere altyazıyı örtmüş olabilir; odak alınmadan yeniden üste konur.
         if (visible) topmost.RaiseThrottled();
 
@@ -304,6 +306,62 @@ public sealed partial class SubtitleOverlayWindow : Window
         {
             timer.Interval = TimeSpan.FromSeconds(Math.Max(0.01, next - now));
             timer.Start();
+        }
+    }
+
+    /// <summary>Pencere İngilizce satıra göre taşındı (kayıtlı yerinde değil).</summary>
+    private bool anchored;
+    private string? anchorNote;
+
+    /// <summary>Oyun karesinin ekrandaki yeri (WPF birimiyle); pencereden okunmuyorsa ya da kare gelmiyorsa null.</summary>
+    private ScreenArea? GameArea()
+    {
+        if (RemotePlayWindowStream.LastArea is not { } area || PresentationSource.FromVisual(this)?.CompositionTarget is not { } target)
+            return null;
+        var fromDevice = target.TransformFromDevice;
+        var topLeft = fromDevice.Transform(new Point(area.Left, area.Top));
+        var bottomRight = fromDevice.Transform(new Point(area.Left + area.Width, area.Top + area.Height));
+        var game = new ScreenArea(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+        return game.IsUsable ? game : null;
+    }
+
+    /// <summary>
+    /// Çevirgen: "Örtsün", "Üstünde" ve "Altında"da pencere İngilizce satırın ekrandaki yerine taşınır (OverlayAnchor; TV ile
+    /// aynı kurallar). Yer bilinmiyorsa, "Sabit"te, şeritte ya da konumlandırılırken pencere kayıtlı yerine döner.
+    /// Yer değişince altyazı günlüğüne yazılır (tanılamada çizimin nereye gittiği görünsün).
+    /// </summary>
+    private void Anchor(IReadOnlyList<SubtitleStack.Line> lines)
+    {
+        var style = controller.Settings.Style;
+        var current = lines.LastOrDefault(line => line.Role == SubtitleStack.Role.Current && !line.Paragraphs);
+        (double Left, double Top)? target = null;
+        if (!controller.OverlayAdjusting && style.Placement != SubtitlePlacement.Fixed && style.BackgroundShape != SubtitleBackgroundShape.Band
+            && current is not null && subtitleBox is { Box: { } english } known && known.Text == current.Text
+            && boxes.TryGetValue(current.Id, out var border) && GameArea() is { } game)
+        {
+            UpdateLayout();
+            var inWindow = border.TransformToAncestor(this).TransformBounds(new Rect(border.RenderSize));
+            target = OverlayAnchor.WindowPosition(style.Placement, english, game,
+                new ScreenArea(inWindow.X, inWindow.Y, inWindow.Width, inWindow.Height));
+            if (target is { } at)
+            {
+                var note = string.Create(CultureInfo.InvariantCulture,
+                    $"pencere yeri: {style.Placement}, oyun {game.Left:0},{game.Top:0} {game.Width:0}x{game.Height:0}, İngilizce {english.Left:0.000}-{english.Right:0.000} / {english.Top:0.000}-{english.Bottom:0.000} → pencere {at.Left:0},{at.Top:0}, kutu {at.Left + inWindow.X:0},{at.Top + inWindow.Y:0} {inWindow.Width:0}x{inWindow.Height:0}");
+                if (note != anchorNote) SubtitleLog.Write(note);
+                anchorNote = note;
+            }
+        }
+        if (target is { } place)
+        {
+            anchored = true;
+            if (Math.Abs(Left - place.Left) > 0.5) Left = place.Left;
+            if (Math.Abs(Top - place.Top) > 0.5) Top = place.Top;
+        }
+        else if (anchored)
+        {
+            anchored = false;
+            anchorNote = null;
+            PlaceFromSettings();
         }
     }
 
@@ -339,8 +397,11 @@ public sealed partial class SubtitleOverlayWindow : Window
         // "Yazı kadar" ve örtü: güncel satırın kutusu en az oyundaki altyazının ekrandaki kutusu kadar (her yana pay). Çeviri kısa
         // kalınca oyunun altyazısı kutunun yanlarından taşıyordu; çeviri daha uzunsa kutu yine yazı kadar büyür (TV'deki örtü gibi).
         UIElement content = text;
+        // Çevirgen: kutu oyun penceresinin ekrandaki boyuna göre (pencere ekranı kaplamıyorsa da İngilizce satır kadar).
+        var game = GameArea();
         if (coverLine is { } cover
-            && OverlayPlacement.CoverSize(cover.Box, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight, scale) is { } area)
+            && OverlayPlacement.CoverSize(cover.Box, game?.Width ?? SystemParameters.PrimaryScreenWidth,
+                game?.Height ?? SystemParameters.PrimaryScreenHeight, scale) is { } area)
         {
             // Kutu pencereye sığar (yanlarda 24 birim boşluk ve kutunun dolgusu); taşan kutuyu WPF sola yaslayıp keserdi.
             var room = double.IsFinite(Width) ? Math.Max(0, Width - 2 * 24 * scale - padding.Left - padding.Right) : double.PositiveInfinity;
@@ -573,6 +634,8 @@ public sealed partial class SubtitleOverlayWindow : Window
     /// </summary>
     private void SaveBounds()
     {
+        // İngilizce satıra göre taşınmış yer kaydedilmez; kayıtlı yer "Sabit" ve yer bilinmediğinde kullanılan yerdir.
+        if (anchored && !controller.OverlayAdjusting) return;
         if (OverlayPlacement.ToSave(Left, Top, Width, Height, BaseHeight, Displays.All(this)) is not { } bounds) return;
         if (controller.OverlayAdjusting) controller.OverlayDraft = bounds;
         else controller.SaveOverlayBounds(bounds);

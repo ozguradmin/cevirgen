@@ -24,6 +24,29 @@ namespace Cevirgen.App.Services;
 /// </summary>
 public sealed class RemotePlayWindowStream : IStreamSession
 {
+    /// <summary>
+    /// Çevirgen: son karenin ekrandaki yeri (fiziksel piksel). Bilgisayar ekranındaki altyazı penceresi İngilizce satırın
+    /// ekrandaki yerini buradan bulur (OverlayAnchor). Son 3 saniyede kare gelmediyse null.
+    /// </summary>
+    public static CapturedArea? LastArea =>
+        Volatile.Read(ref lastArea) is { } area && Environment.TickCount64 - area.At < 3000 ? area : null;
+
+    private static CapturedArea? lastArea;
+
+    /// <summary>Karenin pencereden alındığı ekran alanı; Windows.Graphics.Capture görünen çerçeveyi (DWM sınırı) yakalar.</summary>
+    private static void NoteArea(IntPtr window, int width, int height)
+    {
+        Native.Rect? chosen = null;
+        if (Native.DwmGetWindowBounds(window, Native.DwmExtendedFrameBounds, out var frame, Marshal.SizeOf<Native.Rect>()) == 0)
+            chosen = frame;
+        // Çerçeve sınırı kare boyuna uymuyorsa (PrintWindow tüm pencereyi çizer) pencerenin kendi sınırına bakılır.
+        if ((chosen is not { } c || c.Right - c.Left != width || c.Bottom - c.Top != height)
+            && Native.GetWindowRect(window, out var rect) && rect.Right - rect.Left == width && rect.Bottom - rect.Top == height)
+            chosen = rect;
+        if (chosen is { } area && area.Right > area.Left && area.Bottom > area.Top)
+            Volatile.Write(ref lastArea, new CapturedArea(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top, Environment.TickCount64));
+    }
+
     /// <summary>Saniyedeki kare. Okuma bir önceki kare bitmeden yenisini zaten almaz; fazlası yalnız işlemciyi yorar.</summary>
     // Çevirgen: 10'dan 15'e: pencereden okunan oyunda altyazı daha erken yakalanıp daha erken kalksın (PS5 akışı ~14 kare/sn).
     private const int FramesPerSecond = 15;
@@ -488,6 +511,7 @@ public sealed class RemotePlayWindowStream : IStreamSession
                     return;
                 }
                 CheckBlack(frame.Pixels);
+                NoteArea(window, frame.Width, frame.Height);
                 if (watch.FrameDelivered()) SubtitleLog.Write($"pencereden ilk kare (PrintWindow): {frame.Width}x{frame.Height}");
                 counts.Fallback();
                 owner.Deliver(frame);
@@ -576,6 +600,7 @@ public sealed class RemotePlayWindowStream : IStreamSession
                 var captured = BitmapPixels.Read(bitmap);
                 watch.CopyEnded();
                 CheckBlack(captured.Pixels);
+                NoteArea(window, width, height);
                 if (watch.FrameDelivered()) SubtitleLog.Write($"pencereden ilk kare: {width}x{height}");
                 counts.Delivered();
                 owner.Deliver(captured);
@@ -856,7 +881,9 @@ public sealed class RemotePlayWindowStream : IStreamSession
         [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
         [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
         public const int DwmCloaked = 14;
+        public const int DwmExtendedFrameBounds = 9;
         [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+        [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetWindowBounds(IntPtr window, int attribute, out Rect value, int size);
         [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
         [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr window);
         [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr window, uint command);
@@ -866,3 +893,6 @@ public sealed class RemotePlayWindowStream : IStreamSession
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr window, StringBuilder text, int maxCount);
     }
 }
+
+/// <summary>Çevirgen: yakalanan karenin ekrandaki yeri (fiziksel piksel) ve ne zaman görüldüğü (Environment.TickCount64).</summary>
+public sealed record CapturedArea(int Left, int Top, int Width, int Height, long At);
