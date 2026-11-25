@@ -263,6 +263,15 @@ html, body {
   text-shadow: 0 2px 4px #000;
 }
 
+/* Konuşma altyazısı hiçbir zaman dar yazı tipinde ve yatayda sıkışık değil (TV uygulaması 0.9.103; #1224, #1255, #1259).
+   Genişlik açıkça olağan istenir: ekran yazısının dar ailesi Android TV'de aynı sayfadaki altyazıya geçiyordu. */
+#subtitle-text, #subtitle-prev-text, #subtitle-prev2-text {
+  font-stretch: normal;
+  -webkit-transform: none;
+  transform: none;
+  letter-spacing: normal;
+}
+
 /* Zemin %50'den saydamsa (app.js applyStyle) yazının çevresine 1 px'lik sert siyah kontur eklenir: tek yumuşak gölge
    açık sahnede (kar, gökyüzü) beyaz yazıyı seçtirmiyor. */
 body.thin-bg #subtitle-text, body.thin-bg #subtitle-prev-text, body.thin-bg #subtitle-prev2-text {
