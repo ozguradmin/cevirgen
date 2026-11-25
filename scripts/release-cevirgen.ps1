@@ -101,6 +101,8 @@ foreach ($folder in @('ct2', 'tts', 'xbox-bridge')) {
     elseif ($folder -eq 'ct2') { throw "ct2 klasörü eksik: $source" }
     else { Write-Warning "$folder -NativeFrom klasöründe yok; atlandı" }
 }
+# Çevirgen: ct2 işçisi depodan (toplu çeviri isteği); -NativeFrom'daki eski kopyanın üstüne yazılır.
+Copy-Item -Force (Join-Path $repo 'windows\ct2\worker.py') (Join-Path $packDir 'ct2\worker.py')
 
 # Lisans ve bildirimler: Çevirgen'in kendi kopyaları (depodan), yoksa -NativeFrom'dakiler.
 foreach ($name in @('LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'NOTICE', 'README.md')) {

@@ -19,6 +19,32 @@ public class MarianTranslatorTests
         /// <summary>Verilirse çeviri budur; yoksa cümle büyük harfe çevrilir.</summary>
         public Func<string, string>? Map { get; init; }
 
+        /// <summary>Her çağrıda hızlı mod istendi mi.</summary>
+        public List<bool> Fast { get; } = [];
+        /// <summary>Toplu isteklerin girdileri.</summary>
+        public List<IReadOnlyList<string>> Batches { get; } = [];
+        public bool FailBatch { get; init; }
+        public List<bool> Prepared { get; } = [];
+
+        public IReadOnlyList<string> TranslateBatch(IReadOnlyList<string> sentences, bool fast, CancellationToken cancellationToken)
+        {
+            lock (Batches) Batches.Add(sentences);
+            if (FailBatch) throw new InvalidOperationException("batch failed");
+            return [.. sentences.Select(sentence => Translate(sentence, fast, cancellationToken))];
+        }
+
+        public void Prepare(bool fast)
+        {
+            lock (Prepared) Prepared.Add(fast);
+        }
+
+        public string Translate(string sentence, bool fast, CancellationToken cancellationToken)
+        {
+            lock (Fast) Fast.Add(fast);
+            var text = Translate(sentence, cancellationToken);
+            return fast ? "QUICK " + text : text;
+        }
+
         public string Translate(string sentence, CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref _active) > 1) SawConcurrentCall = true;
@@ -71,6 +97,69 @@ public class MarianTranslatorTests
         Assert.Equal([false, false, false, true, true], lines.Select(line => line.NewTurn));
         Assert.Equal("We go now.", lines[0].English);
         Assert.Equal("WE GO NOW.", lines[0].Turkish);
+    }
+
+    [Fact]
+    public async Task FastModeUsesQualityCacheButKeepsItsOwnTranslationsApart()
+    {
+        const string first = "We need to get out of this city before the sun comes up.";
+        const string second = "Nobody in this town is going to help us with the money.";
+        var (translator, engine) = Create();
+        Assert.Equal(first.ToUpperInvariant(), await translator.TranslateAsync(first));
+
+        translator.Fast = true;
+        // Kaliteli çevirisi bilinen satır hızlı modda da önbellekten gelir.
+        Assert.Equal(first.ToUpperInvariant(), await translator.TranslateAsync(first));
+        Assert.StartsWith("QUICK ", await translator.TranslateAsync(second));
+        Assert.StartsWith("QUICK ", await translator.TranslateAsync(second));
+        Assert.Equal([false, true], engine.Fast);
+
+        // Kaliteli'ye dönünce hızlı çeviri gösterilmez; satır yeniden (4 adaylı) çevrilir.
+        translator.Fast = false;
+        Assert.Equal(second.ToUpperInvariant(), await translator.TranslateAsync(second));
+        Assert.Equal([false, true, false], engine.Fast);
+    }
+
+    [Fact]
+    public async Task SentencesOfALineGoToTheModelTogether()
+    {
+        const string line = "We used to walk to school together on days like this. Starting around high school she would oversleep more and more. I let her catch up to me.";
+        var (translator, engine) = Create();
+        var together = await translator.TranslateAsync(line);
+
+        Assert.Single(engine.Batches);
+        Assert.Equal(3, engine.Batches[0].Count);
+        // Cümle cümle çevirmeyle aynı sonuç (sahte motor her cümleyi büyük harfe çevirir).
+        Assert.Equal(line.ToUpperInvariant(), together);
+        Assert.Equal(3, engine.Calls.Count);
+
+        // Önbellekteki satır modele hiç gitmez.
+        await translator.TranslateAsync(line);
+        Assert.Single(engine.Batches);
+    }
+
+    [Fact]
+    public async Task FailedBatchFallsBackToOneByOne()
+    {
+        var engine = new FakeEngine { FailBatch = true };
+        using var translator = new MarianTranslator(() => engine, () => true);
+        const string line = "We need to get out of this city tonight. Nobody in this town is going to help us.";
+
+        Assert.Equal(line.ToUpperInvariant(), await translator.TranslateAsync(line));
+        Assert.Single(engine.Batches);
+        Assert.Equal(2, engine.Calls.Count);
+    }
+
+    [Fact]
+    public async Task SwitchingModePreparesTheOpenEngine()
+    {
+        var (translator, engine) = Create();
+        translator.Fast = true;
+        Assert.Empty(engine.Prepared); // motor henüz açılmadı
+        await translator.TranslateAsync("We need to get out of this city before the sun comes up.");
+        translator.Fast = false;
+        for (var i = 0; i < 50 && engine.Prepared.Count == 0; i++) await Task.Delay(10);
+        Assert.Equal([false], engine.Prepared);
     }
 
     [Fact]

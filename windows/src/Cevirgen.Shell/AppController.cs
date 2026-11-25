@@ -175,6 +175,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         }
         services.Translation.SelectCpuThreads(settings.CpuTranslationThreads);
         services.Translation.SelectDevice(settings.TranslationDevice);
+        services.Translation.SelectFast(settings.FastTranslation);
         // Listede olmayan model varsayılana döndüyse ayar hemen kaydedilir.
         if (settings != loaded) settingsStore.Save(settings);
         var paired = tv is not null && store.Load<string>(StoreKeys.TvKey) is not null;
@@ -891,7 +892,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             if (old.GamePacks != value.GamePacks && pipeline is not null) ConnectPacks(pipeline);
             if (pipeline is not null) pipeline.ShowSpeakerNames = value.ShowSpeakerNames;
             server.SpeakerColors = value.SpeakerColors;
-            if ((old.MisreadWaitMs != value.MisreadWaitMs || old.PartialWaitMs != value.PartialWaitMs) && pipeline is not null) ApplyWaits(pipeline);
+            if ((old.MisreadWaitMs != value.MisreadWaitMs || old.PartialWaitMs != value.PartialWaitMs
+                 || old.FastTranslation != value.FastTranslation) && pipeline is not null) ApplyWaits(pipeline);
+            if (old.FastTranslation != value.FastTranslation) services.Translation.SelectFast(value.FastTranslation);
             if (old.ShareLines != value.ShareLines) services.Pool?.SetEnabled(value.ShareLines);
             if (old.AutoScreenText != value.AutoScreenText) ShowsAutoScreenTextNotice = false;
             if (old.UsageData != value.UsageData) services.Usage?.SetEnabled(value.UsageData);
@@ -3644,11 +3647,16 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         target.PartialPackLookup = PacksActive ? text => ScreenText.IsGta(gameSense.Current?.Name) ? services.FindPartialInPacks(text) : null : null;
     }
 
-    /// <summary>Gelişmiş ayarlardaki bekleme süreleri (0–2 sn).</summary>
+    /// <summary>
+    /// Gelişmiş ayarlardaki bekleme süreleri (0–2 sn). Hızlı çeviri modunda yarım satır beklenmez, bozuk okuma en çok
+    /// <see cref="UserSettings.FastMisreadWaitMs"/> bekler.
+    /// </summary>
     private void ApplyWaits(SubtitlePipeline target)
     {
-        target.PackWait = Math.Clamp(settings.MisreadWaitMs, 0, 2000);
-        target.CleanWait = Math.Clamp(settings.PartialWaitMs, 0, 2000);
+        var misread = Math.Clamp(settings.MisreadWaitMs, 0, 2000);
+        var partial = Math.Clamp(settings.PartialWaitMs, 0, 2000);
+        target.PackWait = settings.FastTranslation ? Math.Min(misread, UserSettings.FastMisreadWaitMs) : misread;
+        target.CleanWait = settings.FastTranslation ? 0 : partial;
     }
 
 
