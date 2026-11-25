@@ -3129,7 +3129,24 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     public string? LastPlayedGame =>
         GameConsoleName is { } name && store.Load<Dictionary<string, string>>(StoreKeys.LastGames) is { } saved ? saved.GetValueOrDefault(name) : null;
 
-    private string? GameConsoleName => console is null ? null : string.IsNullOrEmpty(console.Name) ? console.Host : console.Name;
+    /// <summary>
+    /// Son seçilen oyunun saklandığı yer: PS5'in adı; pencere okunurken pencerenin programı ("pencere:lifeisstrange").
+    /// Çevirgen: eskiden pencere okunurken oyun hiç hatırlanmıyordu, uygulama her açılışta yine "hangi oyun" diye soruyordu
+    /// (2026-11-25). Program başına saklanınca başka programdaki oyun (Doki Doki / GTA 6 karışması) yine karışmaz.
+    /// </summary>
+    private string? GameConsoleName => ReadsCaptureWindow
+        ? settings.CaptureWindow is { ProcessName.Length: > 0 } window ? "pencere:" + window.ProcessName.ToLowerInvariant() : null
+        : console is null ? null : string.IsNullOrEmpty(console.Name) ? console.Host : console.Name;
+
+    /// <summary>Çevirgen: okunan pencerenin başlığından tanınan oyun (son oynananlar, paketler, sunucudaki ve popüler oyunlar arasında).</summary>
+    private string? WindowTitleGame()
+    {
+        if (!ReadsCaptureWindow || settings.CaptureWindow is not { Title.Length: > 0 } window) return null;
+        var known = RecentGames.Concat(GameCatalog.PackGames(installedPacks)).Select(name => (name, name))
+            .Concat(RemoteGames.SelectMany(game => game.Game.Aliases.Prepend(game.Game.Title).Select(alias => (alias, game.Game.Title))))
+            .Concat(GameCatalog.Popular.Select(name => (name, name)));
+        return GameCatalog.FromWindowTitle(window.Title, known);
+    }
 
     /// <summary>Kartın önerileri: son oynanan, kurulu paketlerin oyunları ve popüler oyunlar.</summary>
     public IReadOnlyList<string> GameSuggestions(string query) =>
@@ -3392,10 +3409,10 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private void StartGameSense()
     {
         gameSense.StartSession();
-        // Çevirgen: uygulama yeniden açıldıysa bu PS5'te son seçilen oyun hatırlanır (yalnız PS5/Xbox akışında; demo değil).
-        // Pencere okunurken hatırlanmaz: oyun bilgisayarda başka oyun olabilir (Doki Doki açıkken PS5'teki son oyun GTA 6
-        // sanılıp GTA 6'nın alanları uygulanıyordu).
-        if (!demoMode && !ReadsCaptureWindow && gameSense.Current is null && LastPlayedGame is { } last) gameSense.Recall(last);
+        // Çevirgen: uygulama yeniden açıldıysa bu PS5'te (pencere okunurken bu programda) son seçilen oyun hatırlanır; yoksa
+        // pencerenin başlığı bilinen bir oyunsa o. Demo değil. PS5'teki son oyun pencerede okunan oyuna taşınmaz (Doki Doki
+        // açıkken GTA 6 sanılıp GTA 6'nın alanları uygulanıyordu): pencerede oyun programına göre saklanır.
+        if (!demoMode && gameSense.Current is null && (LastPlayedGame ?? WindowTitleGame()) is { } last) gameSense.Recall(last);
         publishedGame = null;
         AskingGame = false;
         PublishGame();

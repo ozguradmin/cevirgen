@@ -16,6 +16,19 @@ public class NativeTests
         Assert.InRange(watch.Elapsed.TotalSeconds, 0.4, 5);
     }
 
+    /// <summary>
+    /// Çevirgen: ağdaki gerçek PS5'e sorulur (COUCHSUBS_TEST_PS5 adresi verilirse). Paketlenen eski couchsubs_native.dll'de
+    /// cs_discover_id yokken arama çökmeden kimliksiz aramayla PS5'i bulmalı.
+    /// </summary>
+    [NativeFact]
+    public async Task ARealConsoleIsFoundWhenAnAddressIsGiven()
+    {
+        if (Environment.GetEnvironmentVariable("COUCHSUBS_TEST_PS5") is not { Length: > 0 } host) return;
+        var found = await ConsoleDiscovery.DiscoverAsync(host, TimeSpan.FromSeconds(3));
+        var console = Assert.Single(found);
+        Assert.Equal(host, console.Host);
+    }
+
     [NativeFact]
     public async Task RegistrationWithUnreachableConsoleFails()
     {

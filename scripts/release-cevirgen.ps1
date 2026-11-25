@@ -94,6 +94,16 @@ foreach ($name in $nativeFiles) {
     elseif ($name -eq 'couchsubs_native.dll') { throw "$name eksik" }
     else { Write-Warning "$name -NativeFrom klasöründe yok; atlandı" }
 }
+# Çevirgen: C# kodunun çağırdığı her cs_* işlevi paketlenen couchsubs_native.dll'de var mı (dışa aktarılan adlar DLL'de
+# sıfırla biten metin olarak durur). 1.4.13–1.4.19'da cs_discover_id yoktu, PS5 araması çöküyordu (2026-11-25).
+$nativeText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $packDir 'couchsubs_native.dll')))
+$calls = Get-ChildItem -Recurse -Filter *.cs (Join-Path $repo 'windows\src') |
+    Select-String -Pattern 'partial\s+\w+\*?\s+(cs_\w+)\s*\(|extern\s+\w+\s+(cs_\w+)\s*\(' -AllMatches |
+    ForEach-Object { $_.Matches } | ForEach-Object { if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value } } |
+    Sort-Object -Unique
+foreach ($call in $calls) {
+    if (-not $nativeText.Contains("`0$call`0")) { Write-Warning "couchsubs_native.dll'de $call yok: C# tarafında yedek yol olmalı" }
+}
 # CTranslate2 (ücretsiz çeviri motoru), seslendirme motoru, Xbox köprüsünün çalışma dosyaları (node.exe, lisanslar).
 foreach ($folder in @('ct2', 'tts', 'xbox-bridge')) {
     $source = Join-Path $NativeFrom $folder

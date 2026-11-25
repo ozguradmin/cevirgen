@@ -270,6 +270,30 @@ public static class GameCatalog
             .Concat(found.Where(n => !GameName.Key(n).StartsWith(wanted, StringComparison.Ordinal))).Take(limit)];
     }
 
+    /// <summary>
+    /// Çevirgen: okunan pencerenin başlığından oyun. Bilinen adlardan (<c>Match</c>: ad ya da takma ad; dönen <c>Name</c>)
+    /// anahtarı başlığın anahtarına eşit olan ya da başlık "ad …" diye başlayan en uzun ad; yoksa null. Kısa adlar (4 harften
+    /// az) eşlenmez. "Life is Strange: Remastered" → "Life is Strange"; OBS projektör başlığı ("Projektör - Kaynak: …") eşleşmez.
+    /// </summary>
+    public static string? FromWindowTitle(string? title, IEnumerable<(string Match, string Name)> known)
+    {
+        var key = GameName.Key(title);
+        if (key.Length == 0) return null;
+        string? best = null;
+        var bestLength = 0;
+        foreach (var (match, name) in known)
+        {
+            var nameKey = GameName.Key(match);
+            if (nameKey.Length < 4 || nameKey.Length <= bestLength) continue;
+            if (key == nameKey || key.StartsWith(nameKey + " ", StringComparison.Ordinal))
+            {
+                best = name;
+                bestLength = nameKey.Length;
+            }
+        }
+        return best;
+    }
+
     /// <summary>Paket listesinden oyun adları (ortak havuz paketi ve asıl paketi olan oyunun "(ek satırlar)" paketi oyun değildir).</summary>
     public static IEnumerable<string> PackGames(IEnumerable<GamePackLibrary.Info> packs) =>
         packs.Where(p => p.Id != GameSense.GeneralPack && !p.Title.EndsWith("(ek satırlar)", StringComparison.Ordinal))

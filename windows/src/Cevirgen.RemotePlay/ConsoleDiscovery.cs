@@ -74,20 +74,53 @@ public static class ConsoleDiscovery
         try
         {
             for (var i = 0; i < targets.Count; i++) strings[i] = Marshal.StringToCoTaskMemUTF8(targets[i]);
-            delegate* unmanaged[Cdecl]<byte*, byte*, int, byte*, byte*, byte*, nint, void> callback = &OnConsole;
             fixed (nint* pointer = strings)
-                NativeMethods.cs_discover_id(pointer, strings.Length, (int)timeout.TotalMilliseconds, (nint)callback, GCHandle.ToIntPtr(handle));
+            {
+                if (!Volatile.Read(ref withoutId))
+                {
+                    try
+                    {
+                        delegate* unmanaged[Cdecl]<byte*, byte*, int, byte*, byte*, byte*, nint, void> callback = &OnConsole;
+                        NativeMethods.cs_discover_id(pointer, strings.Length, (int)timeout.TotalMilliseconds, (nint)callback, GCHandle.ToIntPtr(handle));
+                        return Sorted(collector);
+                    }
+                    catch (EntryPointNotFoundException)
+                    {
+                        // Çevirgen: paketlenen couchsubs_native.dll upstream 2b748131'den eski (cs_discover_id yok); 1.4.19'a kadar
+                        // PS5 araması burada çöküyordu (2026-11-25). Kimliksiz aramaya dönülür: PS5 adıyla eşlenir.
+                        Volatile.Write(ref withoutId, true);
+                        SubtitleLog.Write("PS5 araması: yerel kitaplıkta cs_discover_id yok, kimliksiz arama (cs_discover_ex) kullanılıyor");
+                    }
+                }
+                delegate* unmanaged[Cdecl]<byte*, byte*, int, byte*, byte*, nint, void> fallback = &OnConsoleWithoutId;
+                NativeMethods.cs_discover_ex(pointer, strings.Length, (int)timeout.TotalMilliseconds, (nint)fallback, GCHandle.ToIntPtr(handle));
+            }
         }
         finally
         {
             foreach (var pointer in strings) Marshal.FreeCoTaskMem(pointer);
             handle.Free();
         }
+        return Sorted(collector);
+    }
+
+    /// <summary>Yerel kitaplıkta cs_discover_id olmadığı görüldü (bir kez denenir, sonra hep kimliksiz arama).</summary>
+    private static bool withoutId;
+
+    private static IReadOnlyList<ConsoleInfo> Sorted(Collector collector)
+    {
         lock (collector) return [.. collector.Hosts.Values.OrderBy(c => c.Host, StringComparer.Ordinal)];
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static unsafe void OnConsole(byte* host, byte* name, int awake, byte* titleId, byte* appName, byte* hostId, nint user)
+    private static unsafe void OnConsoleWithoutId(byte* host, byte* name, int awake, byte* titleId, byte* appName, nint user) =>
+        Collect(host, name, awake, titleId, appName, null, user);
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static unsafe void OnConsole(byte* host, byte* name, int awake, byte* titleId, byte* appName, byte* hostId, nint user) =>
+        Collect(host, name, awake, titleId, appName, hostId, user);
+
+    private static unsafe void Collect(byte* host, byte* name, int awake, byte* titleId, byte* appName, byte* hostId, nint user)
     {
         try
         {

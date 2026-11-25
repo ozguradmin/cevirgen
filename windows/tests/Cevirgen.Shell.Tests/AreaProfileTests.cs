@@ -167,6 +167,47 @@ public class AreaProfileTests
         controller.Stop();
     }
 
+    private static (AppController Controller, MemoryStore Store) WindowGame(MemoryStore? store = null, string title = "Life is Strange")
+    {
+        store ??= new MemoryStore();
+        var settings = new MemorySettings();
+        settings.Save(new UserSettings { FrameSource = FrameSource.CaptureWindow, Output = SubtitleOutput.Computer,
+            CaptureWindow = new WindowCaptureTarget("LifeIsStrange", title) });
+        return (AppControllerTests.Make(store: store, settings: settings), store);
+    }
+
+    /// <summary>
+    /// Çevirgen: pencerede seçilen oyun o programa göre saklanır, uygulama yeniden açılınca yine sorulmaz (2026-11-25: Life Is
+    /// Strange her açılışta "hangi oyun" diye soruyordu).
+    /// </summary>
+    [Fact]
+    public async Task AGameChosenForAWindowIsRecalledAfterARestart()
+    {
+        var (first, store) = WindowGame(title: "LiS");
+        await first.StartAsync();
+        first.ChooseGame("Life is Strange Remastered");
+        first.Stop();
+
+        var (second, _) = WindowGame(store, title: "LiS");
+        await second.StartAsync();
+        Assert.Equal("Life is Strange Remastered", second.PlayedGame);
+        second.Stop();
+    }
+
+    /// <summary>Çevirgen: seçim yoksa pencere başlığı bilinen bir oyunsa o oyun kabul edilir; bilinmeyen başlıkta oyun boş kalır.</summary>
+    [Theory]
+    [InlineData("Grand Theft Auto V - Legacy", "Grand Theft Auto V")]
+    [InlineData("Hogwarts Legacy  ", "Hogwarts Legacy")]
+    [InlineData("Projektör - Kaynak: Oyun", null)]
+    [InlineData("UnityWndClass", null)]
+    public async Task AKnownWindowTitleNamesTheGame(string title, string? expected)
+    {
+        var (controller, _) = WindowGame(title: title);
+        await controller.StartAsync();
+        Assert.Equal(expected, controller.PlayedGame);
+        controller.Stop();
+    }
+
     /// <summary>Eski sürümün genel alanlarda bıraktığı, bir oyunun profiline ait ek alan açılışta çıkar; profil kendi kutusunu tutar.</summary>
     [Fact]
     public void ExtraAreasLeftInTheGeneralAreasByOldVersionsAreRemovedOnStart()
