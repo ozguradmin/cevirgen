@@ -82,7 +82,7 @@ public sealed class LiveServices : IAppServices
             AppVersion.Current(System.Reflection.Assembly.GetEntryAssembly() ?? typeof(LiveServices).Assembly),
             "Windows " + Environment.OSVersion.Version)
         : null;
-    public Task<RunningGame?> RunningGameAsync(string host) => ConsoleDiscovery.RunningGameAsync(host);
+    public Task<RunningGame?> RunningGameAsync(ConsoleFinder finder) => ConsoleDiscovery.RunningGameAsync(finder);
     // Paket sunucusu ve uygulama sırrı yapılandırıldıysa (COUCHSUBS_PACKS_URL ya da derlemedeki CevirgenPacksUrl;
     // CevirgenPacksSecret) indirilen paketler kullanıcının paket klasörüne gider. Adres ya da sır yoksa (yerel geliştirici
     // derlemesi; sunucu imzasız isteği reddeder) kapalı.

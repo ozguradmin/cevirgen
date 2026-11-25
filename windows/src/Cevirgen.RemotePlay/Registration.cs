@@ -119,7 +119,8 @@ public static class Registration
             {
                 var registered = new RegisteredConsole(host, NativeMethods.FixedString(output.Nickname, 0x20),
                                                        new ReadOnlySpan<byte>(output.RegistKey, 0x10).ToArray(),
-                                                       new ReadOnlySpan<byte>(output.Morning, 0x10).ToArray());
+                                                       new ReadOnlySpan<byte>(output.Morning, 0x10).ToArray(),
+                                                       ConsoleIdentity.FromMac(new ReadOnlySpan<byte>(output.ServerMac, 6)));
                 RemotePlayLog.Note($"PS5 kaydı tamam ({host}): {registered.Name}");
                 return registered;
             }

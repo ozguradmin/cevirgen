@@ -35,6 +35,7 @@ internal static unsafe partial class NativeMethods
         public fixed byte Nickname[0x20];
         public fixed byte RegistKey[0x10];
         public fixed byte Morning[0x10];
+        public fixed byte ServerMac[6];
     }
 
     [LibraryImport(Library)]
@@ -51,6 +52,12 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     internal static partial int cs_discover_ex(nint* targets, int targetCount, int timeoutMs, nint callback, nint user);
+
+    /// <param name="callback">void (*)(const char *host, const char *name, int awake, const char *running_app_titleid,
+    /// const char *running_app_name, const char *host_id, void *user)</param>
+    [LibraryImport(Library)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial int cs_discover_id(nint* targets, int targetCount, int timeoutMs, nint callback, nint user);
 
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

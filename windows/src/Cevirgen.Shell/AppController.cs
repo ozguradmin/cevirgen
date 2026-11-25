@@ -3568,7 +3568,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private void UpdateGameProbe(bool connected)
     {
         if (services.Pool is null) return;
-        if (!connected || console?.Host is not { } host)
+        if (!connected || console is null)
         {
             gameProbe?.Cancel();
             gameProbe?.Dispose();
@@ -3587,7 +3587,11 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             while (!token.IsCancellationRequested)
             {
                 RunningGame? game;
-                try { game = await services.RunningGameAsync(host).ConfigureAwait(false); }
+                // Her yoklamada güncel kayıt kullanılır (oturum PS5'i yeni adreste bulmuş olabilir).
+                if (Volatile.Read(ref console) is not { } saved) break;
+                var finder = new ConsoleFinder(saved);
+                finder.Changed += moved => post(() => ConsoleMoved(moved));
+                try { game = await services.RunningGameAsync(finder).ConfigureAwait(false); }
                 catch (Exception) { game = null; }
                 // Bu arada bağlantı bittiyse oyun yazılmaz (bırakılan oyun geri gelmesin).
                 if (token.IsCancellationRequested) break;

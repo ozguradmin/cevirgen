@@ -30,22 +30,21 @@ public static class ConsoleDiscovery
     /// Ad, boşluk ve büyük/küçük harf gözetmeden eşlenir (kayıttaki ad ile aramadaki ad aynı PS5'te harf farkıyla gelebiliyor;
     /// eskiden PS5'in adresi değişince yeni adreste bulunamıyor, eski adrese sonsuza dek "bulunamadı" deniyordu). Kayıtta ad
     /// yoksa ağdaki tek PS5 seçilir.</summary>
-    internal static ConsoleInfo? PickMoved(IReadOnlyList<ConsoleInfo> found, string name)
-    {
-        var named = found.Where(c => IsRegistered(c, name)).ToList();
-        return named.Count == 1 ? named[0] : null;
-    }
+    internal static ConsoleInfo? PickMoved(IReadOnlyList<ConsoleInfo> found, string name) =>
+        ConsoleIdentity.PickMoved(found, new RegisteredConsole("", name, [], []));
 
     /// <summary>Aramaya yanıt veren PS5 kayıtlı PS5 mi (ad eşleşmesi, boşluk ve harf büyüklüğü gözetilmez; kayıtta ad yoksa her
     /// yanıt kabul edilir).</summary>
-    internal static bool IsRegistered(ConsoleInfo info, string name) =>
-        name.Trim().Length == 0 || string.Equals(info.Name.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase);
+    internal static bool IsRegistered(ConsoleInfo info, string name) => ConsoleIdentity.MatchesName(info, name);
 
-    /// <summary>PS5'te o an çalışan oyun: yalnız bağlı PS5'in adresine sorulur (ortak havuz için; bkz. <see cref="RunningGame"/>).</summary>
-    public static async Task<RunningGame?> RunningGameAsync(string host, CancellationToken ct = default)
+    /// <summary>PS5'te o an çalışan oyun (ortak havuz için; bkz. <see cref="RunningGame"/>): kayıtlı adrese sorulur. Yanıt yoksa
+    /// ya da yanıt veren başka bir PS5'se kayıtlı PS5 ağda kimliğiyle aranır; yeni adreste bulunursa kayıt güncellenir
+    /// (<see cref="ConsoleFinder.Changed"/>). Eskiden yoklama hep ilk adrese bakıyordu.</summary>
+    public static async Task<RunningGame?> RunningGameAsync(ConsoleFinder finder, CancellationToken ct = default)
     {
-        var found = await DiscoverAsync(host, TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
-        return found.Count == 0 ? null : RunningGame.Create(found[0].RunningAppTitleId, found[0].RunningAppName);
+        var info = await Task.Factory.StartNew(() => finder.Locate().Info, CancellationToken.None,
+                                               TaskCreationOptions.LongRunning, TaskScheduler.Default).WaitAsync(ct).ConfigureAwait(false);
+        return info is null ? null : RunningGame.Create(info.RunningAppTitleId, info.RunningAppName);
     }
 
     /// <summary>Kayıtlı PS5'i dinlenme modundan uyandırır.</summary>
@@ -75,9 +74,9 @@ public static class ConsoleDiscovery
         try
         {
             for (var i = 0; i < targets.Count; i++) strings[i] = Marshal.StringToCoTaskMemUTF8(targets[i]);
-            delegate* unmanaged[Cdecl]<byte*, byte*, int, byte*, byte*, nint, void> callback = &OnConsole;
+            delegate* unmanaged[Cdecl]<byte*, byte*, int, byte*, byte*, byte*, nint, void> callback = &OnConsole;
             fixed (nint* pointer = strings)
-                NativeMethods.cs_discover_ex(pointer, strings.Length, (int)timeout.TotalMilliseconds, (nint)callback, GCHandle.ToIntPtr(handle));
+                NativeMethods.cs_discover_id(pointer, strings.Length, (int)timeout.TotalMilliseconds, (nint)callback, GCHandle.ToIntPtr(handle));
         }
         finally
         {
@@ -88,12 +87,13 @@ public static class ConsoleDiscovery
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static unsafe void OnConsole(byte* host, byte* name, int awake, byte* titleId, byte* appName, nint user)
+    private static unsafe void OnConsole(byte* host, byte* name, int awake, byte* titleId, byte* appName, byte* hostId, nint user)
     {
         try
         {
             if (GCHandle.FromIntPtr(user).Target is not Collector collector || NativeMethods.Utf8(host) is not { } address) return;
-            var info = new ConsoleInfo(address, NativeMethods.Utf8(name) ?? "PS5", awake != 0, NativeMethods.Utf8(titleId), NativeMethods.Utf8(appName));
+            var info = new ConsoleInfo(address, NativeMethods.Utf8(name) ?? "PS5", awake != 0, NativeMethods.Utf8(titleId), NativeMethods.Utf8(appName),
+                                       NativeMethods.Utf8(hostId));
             lock (collector) collector.Hosts[info.Host] = info;
         }
         catch

@@ -1043,8 +1043,9 @@ public interface IAppServices
     LinePool? Pool => null;
     /// <summary>Kullanım verisi (GA4 Measurement Protocol); derlemede kimlik yoksa ve testlerde null (hiçbir şey gönderilmez).</summary>
     UsageStats? Usage => null;
-    /// <summary>PS5'te o an çalışan oyun (yalnız bağlı PS5'e keşif sorusu); bilinmiyorsa ve testlerde null.</summary>
-    Task<RunningGame?> RunningGameAsync(string host) => Task.FromResult<RunningGame?>(null);
+    /// <summary>PS5'te o an çalışan oyun (kayıtlı PS5'e keşif sorusu; adresi değiştiyse ağda kimliğiyle aranır ve kayıt
+    /// <see cref="ConsoleFinder.Changed"/> ile güncellenir); bilinmiyorsa ve testlerde null.</summary>
+    Task<RunningGame?> RunningGameAsync(ConsoleFinder finder) => Task.FromResult<RunningGame?>(null);
     /// <summary>Paket sunucusundan yeni paketler; adres yapılandırılmadıysa ve testlerde null.</summary>
     PackUpdater? PackUpdates => null;
     /// <summary>Altyazı geçmişinin dosyası (%LOCALAPPDATA%\CouchSubs\history.json); testlerde null (diske yazılmaz).</summary>

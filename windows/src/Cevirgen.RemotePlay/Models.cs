@@ -8,13 +8,24 @@ namespace Cevirgen.RemotePlay;
 
 /// <param name="RunningAppTitleId">PS5'te o an çalışan uygulama (keşif yanıtındaki <c>running-app-titleid</c>); ana
 /// ekranda ya da dinlenme modunda null.</param>
-public sealed record ConsoleInfo(string Host, string Name, bool IsAwake, string? RunningAppTitleId = null, string? RunningAppName = null);
+/// <param name="HostId">PS5'in değişmeyen kimliği (keşif yanıtındaki <c>host-id</c>, yani PS5'in MAC adresi; bkz.
+/// <see cref="ConsoleIdentity.Normalized"/>). Yanıtta yoksa null.</param>
+public sealed record ConsoleInfo(string Host, string Name, bool IsAwake, string? RunningAppTitleId = null, string? RunningAppName = null,
+                                 string? HostId = null)
+{
+    public string? HostId { get; init; } = ConsoleIdentity.Normalized(HostId);
+}
 
 /// <summary>PS5'e kaydedilmiş bu bilgisayarın bağlantı bilgileri. Şifreli olarak saklanır.</summary>
 /// <param name="RegistKey">16 baytlık kayıt anahtarı (ASCII onaltılık, sıfırla doldurulmuş).</param>
 /// <param name="Morning">16 baytlık oturum anahtarı.</param>
-public sealed record RegisteredConsole(string Host, string Name, byte[] RegistKey, byte[] Morning)
+/// <param name="HostId">PS5'in değişmeyen kimliği (keşifteki <c>host-id</c>, yani PS5'in MAC adresi). Kayıtta PS5'in
+/// bildirdiği MAC'ten yazılır; eski kayıtlarda yoktur ve PS5 ilk kez adıyla bulunduğunda öğrenilir. PS5 yeni adreste bununla
+/// aranır: ad değişse de, aynı adlı iki PS5 olsa da doğru PS5 bulunur.</param>
+public sealed record RegisteredConsole(string Host, string Name, byte[] RegistKey, byte[] Morning, string? HostId = null)
 {
+    public string? HostId { get; init; } = ConsoleIdentity.Normalized(HostId);
+
     /// <summary>Uyandırma için kayıt anahtarının onaltılık değeri.</summary>
     public ulong? WakeCredential
     {

@@ -486,12 +486,11 @@ public sealed class StreamSession : IStreamSession
     }
     private void SetStep(ConnectStep step) => Volatile.Write(ref connectStep, (int)step);
 
-    /// <summary>Tüm ağı taramak pahalı; PS5 kapalıyken her yeniden denemede yapılmaz.</summary>
-    private static readonly TimeSpan RelocateInterval = TimeSpan.FromSeconds(30);
-
-    /// <summary>Yalnız kuyrukta değişir (PS5'in adresi değişirse).</summary>
-    private RegisteredConsole console;
-    private DateTime nextRelocate = DateTime.MinValue;
+    /// <summary>Kayıtlı PS5'i kayıtlı adreste ya da (adresi değiştiyse) ağda kimliğiyle bulur; kayıt değişince
+    /// <see cref="ConsoleMoved"/>. Tüm ağı taramak pahalı; PS5 kapalıyken her yeniden denemede yapılmaz
+    /// (<see cref="RelocateSchedule"/>).</summary>
+    private readonly ConsoleFinder finder;
+    private RegisteredConsole console => finder.Console;
     private readonly byte[] accountId;
     /// <summary>PS5 bu hesap için giriş şifresi isterse gönderilecek 4 hane (Ayarlar'da kayıtlıysa).</summary>
     private readonly string? loginPasscode;
@@ -524,7 +523,8 @@ public sealed class StreamSession : IStreamSession
     public StreamSession(RegisteredConsole console, byte[] accountId, string? loginPasscode = null)
     {
         if (accountId.Length != 8) throw new ArgumentException("PSN account id must be 8 bytes", nameof(accountId));
-        this.console = console;
+        finder = new ConsoleFinder(console);
+        finder.Changed += moved => ConsoleMoved?.Invoke(moved);
         this.accountId = (byte[])accountId.Clone();
         this.loginPasscode = LoginPasscode.Normalized(loginPasscode);
         delivery = new FrameDelivery(frame => FrameReceived?.Invoke(frame));
@@ -629,17 +629,12 @@ public sealed class StreamSession : IStreamSession
         Emit(SessionState.Connecting);
 
         // PS5 uyuyorsa uyandır; uyanmayı kuyruğu bloklamadan, aralıklı kontrollerle bekle.
-        // Kayıtlı adreste başka bir PS5 yanıt verirse (aynı evde iki PS5, modem adresleri değiştirmiş; GitHub #425)
-        // kayıtlı PS5 adıyla ağda aranır; bulunamazsa eskisi gibi o adrese bağlanılır.
-        var atHost = ConsoleDiscovery.Discover(console.Host, TimeSpan.FromSeconds(2)).FirstOrDefault();
-        ConsoleInfo? info;
-        if (atHost is not null && ConsoleDiscovery.IsRegistered(atHost, console.Name)) info = atHost;
-        else
-        {
-            if (atHost is not null)
-                RemotePlayLog.Note($"PS5 oturumu: {console.Host} adresinde başka PS5 yanıt verdi ({atHost.Name}), {console.Name} aranıyor");
-            info = Relocate() ?? atHost;
-        }
+        // Kayıtlı adreste yanıt yoksa ya da başka bir PS5 yanıt verirse (aynı evde iki PS5, modem adresleri değiştirmiş;
+        // GitHub #425) kayıtlı PS5 ağda kimliğiyle (eski kayıtta adıyla) aranır. Bulunamazsa ve kayıtlı adreste yanıt veren
+        // PS5'in başka bir PS5 olduğu kimlikten belli değilse eskisi gibi o adrese bağlanılır.
+        var located = finder.Locate();
+        var info = located.Info
+            ?? (located.AtHost is { } other && (console.HostId is null || other.HostId is null) ? other : null);
         if (search.Searched(answered: info is not null))
             RemotePlayLog.Note($"PS5 aranıyor: art arda {search.Unanswered}. yanıtsız arama; bu cihaz: {DeviceDiagnostics.Line()}");
         var action = wakePolicy.Decide(info?.IsAwake);
@@ -672,26 +667,20 @@ public sealed class StreamSession : IStreamSession
     internal static DisconnectReason Classify(DisconnectReason reason, bool searchAnswered, string host) =>
         !searchAnswered && reason.Kind is DisconnectKind.Network or DisconnectKind.Other ? new DisconnectReason(DisconnectKind.NotFound, host) : reason;
 
-    /// <summary>Kayıtlı adreste PS5 yoksa (modem adresini değiştirmiş olabilir) ağda arar; bulursa adresi günceller.</summary>
-    private ConsoleInfo? Relocate()
-    {
-        if (DateTime.UtcNow < nextRelocate) return null;
-        nextRelocate = DateTime.UtcNow + RelocateInterval;
-        var moved = ConsoleDiscovery.PickMoved(ConsoleDiscovery.Discover(null, TimeSpan.FromSeconds(3)), console.Name);
-        if (moved is null || moved.Host == console.Host) return null;
-        RemotePlayLog.Write(1, $"PS5 yeni adreste: {console.Host} -> {moved.Host}");
-        console = console.WithHost(moved.Host);
-        try { ConsoleMoved?.Invoke(console); }
-        catch (Exception error) { RemotePlayLog.Write(0, $"ConsoleMoved handler: {error}"); }
-        return moved;
-    }
-
     private void WaitForWake(int current, DateTime deadline)
     {
         queue.PostAfter(TimeSpan.FromSeconds(2), () =>
         {
             if (!IsCurrent(current)) return;
-            if (ConsoleDiscovery.Discover(console.Host, TimeSpan.FromSeconds(2)).Any(c => c.IsAwake))
+            var atHost = ConsoleDiscovery.Discover(console.Host, TimeSpan.FromSeconds(2));
+            if (atHost.Any(c => c.IsAwake))
+            {
+                SetStep(ConnectStep.Opening);
+                OpenSession(current);
+            }
+            // Kayıtlı adreste hiç yanıt yok: uyanan PS5 yeni adres almış olabilir (modem yeniden başladı); ağda kimliğiyle
+            // bulunduysa oraya bağlanılır.
+            else if (atHost.Count == 0 && finder.Relocate() is { IsAwake: true } moved && moved.Host == console.Host)
             {
                 SetStep(ConnectStep.Opening);
                 OpenSession(current);
@@ -802,7 +791,8 @@ public sealed class StreamSession : IStreamSession
                     }
                     // PS5'in adresi TCP bağlantısını reddetti: PS5 yeni uyanıyor olabilir ya da adres başka bir cihaza geçmiş
                     // olabilir. Bir sonraki denemede beklemeden ağda da aranır (eşlemeyi yenilemek bunu çözmez).
-                    if (reason.Kind == DisconnectKind.Refused) nextRelocate = DateTime.MinValue;
+                    // Akış sürerken koptuysa da ilk yeniden denemede beklemeden aranır (PS5 ya da modem yeniden başlamış olabilir).
+                    if (reason.Kind == DisconnectKind.Refused || wasStreaming) finder.ConnectionFailed();
                     ScheduleReconnect(eventGeneration, reason);
                 });
                 break;
