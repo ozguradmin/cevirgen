@@ -66,6 +66,43 @@ internal static class PhoneSteady
     internal const double PoseSlack = 0.015;
 
     /// <summary>
+    /// Kaydırma: önceki okumayla eşleşen balonların hepsi dikeyde satır yüksekliğinin bu payından fazla, aynı yöne kaydıysa
+    /// sohbet kaydırılıyor (<see cref="Scrolled"/>).
+    /// </summary>
+    internal const double ScrollShare = 0.5;
+
+    /// <summary>
+    /// Telefon kaydırıldı mı (GitHub #1202, #1197, #1193, #1170: "kaydırınca yenilenmiyor"). Kaydırma sırasında
+    /// <see cref="HoldTurns"/> bekletmesi ve konum sabitleme (<see cref="SteadyPositions"/>) atlanır, görünen yeni balonların
+    /// hepsi tek istekte çevrilir. <c>Top</c>'lar ve <paramref name="lineHeight"/> telefon bölgesine oranlıdır. Güncel her
+    /// balon, öncekilerden henüz eşlenmemiş ilk <see cref="SameReading"/> eşiyle eşlenir; en az bir eşleşme olmalı ve
+    /// hepsinin dikey kayması <see cref="ScrollShare"/> × satır yüksekliğinden büyük ve aynı yönde olmalı. Mac/iPhone ve
+    /// Android aynı kural.
+    /// </summary>
+    internal static bool Scrolled(IReadOnlyList<(string Text, double Top)> previous, IReadOnlyList<(string Text, double Top)> current,
+                                  double lineHeight)
+    {
+        if (lineHeight <= 0) return false;
+        var used = new bool[previous.Count];
+        int pairs = 0, direction = 0;
+        foreach (var bubble in current)
+        {
+            int index = -1;
+            for (int i = 0; i < previous.Count; i++)
+                if (!used[i] && SameReading(previous[i].Text, bubble.Text)) { index = i; break; }
+            if (index < 0) continue;
+            used[index] = true;
+            double dy = bubble.Top - previous[index].Top;
+            if (Math.Abs(dy) <= ScrollShare * lineHeight) return false;
+            int sign = Math.Sign(dy);
+            if (direction != 0 && sign != direction) return false;
+            direction = sign;
+            pairs++;
+        }
+        return pairs > 0;
+    }
+
+    /// <summary>
     /// Balonların yeri: önceki gönderiyle eşleşen balonlar (<see cref="Match"/>) küçük oynamada (satır yüksekliğinin
     /// <see cref="PositionShare"/>'i; yatayda kare oranıyla) son çizilen yerde kalır. Eşleşenlerin yarısından çoğu eşiği aşarsa
     /// (telefon kıpırdadı, sohbet kaydı) hepsi birlikte, tek seferde yeni yerine geçer; tek başına eşiği aşan balon kendi

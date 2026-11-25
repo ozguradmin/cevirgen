@@ -203,9 +203,50 @@ public partial class RegionWatcherTests
         await watcher.PassAsync(PresetFrame(panel: true), [PresetHelp]);
         await watcher.PassAsync(PresetFrame(panel: true), [PresetHelp]);
         Assert.Contains(server.Sent, message => message.Id == "preset-help" && message.Text == "TR: Follow Vicki to the car.");
+        // Kutu tek karede bulunamayınca çeviri kalır; ancak RegionWatcher.PanelMissTurns tur art arda yoksa kalkar (#1202).
+        for (var i = 1; i < RegionWatcher.PanelMissTurns; i++)
+        {
+            clock += 1000;
+            await watcher.PassAsync(PresetFrame(panel: false), [PresetHelp]);
+            Assert.Equal("TR: Follow Vicki to the car.", server.Sent[^1].Text);
+        }
         clock += 1000;
         await watcher.PassAsync(PresetFrame(panel: false), [PresetHelp]);
         Assert.Equal(("preset-help", ""), (server.Sent[^1].Id, server.Sent[^1].Text));
+    }
+
+    [Fact]
+    public async Task PresetAreaSurvivesBriefPanelMissesAndReturnsWithTheSameText()
+    {
+        // #1202: kutu tek karede bulunamayınca çeviri siliniyor, panel aynı yazıyla geri gelince iz değişmediği için bir
+        // daha gösterilmiyordu.
+        var reader = new Reader { Lines = [Line("Follow Vicki to the car.")] };
+        var server = new Server();
+        long clock = 0;
+        var watcher = new RegionWatcher(reader, new Translator(), server, clock: () => clock);
+        async Task Pass(bool panel)
+        {
+            await watcher.PassAsync(PresetFrame(panel), [PresetHelp]);
+            clock += 1000;
+        }
+        await Pass(true);
+        await Pass(true);
+        Assert.Equal("TR: Follow Vicki to the car.", server.Sent[^1].Text);
+        var sends = server.Sent.Count;
+        // İki karelik ıska: kutu kalır, hiçbir şey gönderilmez.
+        await Pass(false);
+        await Pass(false);
+        Assert.Equal(sends, server.Sent.Count);
+        await Pass(true);
+        await Pass(true);
+        Assert.Equal("TR: Follow Vicki to the car.", server.Sent[^1].Text);
+        // Üç tur art arda kutu yok: kalkar.
+        for (var i = 0; i < RegionWatcher.PanelMissTurns; i++) await Pass(false);
+        Assert.Equal("", server.Sent[^1].Text);
+        // Panel aynı yazıyla (aynı görüntüyle) geri gelince çeviri yeniden gösterilir.
+        await Pass(true);
+        await Pass(true);
+        Assert.Equal("TR: Follow Vicki to the car.", server.Sent[^1].Text);
     }
 
     [Fact]

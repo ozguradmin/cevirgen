@@ -35,7 +35,8 @@ public sealed partial class RegionWatcher
         state.Signature = signature;
         if (!changed)
         {
-            // İz bir tur değişmedi: okunan yazı kararlıdır.
+            // İz bir tur değişmedi: okunan yazı kararlıdır, kaydırma bitti.
+            state.PhoneScrolling = false;
             if (state.Candidate is { } stable)
             {
                 state.Candidate = null;
@@ -56,9 +57,17 @@ public sealed partial class RegionWatcher
             return;
         }
         if (Volatile.Read(ref session) != started || area.PanelLifetime is { IsCancellationRequested: true }) return;
+        // Sohbet kaydırılıyorsa (balonların hepsi dikeyde aynı yöne kaydı) bekletme ve konum sabitleme atlanır, görünen yeni
+        // balonların hepsi tek istekte çevrilir (#1202, #1197, #1193, #1170: "kaydırınca yenilenmiyor").
+        var bubbles = PhoneBubbles(candidate, area.Region);
+        state.PhoneScrolling = bubbles is { } now && state.PhoneLastBubbles is { } before
+            && PhoneSteady.Scrolled(before, now.Bubbles, now.LineHeight);
+        if (bubbles is not null) state.PhoneLastBubbles = bubbles.Value.Bubbles;
+        if (state.PhoneScrolling)
+            PhoneNote("PhoneSteady", "kaydırma algılandı, bekletme ve konum sabitleme atlandı", string.Join(' ', candidate.Paragraphs));
         // Yerinde duran iki komşu arasından düşen balon veya uzun mesajdaki birkaç bozuk harf tek okumada silinmesin.
         // Sonraki olağan tur mutlaka yeniden okur; aynı görünen gerçek bir değişiklik de bu turda ilerler.
-        if (state.Holds < PhoneSteady.HoldTurns && !moved && state.RenderedKey == state.Shown && state.Shown != candidate.Key
+        if (!state.PhoneScrolling && state.Holds < PhoneSteady.HoldTurns && !moved && state.RenderedKey == state.Shown && state.Shown != candidate.Key
             && !string.IsNullOrEmpty(state.RenderedText)
             && (MissingInteriorPhoneBubble(state, candidate)
                 || (SamePhoneLayout(state, candidate, frame) && GamePhoneText.HasAdjacentOcrEdits(state.Shown, candidate.Key))))
@@ -98,6 +107,19 @@ public sealed partial class RegionWatcher
             state.Signature = null;
         }
         if (candidate.Key.Length > 0) state.PhoneEmpties = 0;
+    }
+
+    /// <summary>
+    /// Okumanın balonları telefon bölgesine oranlı (yazı, üst kenar) ve satır yüksekliklerinin ortancası; balon yoksa null.
+    /// </summary>
+    private static ((string Text, double Top)[] Bubbles, double LineHeight)? PhoneBubbles(Candidate candidate, CropRegion region)
+    {
+        double height = region.Bottom - region.Top;
+        if (candidate.Blocks is not { Count: > 0 } blocks || height <= 0) return null;
+        var bubbles = blocks.Select(block => (string.Join('\n', candidate.Paragraphs.Skip(block.Start).Take(block.Count)),
+                                              (block.Box.Top - region.Top) / height)).ToArray();
+        var heights = blocks.Select(block => block.LineHeight / height).Order().ToArray();
+        return (bubbles, heights[heights.Length / 2]);
     }
 
     /// <summary>
@@ -304,7 +326,8 @@ public sealed partial class RegionWatcher
                     }
                 }
                 bool showFirstBubble = false;
-                if (!translator.TranslatesTogether && state.RenderedKey != candidate.Key
+                // Kaydırılırken görünen yeni balonların hepsi tek istekte çevrilir.
+                if (!translator.TranslatesTogether && !state.PhoneScrolling && state.RenderedKey != candidate.Key
                     && missing.Count > 1 && candidate.Blocks is { } phoneBlocks)
                 {
                     // Yerel motor satırları sırayla üretir. Yeni sohbet kısa sürede kapanabilir:
