@@ -680,7 +680,7 @@
   // Android ve OBS (SubtitleWrap) hâlâ 42 karakter kuralını uygular.
   var WRAP_MAX_CHARS = 42;
   var WRAP_MAX_LINES = 3;
-  var WRAP_MIN_SCALE = 0.75;
+  var WRAP_MIN_SCALE = 1;
   var fontBase = 46;
 
   function wrapTokens(text) {
@@ -872,19 +872,9 @@
     el.style.fontStretch = '';
     var size = Math.round(baseSize * wrapped.scale);
     el.style.fontSize = size + 'px';
-    // Altyazı kutusu ekranın alt dörtte birini geçmez ve dengeli bölünmüş satırlar korunur: 3 satıra bölünüp %75'e
-    // küçültülse de genişliğe sığmayan yazıda tarayıcı kendiliğinden yeni satır açıyordu. Yazı, hem yükseklik sınırına
-    // hem bölünmüş satır sayısına sığana dek küçülür. Görev paneli gibi satır satır yazılar bu sınırın dışındadır.
-    // Gizli satır (display: none) ölçülemez, 0 yüksekliğiyle döngüye girmez.
     if (paragraphs) return fitBox(el);
-    var limit = (document.documentElement.clientHeight || window.innerHeight || 1080) / (window.COUCHSUBS_ZOOM || 1) * SUBTITLE_MAX_HEIGHT;
-    var lines = wrapped.text.split('\n').length;
-    // Örtü: yazı hiç küçülmez; sığmazsa daha çok satıra bölünür ve örtü onunla büyür (bkz. coverWrap).
-    if (stable) return fitBox(el);
-    while (size > SUBTITLE_MIN_FONT && (el.offsetHeight > limit || extraLines(el, lines))) {
-      size -= 1;
-      el.style.fontSize = size + 'px';
-    }
+    // Konuşma altyazısı hiçbir modda küçülmez ve sıkıştırılmaz (TV uygulaması 0.9.92): uzun satır bölünür, kutu büyür.
+    // Önceden "Üstünde" ve bantta sığmayan satır %75'e, yükseklik sınırına göre daha da küçülüyordu.
     fitBox(el);
   }
 

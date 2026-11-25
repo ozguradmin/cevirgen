@@ -24,11 +24,11 @@ public class SubtitleWrapTests
     }
 
     [Fact]
-    public void Very_long_text_uses_at_most_three_lines_and_shrinks()
+    public void Very_long_text_uses_at_most_three_lines_and_never_shrinks()
     {
         var result = SubtitleWrap.Fit(string.Join(' ', Enumerable.Repeat("kelime", 30)));
         Assert.Equal(3, result.Text.Split('\n').Length);
-        Assert.InRange(result.Scale, SubtitleWrap.MinScale, 0.999);
+        Assert.Equal(1.0, result.Scale);
     }
 
     [Fact]

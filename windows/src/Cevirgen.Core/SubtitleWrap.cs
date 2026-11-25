@@ -14,7 +14,7 @@ public static class SubtitleWrap
 {
     public const int MaxChars = 42;
     public const int MaxLines = 3;
-    public const double MinScale = 0.75;
+    public const double MinScale = 1.0;
 
     public readonly record struct Result(string Text, double Scale);
 

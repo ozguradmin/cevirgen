@@ -118,7 +118,7 @@
   // Uzun çeviri tek uzun satır olarak taşmasın: satır başına en çok 42 karakter, en çok 3 satır, kelime sınırından ve
   // dengeli bölünür; 3 satıra sığmazsa yazı biraz küçülür (en çok %75). Konuşan adı ("ARTHUR:") hep ilk satırdadır.
   // Mac, Windows, Android ve TV (SubtitleWrap / tv-webos/app.js) aynı kuralları uygular.
-  var WRAP_MAX_CHARS = 42, WRAP_MAX_LINES = 3, WRAP_MIN_SCALE = 0.75;
+  var WRAP_MAX_CHARS = 42, WRAP_MAX_LINES = 3, WRAP_MIN_SCALE = 1;
   var baseSize = 48, textScale = 1;
 
   function wrapTokens(text) {
