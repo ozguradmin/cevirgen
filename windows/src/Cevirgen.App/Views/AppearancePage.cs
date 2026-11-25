@@ -34,6 +34,14 @@ public sealed class AppearancePage : UserControl
     private static readonly (string Name, string Hex)[] TextColors =
         [("Beyaz", "#FFFFFF"), ("Sarı", "#FFE135"), ("Krem", "#F3EEE4"), ("Açık mavi", "#BFE3FF")];
 
+    /// <summary>
+    /// Çevirgen: zemin (kutu) rengi seçenekleri; zemin koyuluğu sıfırdan büyükken görünür (Klasik kutu, Okunaklı). Hepsi koyu:
+    /// beyaz, sarı, krem ve açık mavi yazı hepsinin üstünde okunur.
+    /// </summary>
+    private static readonly (string Name, string Hex)[] BackgroundColors =
+        [("Koyu", SubtitleStyle.DefaultBackgroundColor), ("Siyah", "#000000"), ("Lacivert", "#14234A"), ("Koyu yeşil", "#12321F"),
+         ("Bordo", "#4A1422"), ("Mor", "#2E1A4A")];
+
     private readonly AppController controller;
     private readonly Grid tiles = new();
     private readonly List<(Grid Stage, TextBlock Verdict, LegibilityGround Ground)> scenes = [];
@@ -46,6 +54,8 @@ public sealed class AppearancePage : UserControl
     private readonly Slider fixedSlider = new() { Minimum = 0, Maximum = 85, SmallChange = 1, LargeChange = 5, IsMoveToPointEnabled = true };
     private readonly TextBlock fixedValue = ScreenKit.Mono("", 14, "textBrush");
     private readonly WrapPanel swatches = new();
+    private readonly WrapPanel plateSwatches = new();
+    private readonly DockPanel plateColorRow = new();
     private readonly SwitchRow bold = new() { Content = "Kalın yazı" };
     private readonly SwitchRow band = new() { Content = "Tam genişlikte zemin", Description = "Zemin kutusu ekranın iki yanına uzanır; yan yana taşan İngilizceyi de örter." };
     private readonly SwitchRow previous = new() { Content = "Hızlı konuşmada önceki satırlar üstte", Description = "Kapalıysa yeni satır eskisinin yerine geçer." };
@@ -256,6 +266,14 @@ public sealed class AppearancePage : UserControl
         colorRow.Children.Add(colorName);
         stack.Children.Add(ScreenKit.Row(colorRow));
 
+        DockPanel.SetDock(plateSwatches, Dock.Right);
+        plateSwatches.HorizontalAlignment = HorizontalAlignment.Right;
+        plateColorRow.Children.Add(plateSwatches);
+        var plateName = ScreenKit.Text("Zemin rengi");
+        plateName.VerticalAlignment = VerticalAlignment.Center;
+        plateColorRow.Children.Add(plateName);
+        stack.Children.Add(ScreenKit.Row(plateColorRow));
+
         var limit = new DockPanel();
         var limitValue = ScreenKit.Mono(AppearanceSteps.LineLimit, 14);
         DockPanel.SetDock(limitValue, Dock.Right);
@@ -340,6 +358,8 @@ public sealed class AppearancePage : UserControl
             fixedSlider.Value = Math.Clamp(style.BottomPercent, 0, 85);
             fixedValue.Text = string.Create(CultureInfo.InvariantCulture, $"%{Math.Clamp(style.BottomPercent, 0, 85)}");
             ShowSwatches(style);
+            ShowPlateSwatches(style);
+            plateColorRow.Parent.SetValue(VisibilityProperty, style.Background > 0 ? Visibility.Visible : Visibility.Collapsed);
             bold.IsChecked = style.Bold;
             band.IsChecked = style.BackgroundShape == SubtitleBackgroundShape.Band;
             previous.IsChecked = style.StackPrevious;
@@ -428,6 +448,26 @@ public sealed class AppearancePage : UserControl
             var chosen = hex;
             button.Click += (_, _) => Change(s => s with { TextHex = chosen, TextColor = chosen == "#FFE135" ? SubtitleTextColor.Yellow : SubtitleTextColor.White });
             swatches.Children.Add(button);
+        }
+    }
+
+    /// <summary>Zemin rengi: altı koyu renk; seçili olanın çevresinde sarı halka.</summary>
+    private void ShowPlateSwatches(SubtitleStyle style)
+    {
+        plateSwatches.Children.Clear();
+        foreach (var (name, hex) in BackgroundColors)
+        {
+            var on = string.Equals(style.BackgroundRgb, hex, StringComparison.OrdinalIgnoreCase);
+            var dot = new Ellipse { Width = 22, Height = 22, Fill = new SolidColorBrush(SpeakerText.Rgb(hex)), StrokeThickness = 1 };
+            dot.SetResourceReference(Shape.StrokeProperty, "controlBorderBrush");
+            var ring = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(on ? 2 : 0), Child = dot };
+            ring.SetResourceReference(Border.BorderBrushProperty, "amberBrush");
+            var button = new Button { Content = ring, Margin = Sp.T("xxs", "0", "0", "0"), Template = PlainTemplate(), Cursor = System.Windows.Input.Cursors.Hand, ToolTip = name };
+            button.SetResourceReference(FocusVisualStyleProperty, "FocusRing");
+            AutomationProperties.SetName(button, $"Zemin rengi: {name}{(on ? ", seçili" : "")}");
+            var chosen = hex;
+            button.Click += (_, _) => Change(s => s with { BackgroundColor = chosen });
+            plateSwatches.Children.Add(button);
         }
     }
 
