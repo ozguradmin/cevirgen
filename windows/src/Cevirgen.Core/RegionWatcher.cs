@@ -133,6 +133,16 @@ public sealed partial class RegionWatcher
         public IReadOnlyList<string>? RenderedPhoneParagraphs;
         /// <summary>Gönderilen bloklar ve her birinin <see cref="Candidate.Blocks"/> içindeki sırası.</summary>
         public IReadOnlyList<(int Group, ScreenTranslation.Item Item)>? RenderedBlocks;
+        /// <summary>
+        /// Çevirisi gösterilirken art arda kaç turdur okuma değişip doğrulanamadı (<see cref="UnsteadyTurns"/>) ve ilkinin
+        /// zamanı (<see cref="UnsteadyMs"/>).
+        /// </summary>
+        public int Unsteady;
+        public long? UnsteadySince;
+        /// <summary>Çevirinin gönderildiği turdaki alan izi: özgün yazının izi (<see cref="TraceGone"/>).</summary>
+        public byte[]? ShownTrace;
+        /// <summary>Bir önceki turun izi (<see cref="BigChangeShare"/> için; <see cref="Signature"/> yalnız okumada güncellenir).</summary>
+        public byte[]? PassSignature;
         // Yalnız açık telefon için. Kısa bir OCR sapmasından veya sohbetten geri dönünce aynı metin yeniden istenmez.
         public Dictionary<string, string>? PhoneTranslations { get; private set; }
         private Queue<string>? phoneKeys;
@@ -385,6 +395,36 @@ public sealed partial class RegionWatcher
         }
     }
 
+    /// <summary>
+    /// Çevirisi gösterilen alanda okuma en az bu kadar tur ve en az <see cref="UnsteadyMs"/> boyunca art arda değişip
+    /// doğrulanamazsa (yazı gitti, yerinde sahne oynuyor) çeviri kaldırılır: menü, tabela ve ipucu kutusunun çevirisi yazı
+    /// oyundan kalktıktan sonra TV'de kalıyordu (#1198). Yalnız tur sayısı (3 tur, 500 ms'lik turlarda 1,5 sn) arkası
+    /// oynayan sabit yazının çevirisini kaldırıp önbellekten geri getiriyordu: koyu kutu 2-3 sn'de bir yanıp sönüyordu
+    /// (Samsung'da parlaklık sıçraması). Mac ve Android ile aynı.
+    /// </summary>
+    public const int UnsteadyTurns = 4;
+    public const int UnsteadyMs = 3000;
+    /// <summary>Kaldırılan yazı bu süre içinde yeniden gösterilirse yerindeydi: alanın kaldırma eşiği uzar (<see cref="MaxPatience"/>).</summary>
+    public const int ReboundMs = 10_000;
+    /// <summary>Kaldırma eşiği en çok (1 + bu) katına uzar.</summary>
+    public const int MaxPatience = 2;
+    /// <summary>Ekrandaki yazının en az bu kadar harfli bir sözcüğü okumada geçiyorsa yazı hâlâ (kısmen) görünür (<see cref="PartlyVisible"/>).</summary>
+    public const int VisibleWordLength = 4;
+
+    /// <summary>Alanın kaldırma geçmişi; alanın durumu silinse de (otomatik alan listeden çıkıp dönünce) kalır.</summary>
+    private sealed class Steadiness
+    {
+        /// <summary>Kaldırma eşiğinin çarpanı eksi bir (<see cref="MaxPatience"/>); kaldırılan yazı hemen geri geldikçe artar.</summary>
+        public int Patience;
+        /// <summary>Son kaldırılan yazı ve zamanı (<see cref="ReboundMs"/>).</summary>
+        public string ClearedText = "";
+        public long? ClearedAt;
+    }
+
+    private readonly Dictionary<string, Steadiness> steadiness = [];
+    /// <summary>Alanın izindeki örneklerin bu kadarı bir turda değiştiyse görüntü bütünüyle değişmiştir: beklemeden kaldırılır.</summary>
+    public const double BigChangeShare = 0.5;
+
     private async Task VisitAsync(WatchedArea area, Frame frame, Dictionary<string, State> map, int started, bool confirmOnly)
     {
         State state;
@@ -409,6 +449,8 @@ public sealed partial class RegionWatcher
             return;
         }
         var signature = RegionCropper.Signature(crop);
+        var passSignature = state.PassSignature;
+        state.PassSignature = signature;
         var changed = PixelsChanged(state, crop, signature);
         // Örneklerin arasına düşen ya da eski satır kutusunun dışında beliren bir yazıyı da yakala.
         // Birebir aynı görüntüde süre dolsa bile OCR çalışmaz.
@@ -421,6 +463,7 @@ public sealed partial class RegionWatcher
         if (!changed)
         {
             // İz bir tur değişmedi: okunan yazı kararlıdır.
+            (state.Unsteady, state.UnsteadySince) = (0, null);
             if (state.Candidate is { } stable)
             {
                 state.Candidate = null;
@@ -457,21 +500,160 @@ public sealed partial class RegionWatcher
         state.PanelMisses = 0;
         var candidate = ReadCandidate(frame, crop, signature, area, state, started);
         if (candidate is null) return;
-        // Çevirgen: kullanıcının alanında görüntü değişip yazı tamamen kaybolduysa (menü kapandı) Türkçesi ikinci okumayı
-        // beklemeden kalkar; ekranda fazladan kalmaz.
-        if (!area.Auto && candidate.Key.Length == 0 && state.Shown.Length > 0)
+        // Çevirisi gösterilen alanda art arda boş okuma (görüntü değişirken) yazının gittiğini tek başına kanıtlamaz: kaldırma
+        // kararı ClearIfUnsteady'de (özgün yazının izi ya da süre). Çevirgen'in "menü kapanınca Türkçesi hemen kalksın"
+        // kuralı da orada: boş okuma + iz yok + görüntü bütünüyle değişti → aynı turda kalkar (upstream a6ed7b0e, 45c39d98).
+        var emptyWhileShown = candidate.Key.Length == 0 && !string.IsNullOrEmpty(state.RenderedText);
+        if (state.LastRead == candidate.Key && !emptyWhileShown)
         {
-            state.LastRead = candidate.Key;
+            (state.Unsteady, state.UnsteadySince) = (0, null);
             state.Candidate = null;
             await CommitAsync(candidate, area, state, started).ConfigureAwait(false);
+        }
+        else
+        {
+            Stage(candidate, state);
+            if (!string.IsNullOrEmpty(state.RenderedText)) ClearIfUnsteady(candidate, area, state, passSignature, signature);
+        }
+    }
+
+    /// <summary>
+    /// Çevirisi gösterilen alanda okuma doğrulanamadı. Çeviri iki durumda kaldırılır (#1198; Mac ve Android ile aynı):
+    /// <list type="bullet">
+    /// <item>Yazı gitti: okuma boş ve özgün yazının izi yok (<see cref="TraceGone"/>); görüntü de bütünüyle değiştiyse
+    /// (<see cref="BigChangeShare"/>) ilk turda, değilse ikinci turda. Gerçekten kalkan yazının çevirisi beklemez.</item>
+    /// <item>Okuma en az <see cref="UnsteadyTurns"/> tur ve <see cref="UnsteadyMs"/> boyunca gösterilen yazıya benzemedi
+    /// (<see cref="UnsteadyLong"/>).</item>
+    /// </list>
+    /// Okumada gösterilen yazının bir parçası hâlâ görünüyorsa (<see cref="PartlyVisible"/>) tur kararsız sayılmaz: arkası
+    /// oynayan sabit yazının çevirisi kalkıp geri gelmez.
+    /// </summary>
+    private void ClearIfUnsteady(Candidate candidate, WatchedArea area, State state, byte[]? before, byte[] signature)
+    {
+        if (PartlyVisible(candidate.Text, state.ShownText))
+        {
+            (state.Unsteady, state.UnsteadySince) = (0, null);
             return;
         }
-        if (state.LastRead == candidate.Key)
+        var time = now();
+        var turns = ++state.Unsteady;
+        var since = state.UnsteadySince ?? time;
+        state.UnsteadySince = since;
+        int patience;
+        lock (steadiness) patience = steadiness.TryGetValue(area.Id, out var known) ? known.Patience : 0;
+        var bigChange = before is not null && ChangedShare(before, signature) >= BigChangeShare;
+        // Kaldırılan yazı daha önce geri geldiyse (patience) boş okuma da art arda o kadar tur daha görülmeli.
+        var gone = candidate.Key.Length == 0 && TraceGone(state.ShownTrace, signature) && (bigChange || turns >= 2)
+                   && turns > patience;
+        if (!gone && !UnsteadyLong(turns, time - since, patience)) return;
+        var shownText = state.ShownText;
+        server.SendRegion(area.Id, "", null);
+        state.Shown = state.ShownText = "";
+        state.ShownIcons = 0;
+        state.RenderedKey = state.RenderedText = null;
+        state.RenderedIcons = null;
+        state.RenderedBox = null;
+        state.RenderedLineHeight = null;
+        state.RenderedLayout = null;
+        state.RenderedPhoneParagraphs = null;
+        state.RenderedBlocks = null;
+        (state.Unsteady, state.UnsteadySince) = (0, null);
+        state.ShownTrace = null;
+        lock (steadiness)
         {
-            state.Candidate = null;
-            await CommitAsync(candidate, area, state, started).ConfigureAwait(false);
+            if (steadiness.Count >= 64 && !steadiness.ContainsKey(area.Id)) steadiness.Clear();
+            if (!steadiness.TryGetValue(area.Id, out var memory)) steadiness[area.Id] = memory = new Steadiness();
+            memory.ClearedText = shownText;
+            memory.ClearedAt = time;
         }
-        else Stage(candidate, state);
+        drops.Note("RegionWatcher", gone ? $"{area.Name}: yazı kalktı (boş okuma, iz yok), çevirisi kaldırıldı"
+                                         : $"{area.Name}: {UnsteadyMs * (1 + patience) / 1000} sn kararlı okunmadı, çevirisi kaldırıldı",
+                   IconText.Plain(shownText), Log);
+    }
+
+    /// <summary>Kaldırılan yazı <see cref="ReboundMs"/> içinde yeniden gösterildi: yazı yerindeydi; alanın kaldırma eşiği uzar, günlüğe yazılır.</summary>
+    private void NoteRebound(Candidate candidate, WatchedArea area)
+    {
+        int? patience = null;
+        lock (steadiness)
+        {
+            if (!steadiness.TryGetValue(area.Id, out var memory) || memory.ClearedAt is not { } at) return;
+            memory.ClearedAt = null;
+            if (now() - at > ReboundMs || !PartlyVisible(candidate.Text, memory.ClearedText)) return;
+            patience = memory.Patience = Math.Min(MaxPatience, memory.Patience + 1);
+        }
+        drops.Note("RegionWatcher", $"{area.Name}: kaldırılan yazı geri geldi, kaldırma eşiği {1 + patience} katına uzadı",
+                   IconText.Plain(string.Join(' ', candidate.Paragraphs)), Log);
+    }
+
+    /// <summary>
+    /// Okumada ekrandaki yazının bir parçası görünüyor: benzer ya da eksik okuma, ya da ekrandakinin en az bir uzun sözcüğü
+    /// (<see cref="VisibleWordLength"/>) okumada geçiyor (arkası oynayan yazı yarım okunur).
+    /// </summary>
+    internal static bool PartlyVisible(string reading, string shown)
+    {
+        if (reading.Length == 0 || shown.Length == 0) return false;
+        if (Matches(reading, shown) || IsPartOf(reading, shown)) return true;
+        var have = Words(reading);
+        return Words(shown).Any(word => word.Count(char.IsLetter) >= VisibleWordLength && have.Any(it => Matches(it, word)));
+    }
+
+    /// <summary>
+    /// Kararsız okuma kaldırmaya yetecek kadar sürdü mü: en az <see cref="UnsteadyTurns"/> tur ve <see cref="UnsteadyMs"/>;
+    /// alanın kaldırılan yazısı daha önce geri geldiyse ikisi de (1 + <paramref name="patience"/>) katı.
+    /// </summary>
+    internal static bool UnsteadyLong(int turns, long elapsedMs, int patience)
+    {
+        var scale = 1 + Math.Clamp(patience, 0, MaxPatience);
+        return turns >= UnsteadyTurns * scale && elapsedMs >= (long)UnsteadyMs * scale;
+    }
+
+    /// <summary>
+    /// Çevirinin gönderildiği turdaki alan izi (<paramref name="trace"/>) bu turdakine benzemiyor: özgün yazı yerinde değil
+    /// (<see cref="GoneCorrelation"/>; izlerden biri düzse de yok sayılır).
+    /// </summary>
+    internal static bool TraceGone(byte[]? trace, byte[] signature)
+    {
+        if (trace is null) return true;
+        var score = TraceCorrelation(trace, signature);
+        return score is not { } value || value < GoneCorrelation;
+    }
+
+    /// <summary>İki iz arasındaki ilinti bunun altındaysa özgün yazı yerinde değil (upstream ScreenPresence.GoneCorrelation).</summary>
+    internal const double GoneCorrelation = 0.5;
+    /// <summary>İzin standart sapması bunun altındaysa iz düzdür (yazı yok); ilinti hesaplanmaz (upstream ScreenPresence.FlatDeviation).</summary>
+    internal const double FlatDeviation = 6.0;
+
+    /// <summary>
+    /// İki izin (aynı uzunlukta) Pearson ilintisinin mutlak değeri; uzunluklar farklıysa ya da izlerden biri düzse null.
+    /// Upstream ScreenPresence.Correlation ile aynı (Çevirgen'de "Ekranı çevir" takibi yok, yalnız bu hesap alındı).
+    /// </summary>
+    internal static double? TraceCorrelation(IReadOnlyList<byte> a, IReadOnlyList<byte> b)
+    {
+        if (a.Count != b.Count || a.Count == 0) return null;
+        double n = a.Count, ma = 0, mb = 0;
+        for (var i = 0; i < a.Count; i++) { ma += a[i]; mb += b[i]; }
+        ma /= n;
+        mb /= n;
+        double sab = 0, saa = 0, sbb = 0;
+        for (var i = 0; i < a.Count; i++)
+        {
+            double x = a[i] - ma, y = b[i] - mb;
+            sab += x * y;
+            saa += x * x;
+            sbb += y * y;
+        }
+        if (Math.Sqrt(saa / n) < FlatDeviation || Math.Sqrt(sbb / n) < FlatDeviation) return null;
+        return Math.Abs(sab / Math.Sqrt(saa * sbb));
+    }
+
+    /// <summary>İzdeki örneklerin <see cref="ReadScheduler.ChangeThreshold"/>'dan çok değişen payı.</summary>
+    internal static double ChangedShare(byte[] a, byte[] b)
+    {
+        if (a.Length != b.Length || a.Length == 0) return 1;
+        var changed = 0;
+        for (var i = 0; i < a.Length; i++) if (Math.Abs(a[i] - b[i]) > ReadScheduler.ChangeThreshold) changed++;
+        return (double)changed / a.Length;
     }
 
     private static void Stage(Candidate candidate, State state)
@@ -1478,6 +1660,9 @@ public sealed partial class RegionWatcher
         state.RenderedLineHeight = candidate.LineHeight;
         state.RenderedLayout = candidate.Blocks;
         state.RenderedBlocks = blocks;
+        state.ShownTrace = state.PassSignature;
+        (state.Unsteady, state.UnsteadySince) = (0, null);
+        NoteRebound(candidate, area);
     }
 
     private static bool PixelsChangedSinceRead(Frame frame, WatchedArea area, State state)
@@ -1692,6 +1877,7 @@ public sealed partial class RegionWatcher
             latest = null;
         }
         lock (translations) translations.Clear();
+        lock (steadiness) steadiness.Clear();
         lock (terms) terms.Clear();
         lock (worldText)
         {
