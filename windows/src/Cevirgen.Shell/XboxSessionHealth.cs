@@ -76,6 +76,10 @@ public static class XboxEndCauses
     public static string RetryLine(int attempt, int max, int delayMs) =>
         $"sessiz yeniden bağlanma {(attempt <= max ? $"{attempt}/{max}" : "ek deneme")}: {delayMs / 1000} sn sonra";
 
+    /// <summary>Sessiz yeniden bağlanma sınırı doldu (CouchSubsCore ve Android'de aynı biçim).</summary>
+    public static readonly string LimitLine =
+        $"sessiz yeniden bağlanma sınırı doldu ({XboxRetryPlan.DropRetryWindowMs / 60_000} dk içinde en çok {XboxRetryPlan.MaxDropRetries}): yeniden denenmiyor, yayın durdu";
+
     /// <summary>Yeniden bağlanırken ana ekranda gösterilen kısa metin (Mac/iPhone XboxText.session, Android xbox_error_*).</summary>
     public static string RetryMessage(XboxEndCause cause) => cause switch
     {
@@ -99,9 +103,12 @@ public static class XboxConnectWatch
 /// Kopmadan sonra yeniden denenir mi, ne kadar sonra (Android/CouchSubsCore XboxSessionMachine.fail ile aynı kurallar).
 /// Görüntü gelmeden biten bağlantıda bir kez, 5 sn sonra baştan denenir (eskiden 5, 15, 45 sn aralarla üç deneme her
 /// seferinde Xbox'ta "uzaktan yürütme başlatıldı / durduruldu" bildirimi çıkarıyordu). Görüntü gelmiş (oynanan) yayın
-/// beklenmedik koparsa kullanıcıya sormadan en çok <see cref="DropDelaysMs"/> kadar (5, 15, 30 sn) yeniden bağlanılır: tek
-/// deneme tutmayınca kullanıcı birkaç dakikada bir "Yeniden bağlan"a basmak zorunda kalıyordu (#1185, #1190). Yayın <see cref="HealthyStreamMs"/> ayakta kaldıysa
-/// sayaç sıfırlanır. Xbox'tan hiç görüntü gelmeyen bağlantılar ayrıca sayılır: <see cref="MaxNoPictureAttempts"/> ardışık
+/// beklenmedik koparsa kullanıcıya sormadan en çok <see cref="DropDelaysMs"/> kadar (5, 15 sn) yeniden bağlanılır: tek
+/// deneme tutmayınca kullanıcı birkaç dakikada bir "Yeniden bağlan"a basmak zorunda kalıyordu (#1185, #1190). Yayın <see cref="HealthyStreamMs"/> (10 dk)
+/// ayakta kaldıysa sayaç sıfırlanır. Sessiz yeniden bağlanma oturum boyunca <see cref="DropRetryWindowMs"/> (10 dk) içinde en
+/// çok <see cref="MaxDropRetries"/> (iki) kez yapılır; sınır dolunca durulur (<see cref="DropLimitReached"/>, ekranda "Xbox
+/// bağlantısı koptu" ve "Yeniden bağlan"). beta.94'te (#1216) üç deneme ve 60 sn'de sıfırlanan sayaç birlikte, birkaç dakikada
+/// bir kopan yayında Xbox'ta bitmeyen "uzaktan yürütme durdu / başladı" bildirimi döngüsü yaratıyordu (#1252). Xbox'tan hiç görüntü gelmeyen bağlantılar ayrıca sayılır: <see cref="MaxNoPictureAttempts"/> ardışık
 /// bağlantıda ilk kare gelmezse yeniden denenmez. Eskiden her biri Xbox'ta "uzaktan oynatma başlatıldı / durduruldu"
 /// bildirimiyle dört kez (yaklaşık beş dakika) açılıp kapanıyor, ekranda yalnız "WebRTC bağlantısı kesildi" görünüyordu (#403).
 /// </summary>
@@ -110,8 +117,13 @@ public sealed class XboxRetryPlan
     public static readonly int[] DelaysMs = [5000];
     /// <summary>Görüntü gelmiş yayın koptuktan sonraki sessiz yeniden bağlanma aralıkları (CouchSubsCore
     /// <c>dropRetryDelaysMs</c>, Android <c>dropRetryDelaysMs</c> ile aynı).</summary>
-    public static readonly int[] DropDelaysMs = [5000, 15_000, 30_000];
-    public const long HealthyStreamMs = 60_000;
+    public static readonly int[] DropDelaysMs = [5000, 15_000];
+    /// <summary>Yayın bu kadar sağlıklı sürdüyse kopma yeni bir dizinin ilkidir (eskiden 60 sn: birkaç dakikada bir kopan
+    /// yayın döngüye giriyordu, #1252).</summary>
+    public const long HealthyStreamMs = 600_000;
+    /// <summary>Sessiz yeniden bağlanma oturum sınırı: bu süre içinde en çok <see cref="MaxDropRetries"/> deneme.</summary>
+    public const long DropRetryWindowMs = 600_000;
+    public const int MaxDropRetries = 2;
     public const int MaxNoPictureAttempts = 2;
 
     /// <summary>Kopmadan sonra Xbox yeni oturumu reddederse (eski oturum Xbox'ta henüz kapanmadı) beklenen süre.</summary>
@@ -120,6 +132,19 @@ public sealed class XboxRetryPlan
     private int noPicture;
     private bool hadPicture;
     private bool graceUsed;
+    private readonly Func<long> clock;
+    /// <summary>Görüntü gelmiş yayından sonraki sessiz yeniden bağlanmaların anları (son <see cref="DropRetryWindowMs"/> içindekiler).</summary>
+    private readonly Queue<long> dropRetries = new();
+
+    /// <param name="clock">Milisaniye saati (testlerde sahte saat); verilmezse <see cref="Environment.TickCount64"/>.</param>
+    public XboxRetryPlan(Func<long>? clock = null) => this.clock = clock ?? (() => Environment.TickCount64);
+
+    /// <summary>
+    /// Son kopmada sessiz yeniden bağlanma sınırı doldu (görüntü gelmiş yayın <see cref="DropDelaysMs"/> kadar ya da
+    /// <see cref="DropRetryWindowMs"/> içinde <see cref="MaxDropRetries"/> kez yeniden bağlandı ve yine koptu): yeniden
+    /// denenmez, kullanıcıya "Xbox bağlantısı koptu" gösterilir.
+    /// </summary>
+    public bool DropLimitReached { get; private set; }
 
     private int[] Delays => hadPicture ? DropDelaysMs : DelaysMs;
 
@@ -155,8 +180,16 @@ public sealed class XboxRetryPlan
         // kadar (bir) yeniden bağlanma; kopmadan sonraki ret için tanınan tek deneme bu sınırın dışındadır (reddedilen
         // oturumda Xbox yayın açmaz).
         var delays = Delays;
-        var retry = (!refused && Failures <= delays.Length) || grace;
-        if (!retry || noPicture >= MaxNoPictureAttempts) return null;
+        var retry = ((!refused && Failures <= delays.Length) || grace) && noPicture < MaxNoPictureAttempts;
+        // Oturum sınırı: görüntü gelmiş yayından sonra DropRetryWindowMs içinde en çok MaxDropRetries sessiz yeniden
+        // bağlanma (kopmadan sonraki ret için tanınan deneme de sayılır; her biri Xbox'ta bildirim çıkarır).
+        var now = clock();
+        while (dropRetries.Count > 0 && now - dropRetries.Peek() >= DropRetryWindowMs) dropRetries.Dequeue();
+        var limited = hadPicture && noPicture < MaxNoPictureAttempts && (!refused || grace)
+            && (!retry || dropRetries.Count >= MaxDropRetries);
+        DropLimitReached = limited;
+        if (!retry || limited) return null;
+        if (hadPicture) dropRetries.Enqueue(now);
         if (grace) graceUsed = true;
         var backoff = delays[Math.Min(Failures, delays.Length) - 1];
         return grace ? Math.Max(ReconnectGraceMs, backoff) : backoff;
@@ -168,7 +201,8 @@ public sealed class XboxRetryPlan
 /// <c>ServiceNotReady</c>: Xbox uzaktan oynatma hizmetini başlatamadı ("Timed out waiting for Cloud Streaming Service to be
 /// ready", 0x8007139F); <c>StartFailed</c>: Xbox bilinmeyen bir hata koduyla yayını reddetti (#871).
 /// </remarks>
-public enum XboxStopKind { Busy, ConsoleUnavailable, NoPicture, ServiceNotReady, StartFailed, Other }
+/// <c>Dropped</c>: oynanan yayın koptu ve sessiz yeniden bağlanma sınırı doldu (<see cref="XboxRetryPlan.DropLimitReached"/>, #1252).
+public enum XboxStopKind { Busy, ConsoleUnavailable, NoPicture, ServiceNotReady, StartFailed, Dropped, Other }
 
 /// <summary>Xbox yayını durunca günlük satırı ve kullanıcıya gösterilen metin. Android'deki XboxSessionMachine.classifyFailure ile aynı kurallar.</summary>
 public static partial class XboxStop
@@ -253,12 +287,14 @@ public static partial class XboxStop
     }
 
     /// <summary>Denemeler bitince ya da konsol yayını reddedince gösterilen metin; Xbox'ın JSON hata nesnesi ekranda gösterilmez (#871).</summary>
-    public static string Message(Localizer text, string? reason, bool noFirstFrame = false)
+    /// <param name="dropped">Sessiz yeniden bağlanma sınırı doldu (<see cref="XboxRetryPlan.DropLimitReached"/>).</param>
+    public static string Message(Localizer text, string? reason, bool noFirstFrame = false, bool dropped = false)
     {
-        var kind = Classify(reason, noFirstFrame);
+        var kind = dropped ? XboxStopKind.Dropped : Classify(reason, noFirstFrame);
         return kind switch
         {
             XboxStopKind.NoPicture => text[NoPictureStopped],
+            XboxStopKind.Dropped => text[DroppedStopped],
             XboxStopKind.Busy => text["Your Xbox is streaming to another device (the Xbox app, a phone or a PC). Close that session, then start translation again."],
             XboxStopKind.ConsoleUnavailable => text["Can't reach your Xbox. Make sure it's on and remote play is enabled in Settings › Devices & connections › Remote features, then start translation again."],
             XboxStopKind.ServiceNotReady => text[ServiceNotReadyStopped],
@@ -275,6 +311,9 @@ public static partial class XboxStop
 
     /// <summary>Xbox'tan görüntü hiç gelmedi, denemeler bitti (Mac/iPhone XboxText.stopped, Android xbox_stopped_no_picture).</summary>
     public const string NoPictureStopped = "No picture came from the Xbox, so translation stopped. On the Xbox, check that remote play is on in Settings › Devices & connections › Remote features, connect the Xbox with a network cable if you can (or restart it), then start translation again.";
+
+    /// <summary>Oynanan yayın koptu, sessiz yeniden bağlanma sınırı doldu (Mac/iPhone XboxText.stopped, Android xbox_stopped_dropped).</summary>
+    public const string DroppedStopped = "The Xbox connection dropped. Press Reconnect; if it keeps dropping, connect the Xbox with a network cable or restart it.";
 
     /// <summary>Bağlantıda görüntü gelmedi, bir kez daha deneniyor (Android xbox_error_no_first_frame).</summary>
     public const string NoPictureRetrying = "No picture came from the Xbox. Trying once more…";

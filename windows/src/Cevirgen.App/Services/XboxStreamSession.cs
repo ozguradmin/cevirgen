@@ -76,7 +76,7 @@ internal sealed class XboxStreamSession(XboxBridge bridge, XboxConsole console, 
 
     /// <summary>
     /// Yeniden deneme kuralları (bkz. <see cref="XboxRetryPlan"/>). Konsol "oyun başka yerde açıldı" deyip yayını keserse
-    /// eskiden her 5 sn'de bir yeniden açılıyor, konsol uyarıyı yeniden veriyor ve oyun düşüyordu; üç denemeden sonra
+    /// eskiden her 5 sn'de bir yeniden açılıyor, konsol uyarıyı yeniden veriyor ve oyun düşüyordu; iki sessiz denemeden sonra
     /// durulur. Xbox'tan hiç görüntü gelmezse iki bağlantıdan sonra durulur.
     /// </summary>
     private readonly XboxRetryPlan retries = new();
@@ -183,11 +183,14 @@ internal sealed class XboxStreamSession(XboxBridge bridge, XboxConsole console, 
                     "Xbox'ta Ayarlar › Cihazlar ve bağlantılar › Uzak özellikler açık mı, Xbox kablolu mu? Tanı satırlarında video bayt 0 ise Xbox hiç görüntü kodlamıyor");
             if (delay is null)
             {
-                Log(permanent ? "kalıcı hata: yeniden denenmiyor, yayın durdu"
+                var limited = retries.DropLimitReached;
+                Log(limited ? XboxEndCauses.LimitLine
+                    : permanent ? "kalıcı hata: yeniden denenmiyor, yayın durdu"
                     : noFirstFrame ? $"{XboxRetryPlan.MaxNoPictureAttempts} bağlantıda da görüntü gelmedi: yeniden denenmiyor, yayın durdu"
                     : "yeniden bağlanma denendi: yeniden denenmiyor, yayın durdu");
                 Volatile.Write(ref gaveUp, true);
-                StateChanged?.Invoke(SessionState.Disconnected(DisconnectKind.Refused, XboxStop.Message(Localizer.Current, reason, noFirstFrame)));
+                // Sessiz yeniden bağlanma sınırı dolduysa: "Xbox bağlantısı koptu, Yeniden bağlan" (#1252).
+                StateChanged?.Invoke(SessionState.Disconnected(DisconnectKind.Refused, XboxStop.Message(Localizer.Current, reason, noFirstFrame, limited)));
                 break;
             }
             Log(XboxEndCauses.RetryLine(retries.Failures, retries.MaxRetries, delay.Value));

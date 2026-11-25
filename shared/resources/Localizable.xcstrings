@@ -1,6 +1,7 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "The Xbox connection dropped. Press Reconnect; if it keeps dropping, connect the Xbox with a network cable or restart it.": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The Xbox connection dropped. Press Reconnect; if it keeps dropping, connect the Xbox with a network cable or restart it."}}, "tr": {"stringUnit": {"state": "translated", "value": "Xbox bağlantısı koptu. Yeniden bağlan'a basın; sık kopuyorsa Xbox'ı ağa kabloyla bağlayın ya da yeniden başlatın."}}}},
     "Not responding — searching again…": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Not responding — searching again…"}}, "tr": {"stringUnit": {"state": "translated", "value": "Yanıt vermiyor — yeniden aranıyor…"}}}},
     "The TV isn't responding at this address (is it on and on the same network?)": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The TV isn't responding at this address (is it on and on the same network?)"}}, "tr": {"stringUnit": {"state": "translated", "value": "TV bu adreste yanıt vermiyor (açık ve aynı ağda mı?)"}}}},
     "The TV Isn't Responding": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "The TV Isn't Responding"}}, "tr": {"stringUnit": {"state": "translated", "value": "TV Yanıt Vermiyor"}}}},

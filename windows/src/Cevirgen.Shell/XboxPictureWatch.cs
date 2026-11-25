@@ -20,7 +20,7 @@ public readonly record struct XboxPictureVerdict(XboxPictureVerdictKind Kind, st
 /// <c>disconnected</c> yalnız günlüğe yazılıyor, oynatıcı donmuş video öğesini okumaya göndermeyi sürdürüyordu: ana
 /// ekran "bağlı" diyor, altyazı donuyor ve bir daha gelmiyordu (X'te kullanıcı bildirimi, iPhone + Xbox Series S).
 /// Kare <see cref="WarnAfterMs"/> gelmezse (bağlantı <c>disconnected</c> iken 1 sn) uyarı gösterilir;
-/// <see cref="StallAfterMs"/> gelmezse ya da bağlantı <c>failed</c> olursa oturum kapatılıp sessizce en çok üç kez (5, 15, 30 sn
+/// <see cref="StallAfterMs"/> gelmezse ya da bağlantı <c>failed</c> olursa oturum kapatılıp sessizce en çok iki kez (5, 15 sn
 /// sonra) yeniden kurulur. İlk kareden sonraki <see cref="StartupGraceMs"/> içinde yalnız <c>failed</c> oturumu kapatır: yayının başında
 /// Xbox görüntüyü birkaç saniye bekletebiliyor (yükleme, "uzaktan yürütme başlatıldı" bildirimi); eskiden bu boşlukta oturum
 /// kapatılıp yeniden açılıyor, Xbox'ta başladı/durdu döngüsü oluyordu (Play, Android beta.85). CouchSubsCore

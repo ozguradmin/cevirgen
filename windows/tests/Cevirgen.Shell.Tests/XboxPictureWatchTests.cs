@@ -66,11 +66,11 @@ public class XboxPictureWatchTests
     /// Sahte Xbox oturumu (bekçiler XboxStreamSession'daki gibi saniyede bir; canlı tutma 30 sn'de bir). Play'deki bildirim
     /// (Android beta.85): "uzaktan yürütme başlatıldı, hemen ardından durdu, tekrar başladı/durdu". Yayın başında görüntü
     /// birkaç saniye bekliyor, canlı tutma 404 dönüyor: ilk 30 sn'de (ve görüntü akarken sonrasında da) oturum kapatılmıyor,
-    /// yeniden açılmıyor. Sonra gerçek kopma: sessizce en çok üç kez (5, 15, 30 sn) yeniden bağlanılıyor. CouchSubsCore ve Android'deki
+    /// yeniden açılmıyor. Sonra gerçek kopma: sessizce en çok iki kez (5, 15 sn) yeniden bağlanılıyor. CouchSubsCore ve Android'deki
     /// aynı adlı testle aynı senaryo.
     /// </summary>
     [Fact]
-    public void FakeXboxSessionDoesNotLoopAndReconnectsAtMostThreeTimes()
+    public void FakeXboxSessionDoesNotLoopAndReconnectsAtMostTwoTimes()
     {
         var session = new FakeXboxSession();
         session.Connect();
@@ -88,20 +88,63 @@ public class XboxPictureWatchTests
         Assert.Single(session.Ends);
         Assert.Equal(new int?[] { 5000 }, session.Retries);
         Assert.Equal(2, session.Plays);
-        // Yeniden bağlanmalar da kısa sürede kopuyor: kullanıcıya sormadan 15 ve 30 sn sonra yine denenir, sonra yayın
-        // durur ("Yeniden bağlan" düğmesi). Döngü sınırlı: dört kopmada üç yeniden bağlanma. (Bu kısımda canlı tutma yanıt
-        // veriyor; görüntü bekçisi, yayın başındaki 30 sn'lik tanıma süresinden sonra kapatır.)
+        // Yeniden bağlanmalar da kısa sürede kopuyor: kullanıcıya sormadan 15 sn sonra yine denenir, sonra yayın durur
+        // ("Xbox bağlantısı koptu", "Yeniden bağlan" düğmesi). Döngü sınırlı: üç kopmada iki yeniden bağlanma. (Bu kısımda
+        // canlı tutma yanıt veriyor; görüntü bekçisi, yayın başındaki 30 sn'lik tanıma süresinden sonra kapatır.)
         session.KeepaliveFails = null;
         long start = 96_000;
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 2; i++)
         {
             session.Frames(start, start + 4000);
             session.IceLost(start + 4500);
             for (var at = start; at <= start + 35_000; at += 1000) session.Tick(at);
             start = session.Clock + 1000;
         }
-        Assert.Equal(new int?[] { 5000, 15_000, 30_000, null }, session.Retries);
-        Assert.Equal(4, session.Plays);
+        Assert.Equal(new int?[] { 5000, 15_000, null }, session.Retries);
+        Assert.Equal(3, session.Plays);
+        Assert.True(session.LimitReached);
+    }
+
+    /// <summary>
+    /// #1252: sahte oturumda yayın birkaç dakikada bir kopuyor (her seferinde 3 dk oynanıyor, sonra Wi-Fi gidiyor). Eskiden
+    /// sayaç 60 sn'de sıfırlandığı için her kopmada yeniden bağlanılıyor, Xbox'ta bildirim döngüsü bitmiyordu. Artık en çok
+    /// iki sessiz yeniden bağlanma yapılıp durulur. CouchSubsCore ve Android'deki aynı adlı testle aynı senaryo.
+    /// </summary>
+    [Fact]
+    public void FakeXboxSessionDroppingEveryFewMinutesStopsAfterTwoReconnects()
+    {
+        var session = new FakeXboxSession();
+        session.Connect();
+        long start = 0;
+        for (var i = 0; i < 8 && !session.StoppedForGood; i++)
+        {
+            session.Frames(start, start + 180_000);
+            session.IceLost(start + 180_000);
+            for (var at = start; at <= start + 200_000; at += 1000) session.Tick(at);
+            start = session.Clock + 1000;
+        }
+        Assert.Equal(new int?[] { 5000, 15_000, null }, session.Retries);
+        Assert.Equal(3, session.Plays);
+        Assert.True(session.LimitReached);
+    }
+
+    /// <summary>Tek kopma (kısa Wi-Fi takılması) sessizce kapanır: bir yeniden bağlanma, yayın sürer, kullanıcıya bir şey sorulmaz.</summary>
+    [Fact]
+    public void FakeXboxSessionSingleDropReconnectsSilently()
+    {
+        var session = new FakeXboxSession();
+        session.Connect();
+        session.Frames(0, 180_000);
+        session.IceLost(180_000);
+        for (long at = 0; at <= 200_000; at += 1000) session.Tick(at);
+        Assert.Equal(new int?[] { 5000 }, session.Retries);
+        // Yeniden bağlanan yayın yarım saat sorunsuz sürüyor.
+        var start = session.Clock + 1000;
+        session.Frames(start, start + 1_800_000);
+        for (var at = start; at <= start + 1_800_000; at += 1000) session.Tick(at);
+        Assert.Equal(new int?[] { 5000 }, session.Retries);
+        Assert.Equal(2, session.Plays);
+        Assert.False(session.LimitReached);
     }
 
     /// <summary>XboxStreamSession'ın bekçi döngüsünün ağsız kopyası (yeniden deneme planı, görüntü bekçisi, canlı tutma).</summary>
@@ -109,7 +152,7 @@ public class XboxPictureWatchTests
     {
         private long now;
         public long Clock => now;
-        private readonly XboxRetryPlan retries = new();
+        private readonly XboxRetryPlan retries;
         private XboxPictureWatch watch = new();
         private XboxKeepalive keepalive = new();
         private readonly SortedSet<long> frameTimes = [];
@@ -120,6 +163,10 @@ public class XboxPictureWatchTests
         public int Plays;
         public readonly List<string> Ends = [];
         public readonly List<int?> Retries = [];
+        public bool StoppedForGood => stopped;
+        public bool LimitReached => retries.DropLimitReached;
+
+        public FakeXboxSession() => retries = new XboxRetryPlan(() => now);
 
         public void Connect()
         {

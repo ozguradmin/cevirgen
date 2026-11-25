@@ -130,32 +130,91 @@ public class XboxSessionHealthTests
     }
 
     /// <summary>
-    /// Oynanan (görüntü gelmiş) yayın koparsa kullanıcıya sormadan en çok üç kez, geri çekilerek (5, 15, 30 sn) yeniden
-    /// bağlanılır; üçü de kısa sürede koparsa durulur. Eskiden tek deneme vardı: ilk deneme tutmayınca kullanıcı birkaç
-    /// dakikada bir "Yeniden bağlan"a basmak zorunda kalıyordu (#1185, #1190). Görüntü hiç gelmediyse yine tek deneme.
-    /// CouchSubsCore ve Android'deki aynı adlı testle aynı.
+    /// Oynanan (görüntü gelmiş) yayın koparsa kullanıcıya sormadan en çok iki kez, geri çekilerek (5, 15 sn) yeniden
+    /// bağlanılır; ikisi de kısa sürede koparsa durulur ve sınırın dolduğu bildirilir ("Xbox bağlantısı koptu"). Görüntü hiç
+    /// gelmediyse yine tek deneme. CouchSubsCore ve Android'deki aynı adlı testle aynı.
     /// </summary>
     [Fact]
-    public void RealDropReconnectsSilentlyUpToThreeTimes()
+    public void RealDropReconnectsSilentlyUpToTwoTimes()
     {
         var plan = new XboxRetryPlan();
         plan.PictureArrived();
-        Assert.Equal(3, plan.MaxRetries);
+        Assert.Equal(2, plan.MaxRetries);
         Assert.Equal(5000, plan.Failed(false, false, 120_000));
         Assert.Equal(1, plan.Failures);
-        // Yeniden bağlanmalar da kısa sürede koptu: 15 ve 30 sn sonra yine denenir, dördüncü kopmada durulur.
+        Assert.False(plan.DropLimitReached);
+        // Yeniden bağlanma da kısa sürede koptu: 15 sn sonra yine denenir, üçüncü kopmada durulur.
         plan.PictureArrived();
         Assert.Equal(15_000, plan.Failed(false, false, 10_000));
         plan.PictureArrived();
-        Assert.Equal(30_000, plan.Failed(false, false, 10_000));
-        plan.PictureArrived();
         Assert.Null(plan.Failed(false, false, 10_000));
+        Assert.True(plan.DropLimitReached);
         // Bağlanırken hata (görüntü hiç gelmedi): eskisi gibi en çok bir deneme.
         var fresh = new XboxRetryPlan();
         Assert.Equal(1, fresh.MaxRetries);
         Assert.Equal(5000, fresh.Failed(false, false, null));
         Assert.Null(fresh.Failed(false, false, null));
         Assert.Null(new XboxRetryPlan().Failed(permanent: true, noFirstFrame: false, streamedMs: null));
+    }
+
+    /// <summary>
+    /// #1252: birkaç dakikada bir kopan yayın. Eskiden sayaç 60 sn'lik yayından sonra sıfırlanıyordu: her kopmada yeniden
+    /// bağlanılıyor, Xbox'ta "uzaktan yürütme durdu / başladı" bildirimi sonsuza dek tekrarlanıyordu. Artık sayaç ancak 10 dk
+    /// sağlıklı yayından sonra sıfırlanır ve 10 dk içinde en çok iki sessiz yeniden bağlanma yapılır; sonra durulur.
+    /// </summary>
+    [Fact]
+    public void StreamDroppingEveryFewMinutesStopsAfterTwoReconnects()
+    {
+        long now = 1000;
+        var plan = new XboxRetryPlan(() => now);
+        var retries = new List<int?>();
+        for (var i = 0; i < 10 && !plan.DropLimitReached; i++)
+        {
+            plan.PictureArrived();
+            now += 3 * 60_000;
+            var delay = plan.Failed(false, false, 3 * 60_000, "Xbox ICE bağlantısı koptu (failed)");
+            retries.Add(delay);
+            now += delay ?? 0;
+        }
+        Assert.Equal(new int?[] { 5000, 15_000, null }, retries);
+        Assert.True(plan.DropLimitReached);
+        Assert.Equal("sessiz yeniden bağlanma sınırı doldu (10 dk içinde en çok 2): yeniden denenmiyor, yayın durdu", XboxEndCauses.LimitLine);
+    }
+
+    /// <summary>Kopmadan sonraki ret için tanınan deneme de oturum sınırına sayılır: döngüye ek bildirim katmaz.</summary>
+    [Fact]
+    public void GraceRetryCountsTowardsTheSessionLimit()
+    {
+        long now = 1000;
+        var plan = new XboxRetryPlan(() => now);
+        plan.PictureArrived();
+        now += 3 * 60_000;
+        Assert.Equal(5000, plan.Failed(false, false, 3 * 60_000));
+        // Xbox eski oturumu bırakmadan yenisini reddetti: bir kez, 15 sn sonra denenir (ikinci deneme).
+        Assert.Equal(15_000, plan.Failed(permanent: true, noFirstFrame: false, streamedMs: null));
+        plan.PictureArrived();
+        now += 3 * 60_000;
+        Assert.Null(plan.Failed(false, false, 3 * 60_000));
+        Assert.True(plan.DropLimitReached);
+    }
+
+    /// <summary>#1216'nın amacı: tek, kısa bir Wi-Fi takılması kullanıcı fark etmeden kapanır; seyrek kopmalar da hep sessiz.</summary>
+    [Fact]
+    public void SingleDropIsSilentAndRareDropsStaySilent()
+    {
+        long now = 1000;
+        var plan = new XboxRetryPlan(() => now);
+        for (var i = 0; i < 5; i++)
+        {
+            plan.PictureArrived();
+            now += 25 * 60_000;
+            Assert.Equal(5000, plan.Failed(false, false, 25 * 60_000));
+            Assert.False(plan.DropLimitReached);
+            now += 5000;
+        }
+        // Takılmada ilk deneme Xbox eski oturumu bırakmadan düştü: ikinci deneme yine sessiz.
+        Assert.Equal(15_000, plan.Failed(false, false, null));
+        Assert.False(plan.DropLimitReached);
     }
 
     [Fact]
