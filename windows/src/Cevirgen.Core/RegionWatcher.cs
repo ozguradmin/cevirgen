@@ -221,6 +221,8 @@ public sealed partial class RegionWatcher
     private readonly Func<long> now;
     /// <summary>Düşürülen ya da bekletilen okumanın nedeni, sınırlı ve tekrarsız (<see cref="DropLog"/>).</summary>
     private readonly DropLog drops;
+    /// <summary>Telefonun sessiz yolları (<see cref="PhoneTrace"/>): ayrı sınır, öbür düşen satırları bastırmasın.</summary>
+    private readonly DropLog phoneTrace;
     private Dictionary<string, State> states = [];
     private long? lastPass;
     private long? lastPhonePass;
@@ -290,6 +292,7 @@ public sealed partial class RegionWatcher
         this.intervalMs = intervalMs;
         now = clock ?? (() => Environment.TickCount64);
         drops = new DropLog(now);
+        phoneTrace = new DropLog(now);
     }
 
     /// <summary>Tur aralığının çarpanı (<see cref="ReadPressure.Slowdown"/>); verilmezse 1.</summary>

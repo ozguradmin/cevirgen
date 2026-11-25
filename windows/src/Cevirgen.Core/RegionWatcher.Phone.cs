@@ -14,8 +14,21 @@ public sealed partial class RegionWatcher
 
     // Yakalama, telefonun konumunu OCR turundan bağımsız aralıklarla günceller. Son konum
     // geçerli görünse de bu karede kasa kaybolmuş olabilir. Denetim yalnız telefon işinde çalışır.
-    private static bool PhoneMissing(Frame frame, WatchedArea area) => area.PhonePose.HasValue
-        && (!GamePhoneGeometry.TryLocate(frame, out var pose) || !pose.Bounds.IsClose(area.Region, 0.035));
+    // Telefon bu karede yoksa ya da izlenen yerden çok uzaktaysa nedeni günlüğe yazılır (PhoneTrace; önceden sessizdi, #1251).
+    private bool PhoneMissing(Frame frame, WatchedArea area)
+    {
+        if (!area.PhonePose.HasValue) return false;
+        if (!GamePhoneGeometry.TryLocate(frame, out var pose))
+        {
+            Trace(PhoneTrace.Missing, area);
+            return true;
+        }
+        if (pose.Bounds.IsClose(area.Region, 0.035)) return false;
+        Trace(PhoneTrace.Displaced(PhoneTrace.Shift(pose.Bounds, area.Region)), area);
+        return true;
+    }
+
+    private void Trace(string reason, WatchedArea area) => phoneTrace.Note(PhoneTrace.Component, reason, area.Name, Log);
 
     private async Task VisitPhoneAsync(WatchedArea area, Frame frame, Dictionary<string, State> map, int started)
     {
@@ -152,6 +165,7 @@ public sealed partial class RegionWatcher
         var clock = now();
         var reading = area.PhonePose is { } pose ? (state.PhoneReader ??= new()).Read(frame, area.Region, pose, reader)
             : reader.ReadScreen(crop);
+        if (area.PhonePose.HasValue && reading.Lines.Count == 0) Trace(PhoneTrace.EmptyFlat, area);
         area.PanelLifetime?.ThrowIfCancellationRequested();
         Interlocked.Increment(ref reads);
         ReadMeasured?.Invoke(now() - clock);

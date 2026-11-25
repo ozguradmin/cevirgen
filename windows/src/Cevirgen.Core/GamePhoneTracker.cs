@@ -11,8 +11,19 @@ public sealed class GamePhoneTracker
     private long? lastTime;
     private CropRegion? previous, shown;
 
-    public GamePhoneTracker() { }
-    internal GamePhoneTracker(Func<Frame, CropRegion?> locate) => locateOverride = locate;
+    private long clock;
+    private readonly DropLog trace;
+
+    public GamePhoneTracker() => trace = new DropLog(() => clock);
+    internal GamePhoneTracker(Func<Frame, CropRegion?> locate) : this() => locateOverride = locate;
+
+    /// <summary>Telefonun açılması, kapanması ve oynadığı için açılmaması altyazı günlüğüne (<see cref="PhoneTrace"/>; sınırlı).</summary>
+    public Action<string>? Log { get; set; }
+
+    private void Trace(string reason)
+    {
+        if (Log is { } log) trace.Note(PhoneTrace.Component, reason, "", log);
+    }
 
     public bool TrySample(Frame frame, long now, out CropRegion? visible)
     {
@@ -22,6 +33,8 @@ public sealed class GamePhoneTracker
             return false;
         }
         lastTime = now;
+        clock = now;
+        var wasShown = shown is not null;
         GamePhoneGeometry.Pose? pose = null;
         CropRegion? candidate;
         if (locateOverride is not null) candidate = locateOverride(frame);
@@ -54,6 +67,11 @@ public sealed class GamePhoneTracker
             shownPose = null;
             misses = 0;
         }
+        if (!wasShown && shown is not null) Trace(PhoneTrace.Opened);
+        else if (wasShown && shown is null) Trace(PhoneTrace.Closed);
+        // Telefon art arda iki örnekte bulundu ama yeri çok oynadı: hiç açılmıyor, okuma da başlamıyor (önceden sessizdi).
+        if (shown is null && candidate is not null && previous is not null)
+            Trace(PhoneTrace.Moving(PhoneTrace.Shift(candidate, previous)));
         previous = candidate;
         visible = shown;
         return true;
