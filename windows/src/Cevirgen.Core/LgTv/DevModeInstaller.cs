@@ -44,6 +44,9 @@ public enum DevModeError
     HostPcMismatch,
     /// <summary>TV'de Çevirgen'in kimliğiyle başka bir uygulama kurulu; kaldırıp Çevirgen'i kurmak için kullanıcı onayı gerekir.</summary>
     ForeignApp,
+    /// <summary>Kayıtlı adreste TV hiç yanıt vermiyor (kapılar zaman aşımında) ve TV ağda yeniden aranınca da bulunamadı
+    /// (TvReach). "Geliştirici modu kapalı" ya da "Key Server kapalı" denmez: TV'de ikisi açık olabilir. Mac tvNotResponding.</summary>
+    TvNotResponding,
 }
 
 /// <param name="detail">Sorunu bulmak için ayrıntı (komut çıktısı gibi); hata günlüğüne yazılır, kullanıcıya gösterilmez.</param>

@@ -239,6 +239,8 @@ public sealed class LiveServices : IAppServices
 
     public Task<bool> IsDevModeOnAsync(string host) => DevModeInstaller.IsDevModeOnAsync(host);
 
+    public Task<bool> TvRespondsAsync(string host, TvBrand brand) => TvReach.RespondsAsync(host, brand);
+
     // LG kurulumunun adımları da tvinstall.log'a telefonlardaki satırlarla yazılır (LgInstallLog); önceden yalnız Samsung
     // ve Android TV kurulumu günlük tutuyordu.
     private static LgInstallLog LgLog => new(new TvInstall.InstallLog(TvInstallLogPath).Write);

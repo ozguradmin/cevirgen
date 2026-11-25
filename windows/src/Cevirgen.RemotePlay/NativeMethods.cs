@@ -132,7 +132,7 @@ public static class RemotePlayLog
     /// <summary>Günlüğün yazıldığı dosya (uygulamadaki RemotePlayDiagnostics yazar).</summary>
     // Eski ad (CouchSubs) bilerek korunur: mevcut kurulumların verisi bu klasörde; değişirse kaybolur.
     public static string FilePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "remoteplay.log");
+        Path.Combine(global::Cevirgen.Core.AppDataPaths.Root, "remoteplay.log");
 
     /// <summary>Kullanıcıya hata iletisinde gösterilen yol (Dosya Gezgini'nin adres çubuğuna yazılabilir).</summary>
     public const string DisplayPath = @"%LOCALAPPDATA%\CouchSubs\remoteplay.log";

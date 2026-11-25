@@ -245,7 +245,7 @@ public sealed class GamePackLibrary(Func<IEnumerable<(string Name, byte[] Data)>
     /// <summary>%LOCALAPPDATA%\CouchSubs\packs</summary>
     // Eski ad (CouchSubs) bilerek korunur: mevcut kurulumların verisi bu klasörde; değişirse kaybolur.
     public static string UserDirectory { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CouchSubs", "packs");
+        Path.Combine(AppDataPaths.Root, "packs");
 
     private readonly object gate = new();
     private bool loaded;

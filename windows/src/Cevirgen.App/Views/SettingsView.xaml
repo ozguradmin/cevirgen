@@ -248,8 +248,25 @@
                                         <Button Content="{t:T 'Pair TV'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnOpenTvPairing" />
                                         <Button Content="TV uygulamasını yeniden kur" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnReinstallTvApp" />
                                         <Button Content="{t:T 'Send Test Subtitle'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnTest" />
-                                        <Button Content="{t:T 'Renew access key'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,0,xs'}" Click="OnRenewAccessKey" />
+                                        <Button Content="{t:T 'Renew access key'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnRenewAccessKey" />
+                                        <!-- Eşli TV kaldırılabilir (upstream 206821be). -->
+                                        <Button Content="{t:T 'Remove Pairing'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,0,xs'}" Click="OnRemoveTvPairing"
+                                                Visibility="{Binding HasTv, Converter={StaticResource VisibleIf}}" />
                                     </WrapPanel>
+                                    <!-- "TV'yi Eşleştir" ya da "Deneme Altyazısı Gönder" TV'ye ulaşamadı: ne olduğu ve iki çözüm (upstream 206821be). -->
+                                    <c:SpacedStack x:Name="TvUnreachablePanel" Gap="xs" Visibility="Collapsed" Margin="{t:Sp '0,xs,0,0'}">
+                                        <c:Callout x:Name="TvUnreachableBox" Tone="Attention" />
+                                        <WrapPanel>
+                                            <Button Content="{t:T 'Search for the TV Again'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,xs,xs'}" Click="OnSearchTvAgain" />
+                                            <Button Content="{t:T 'Enter IP Address'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,0,xs'}" Click="OnEnterTvAddress" />
+                                        </WrapPanel>
+                                        <Grid x:Name="TvAddressPanel" Visibility="Collapsed">
+                                            <TextBox x:Name="TvAddress" FontFamily="{StaticResource MonoFont}" Padding="{t:Sp 'm,0,xxl,0'}" KeyDown="OnTvAddressKey"
+                                                     ToolTip="{t:T 'IP address, e.g. 192.168.1.20'}" />
+                                            <Button Content="{t:T 'Add'}" Style="{StaticResource CompactButton}" HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center" Margin="{t:Sp '0,0,xs,0'}" Click="OnUseTvAddress" />
+                                        </Grid>
+                                    </c:SpacedStack>
                                     <c:Callout x:Name="LegacyTvWarning" Text="{t:T 'The TV app is old. Update it.'}" Visibility="Collapsed" />
                                 </StackPanel>
                             </Border>

@@ -39,7 +39,7 @@ public sealed class UpdateAttemptJournal(string path, string currentVersion, Fun
 {
     /// <summary>%LOCALAPPDATA%\Cevirgen\guncelleme-denemesi.json (Velopack'in kurulum klasörünün dışında; CouchSubs'ınkiyle karışmaz).</summary>
     public static string DefaultPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cevirgen", "guncelleme-denemesi.json");
+        Path.Combine(global::Cevirgen.Core.AppDataPaths.CevirgenRoot, "guncelleme-denemesi.json");
 
     public string CurrentVersion => currentVersion;
 

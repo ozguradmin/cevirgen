@@ -35,6 +35,12 @@ public static class TvAppMessages
     public const string ForeignAppConfirm = "Remove And Install";
     public const string ForeignAppCancel = "Cancel";
 
+    /// <summary>Kayıtlı adreste TV hiç yanıt vermiyor ve ağda da bulunamadı (TvReach; Mac, iPhone ve Android ile aynı).</summary>
+    public const string TvNotRespondingMessage = "The TV isn't responding at this address (is it on and on the same network?)";
+
+    /// <summary>Eşli TV kartında "TV'yi Eşleştir" ya da "Deneme Altyazısı Gönder" TV'ye ulaşamayınca (adres yazılır).</summary>
+    public const string TvNotRespondingAtMessage = "The TV isn't responding at %@. Its address may have changed.";
+
     /// <summary>Hata iletisinin sonunda günlük dosyasını söyleyen satır.</summary>
     public const string SendLogLine = "If this keeps happening, send us this file: %@";
 
@@ -98,6 +104,7 @@ public static class TvAppMessages
             "The TV did not accept this computer. In the TV's Developer Mode window, check that Host PC IP is this computer's address, then restart the TV.",
         DevModeError.HostPcMismatch => HostPcMismatchMessage,
         DevModeError.Unreachable => "The TV did not respond. Make sure it is on and on the same network.",
+        DevModeError.TvNotResponding => TvNotRespondingMessage,
         DevModeError.ToolMissing => "Windows' OpenSSH Client is missing. Add it in Settings › System › Optional features and try again.",
         DevModeError.TooOld => "This Samsung TV is too old for the Çevirgen TV app (2016 models and later are supported).",
         DevModeError.SignInFailed => "Samsung sign-in did not complete. Try again and finish signing in on the page that opens.",

@@ -20,7 +20,10 @@ public sealed partial class AppController
     public DeviceState SourceState => DeviceStates.Source(demoMode, SourceConfigured, isRunning, sessionState.Phase,
         retryStopped: offersReconnect || sessionState.Reason is { Kind: DisconnectKind.Refused });
 
-    public DeviceState TvState => DeviceStates.Tv(ShowsOnTv, HasTv, isRunning, tvClients, tvAppOutdated is not null);
+    public DeviceState TvState =>
+        // Eşli TV'nin adresi sessiz ve TV yeniden aranıyor (upstream 206821be): bekleniyor.
+        ShowsOnTv && HasTv && tvNotResponding && tvClients == 0 ? DeviceState.Waiting
+        : DeviceStates.Tv(ShowsOnTv, HasTv, isRunning, tvClients, tvAppOutdated is not null);
 
     public DeviceState EngineState
     {
