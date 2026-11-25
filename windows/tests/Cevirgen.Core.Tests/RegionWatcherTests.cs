@@ -790,7 +790,7 @@ public partial class RegionWatcherTests
     }
 
     [Fact]
-    public async Task ReturningToASeenMessageReusesOnlyItsExactTextUntilThePhoneCloses()
+    public async Task ReturningToASeenMessageReusesOnlyItsExactTextEvenAfterThePhoneCloses()
     {
         var reader = new Reader();
         var translator = new Translator();
@@ -806,7 +806,9 @@ public partial class RegionWatcherTests
         watcher.RemovePanel(phone.Id);
         using var reopened = new CancellationTokenSource();
         await watcher.PassAsync(Shade(20), [phone with { PanelLifetime = reopened.Token }]);
-        Assert.Equal(["Meet May at 15.", "Meet May at 50.", "Meet May at 15."], translator.Calls);
+        // Telefonun açılışları arasında hafıza kalır (PhoneMemory, X 22 Kas): yeniden açılan telefonda aynı mesaj yeniden
+        // çevrilmez; sayısı değişen mesaj yine ayrı mesajdır.
+        Assert.Equal(["Meet May at 15.", "Meet May at 50."], translator.Calls);
     }
 
     [Fact]

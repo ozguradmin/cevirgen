@@ -178,7 +178,7 @@ public sealed partial class RegionWatcher
 
     // Yeni OCR'nin kutularına yalnız tam eşleşen parçalar konur. Bir balonun herhangi bir parçası
     // değiştiyse balonun tamamı özgün dilinde kalır; başka bir balonun çevirisini engellemez.
-    private static string?[]? MatchingPhoneBlocks(Candidate fresh, Dictionary<string, string> translations)
+    private static string?[]? MatchingPhoneBlocks(Candidate fresh, IReadOnlyDictionary<string, string> translations)
     {
         var matched = fresh.Paragraphs.Select(paragraph => PhoneSteady.Translation(paragraph, translations)).ToArray();
         if (matched.Length == 0) return null;
@@ -316,9 +316,14 @@ public sealed partial class RegionWatcher
         var prepared = candidate.Paragraphs.Select(IconText.Protect).ToList();
         string?[] result = [.. candidate.Paragraphs.Select(paragraph => PackLookup?.Invoke(IconText.Plain(paragraph))?.Text)];
         var fromPack = result.Count(text => text is not null);
-        if (state.PhoneTranslations is { } known)
-            for (var i = 0; i < result.Length; i++)
-                if (result[i] is null && PhoneSteady.Translation(candidate.Paragraphs[i], known) is { } cached) result[i] = cached;
+        // Telefonun açılışları arasında kalan hafıza (PhoneMemory): aynı mesaj yeniden çevrilmez.
+        for (var i = 0; i < result.Length; i++)
+            if (result[i] is null && phoneMemory.Translation(candidate.Paragraphs[i]) is { } cached) result[i] = cached;
+        // Ekranda aynı yerde duran balonun daha bozuk okunuşu da yeniden çevrilmez (PhoneSteady.ShownTranslation; Mac ile aynı).
+        foreach (var block in candidate.Blocks ?? [])
+            if (block.Count == 1 && block.Start < result.Length && result[block.Start] is null
+                && PhoneSteady.ShownTranslation(IconText.Plain(candidate.Paragraphs[block.Start]), block.Phone?.Spot, state.SentPhoneBlocks) is { } shown)
+                result[block.Start] = shown;
         // Kişinin adı (sohbet başlığı) çevrilmez: "Rose" "Gül" olmasın; panelin başlığında aslıyla görünür (Mac ile aynı).
         foreach (var block in candidate.Blocks ?? [])
             if (block.Phone?.Role.KeepsText() == true)
@@ -401,7 +406,7 @@ public sealed partial class RegionWatcher
                         string.Join(' ', missing.Select(i => candidate.Paragraphs[i])));
                 if (area.PanelLifetime is { IsCancellationRequested: true }) return;
                 for (var i = 0; i < result.Length; i++)
-                    if (!string.IsNullOrWhiteSpace(result[i])) state.RememberPhoneTranslation(candidate.Paragraphs[i], result[i]!);
+                    if (!string.IsNullOrWhiteSpace(result[i])) phoneMemory.Remember(candidate.Paragraphs[i], result[i]!);
                 var latestFrame = LatestPhone(area);
                 if (latestFrame is { } observed && PhoneMissing(observed.Frame, observed.Area))
                 {
@@ -442,7 +447,7 @@ public sealed partial class RegionWatcher
                             state.Signature = null;
                             return;
                         }
-                        if (state.PhoneTranslations is not { } confirmed || MatchingPhoneBlocks(fresh, confirmed) is not { } matched)
+                        if (MatchingPhoneBlocks(fresh, phoneMemory.Known) is not { } matched)
                         {
                             if (!string.IsNullOrEmpty(state.RenderedText)) SendCurrent(area, state, started, "", null);
                             state.Shown = "";

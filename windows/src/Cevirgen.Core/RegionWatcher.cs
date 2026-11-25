@@ -98,8 +98,6 @@ public sealed partial class RegionWatcher
         /// <summary>Son gönderilen düzen, ayarı ve Yanda Panel'in dayandığı telefon yeri (<see cref="PhoneSteady.SteadyPose"/>).</summary>
         public IReadOnlyList<ScreenTranslation.Item>? SentPhoneShown;
         public PhonePanelOptions? SentPhoneOptions;
-        /// <summary>Yanda Panel'in kilitli telefon yeri ve yazı boyu (#1152): el titremesiyle değişmez.</summary>
-        public PhonePanelSteady PhonePanelSteady = new();
         public double PhoneScale;
         /// <summary>Boş okumanın art arda kaç turdur sürdüğü: <see cref="PhoneSteady.MissTurns"/> tur sürmeden ekran silinmez.</summary>
         public int PhoneEmpties;
@@ -143,9 +141,6 @@ public sealed partial class RegionWatcher
         public byte[]? ShownTrace;
         /// <summary>Bir önceki turun izi (<see cref="BigChangeShare"/> için; <see cref="Signature"/> yalnız okumada güncellenir).</summary>
         public byte[]? PassSignature;
-        // Yalnız açık telefon için. Kısa bir OCR sapmasından veya sohbetten geri dönünce aynı metin yeniden istenmez.
-        public Dictionary<string, string>? PhoneTranslations { get; private set; }
-        private Queue<string>? phoneKeys;
         public int NextPhoneBlock;
         public (string Prefix, double X, double Y)[] PhoneOrderAnchors = [];
         /// <summary>Son taze telefon okumasının balonları (yazı, telefona oranlı üst kenar): kaydırmayı tanımak için.</summary>
@@ -158,18 +153,6 @@ public sealed partial class RegionWatcher
         /// </summary>
         public bool? PhoneShownList;
         public int PhoneKindVotes;
-
-        public void RememberPhoneTranslation(string source, string translation)
-        {
-            var saved = PhoneTranslations ??= new(StringComparer.Ordinal);
-            if (!saved.ContainsKey(source))
-            {
-                var keys = phoneKeys ??= new Queue<string>();
-                if (keys.Count >= 2 * ScreenTranslation.MaxGroups) saved.Remove(keys.Dequeue());
-                keys.Enqueue(source);
-            }
-            saved[source] = translation;
-        }
     }
 
     /// <summary>Alanda ayrı duran bir yazı grubu: <see cref="Candidate.Paragraphs"/> içinde <paramref name="Start"/>'tan
@@ -223,6 +206,8 @@ public sealed partial class RegionWatcher
     private readonly DropLog drops;
     /// <summary>Telefonun sessiz yolları (<see cref="PhoneTrace"/>): ayrı sınır, öbür düşen satırları bastırmasın.</summary>
     private readonly DropLog phoneTrace;
+    /// <summary>Telefonun açılışları arasında kalan çeviriler ve panelin yazı boyu (<see cref="PhoneMemory"/>); <see cref="Reset"/> unutturur.</summary>
+    private readonly PhoneMemory phoneMemory = new();
     private Dictionary<string, State> states = [];
     private long? lastPass;
     private long? lastPhonePass;
@@ -1514,22 +1499,35 @@ public sealed partial class RegionWatcher
                 // Yanda Panel'in dayandığı telefon yeri ve yazı boyu ise el titremesiyle değişmez (PhonePanelSteady): yalnız
                 // belirgin ve kalıcı yakınlaşma/kaymada yenilenir. Ekran silinince sonraki gönderi baştan ölçer.
                 var time = now();
-                if (blocks is not { Count: > 0 }) state.PhonePanelSteady.Reset();
+                var steady = phoneMemory.Steady;
+                // Telefon yeniden açıldı (alanın ilk gönderisi) ya da ekran silindi: yer yeniden ölçülür, aynı boydaki
+                // telefonun yazı boyu hatırlanır.
+                if (blocks is not { Count: > 0 } || state.SentPhoneShown is null) steady.Reset();
                 var placed = blocks is { Count: > 0 } && area.PhonePose is { } seen
-                    ? state.PhonePanelSteady.SteadyPose(seen, time) : ((GamePhoneGeometry.Pose Pose, bool Resized)?)null;
+                    ? steady.SteadyPose(seen, time) : ((GamePhoneGeometry.Pose Pose, bool Resized)?)null;
+                // Aynı mesaj bir kez (PhoneSteady.WithoutRepeats); ekrandaki mesajın Türkçesi okuma okuma değişmez
+                // (PhoneSteady.KeptTranslations; Mac ile aynı).
+                if (blocks is not null)
+                {
+                    blocks = PhoneSteady.WithoutRepeats(blocks);
+                    if (state.SentPhoneBlocks is { Count: > 0 } shownBefore) blocks = PhoneSteady.KeptTranslations(blocks, shownBefore);
+                }
                 // Kaydırılırken konum sabitlenmez (SteadyPositions atlanır): balonlar yeni yerine hemen geçer; görünüşleri
                 // (boy, renk) StablePhoneBlocks ile korunur.
                 if (blocks is not null && state.SentPhoneBlocks is { } previous)
                     blocks = state.PhoneScrolling ? StablePhoneBlocks(blocks, previous)
                         : PhoneSteady.SteadyPositions(StablePhoneBlocks(blocks, previous), previous, state.PhoneAspect);
-                state.SentPhoneBlocks = blocks;
                 var options = PhonePanel();
+                // Yazı boyu grup için bir kez ölçülür, kilitlidir; Balonların Üstünde'de de bütün mesaj balonları bu tek boyda.
+                var line = blocks is { Count: > 0 } ? steady.SteadyLine(ScreenPhoneCard.MeasuredLine(blocks), time) : null;
+                if (blocks is { Count: > 0 } && !options.Enabled) blocks = PhoneSteady.UniformLine(blocks, line);
+                state.SentPhoneBlocks = blocks;
                 if (blocks is { Count: > 0 })
                 {
                     // Yanda Panel: mesajlar telefonun yanındaki sohbet panelinde; Balonların Üstünde: her biri kendi balonunda.
                     // Panel telefonun el titremesiyle kaymaz, yazı boyu değişmez (PhonePanelSteady).
-                    var line = state.PhonePanelSteady.SteadyLine(ScreenPhoneCard.MeasuredLine(blocks), time);
                     var arranged = ArrangedPhone(blocks, placed?.Pose, state.PhoneAspect, options, line);
+                    if (options == state.SentPhoneOptions) arranged = PhoneSteady.SteadyCard(arranged, state.SentPhoneShown);
                     if (arranged.Any(item => item.Panel == ScreenPhoneCard.PanelPart.Card))
                     {
                         text = string.Join('\n', arranged.Where(item => !ScreenPhoneCard.IsBackdrop(item)).Select(item => item.Translation));
@@ -1615,7 +1613,9 @@ public sealed partial class RegionWatcher
         for (var i = 0; i < candidate.Paragraphs.Count; i++)
         {
             var source = candidate.Paragraphs[i];
-            if (area.PanelLifetime.HasValue) result[i] = GamePhoneText.KeepIdentifiers(source, result[i]);
+            // Telefonda motorun aynı cümleyi art arda iki kez yazdığı çeviri tek kez gösterilir (GamePhoneText.WithoutRepeat).
+            if (area.PanelLifetime.HasValue)
+                result[i] = GamePhoneText.KeepIdentifiers(source, result[i] is { } raw ? GamePhoneText.WithoutRepeat(raw) : null);
             text.Add(result[i]?.Trim() is not { Length: > 0 } translated ? IconText.Indexed(source, slots.Count)
                 : translated.Contains(ButtonIcons.Marker) ? IconText.Indexed(translated, slots.Count)
                 : IconText.Restore(translated, prepared[i].Names, slots.Count));
@@ -1880,6 +1880,7 @@ public sealed partial class RegionWatcher
             latest = null;
         }
         lock (translations) translations.Clear();
+        phoneMemory.Clear();
         lock (steadiness) steadiness.Clear();
         lock (terms) terms.Clear();
         lock (worldText)

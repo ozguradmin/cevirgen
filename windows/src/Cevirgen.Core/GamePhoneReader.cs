@@ -95,6 +95,11 @@ internal sealed class GamePhoneReader
         var recoveredBox = Map(line.Box!.Value);
         // İlk okuma aynı satırın yalnız son kelimelerini bulmuş olabilir. Üstüne ikinci bir kutu koyma.
         if (reading.Lines.Any(l => l != tail && l.Box is { } existing && SameRow(existing, recoveredBox))) return reading;
+        // Kurtarılan satır okumada zaten varsa (başka yerde okunmuş aynı yazı) ikinci kez eklenmez: balonda aynı cümle iki
+        // kez görünüyordu (X, 22 Kas; Mac ile aynı).
+        var recoveredText = TextMatch.Normalize(line.Text);
+        if (reading.Lines.Any(l => PhoneSteady.SameReading(l.Text, line.Text)
+            || TextMatch.Normalize(l.Text).Contains(recoveredText, StringComparison.Ordinal))) return reading;
         failedTail = null;
         var recovered = line with
         {

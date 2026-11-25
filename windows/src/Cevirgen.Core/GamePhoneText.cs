@@ -267,8 +267,8 @@ internal static partial class GamePhoneText
             if (run.Count == 0) return;
             if (flat)
             {
-                var clean = new Reading(run).WithButtonIcons().WithoutButtonPrompts().WithoutOcrNoise(true).Lines
-                    .Where(l => l.Box.HasValue && ScreenTranslation.IsWords(l.Text)).ToArray();
+                var clean = WithoutRepeatedLines(new Reading(run).WithButtonIcons().WithoutButtonPrompts().WithoutOcrNoise(true).Lines
+                    .Where(l => l.Box.HasValue && ScreenTranslation.IsWords(l.Text)).ToArray());
                 if (clean.Length > 0)
                 {
                     // Aynı balona sarılan satırlar birlikte çevrilir; TV konumu özgün oyun kutularından gelir.
@@ -277,7 +277,7 @@ internal static partial class GamePhoneText
                     var icons = clean.SelectMany(l => l.Icons ?? []).ToArray();
                     // Düz ekrandaki yeri: sohbet panelinde tarafı (sol/sağ) ve sırası bundan çıkar (Roles).
                     var spot = run.Select(Layout).Aggregate((a, b) => a.Union(b));
-                    groups.Add(new ScreenTranslation.Group([string.Join(' ', clean.Select(l => l.Text))], box,
+                    groups.Add(new ScreenTranslation.Group([WithoutRepeat(string.Join(' ', clean.Select(l => l.Text)))], box,
                         heights[heights.Length / 2], icons.Length == 0 ? null : [icons])
                     {
                         Phone = new ScreenPhoneCard.Placement(
@@ -329,6 +329,43 @@ internal static partial class GamePhoneText
     }
 
     private static bool EndsSentence(string text) => text.TrimEnd().LastOrDefault() is '.' or '!' or '?';
+
+    /// <summary>
+    /// Art arda iki kez yazılmış metin ("A. B. A. B.") bir kez: OCR aynı satırı iki kutuda okuyunca ya da motor çeviriyi iki
+    /// kez yazınca balonda aynı paragraf art arda iki kez görünüyordu (X, 22 Kas). Metin sözcük sözcük ikiye bölünür (en az
+    /// dört sözcük); iki yarı aynı mesajsa (<see cref="PhoneSteady.SameReading"/>) ilk yarı kalır (Mac ile aynı).
+    /// </summary>
+    internal static string WithoutRepeat(string text)
+    {
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < 4 || words.Length % 2 != 0) return text;
+        int half = words.Length / 2;
+        string first = string.Join(' ', words.Take(half)), second = string.Join(' ', words.Skip(half));
+        if (!TextMatch.Normalize(first).Any(char.IsLetter) || !PhoneSteady.SameReading(first, second)) return text;
+        return first;
+    }
+
+    /// <summary>
+    /// Aynı balonda bir öncekiyle aynı (<see cref="PhoneSteady.SameReading"/>) ya da bir öncekinin içinde kalan satır atılır:
+    /// soluk satır bazen hem tam hem parça olarak iki kutuda okunur (Mac ile aynı).
+    /// </summary>
+    internal static TextLine[] WithoutRepeatedLines(IReadOnlyList<TextLine> lines)
+    {
+        var kept = new List<TextLine>();
+        foreach (var line in lines)
+        {
+            if (kept.Count > 0)
+            {
+                var previous = kept[^1];
+                string a = TextMatch.Normalize(previous.Text), b = TextMatch.Normalize(line.Text);
+                if (PhoneSteady.SameReading(previous.Text, line.Text)
+                    || (b.Length >= 6 && 2 * b.Length >= a.Length && b.Count(char.IsLetter) >= 4 && a.Contains(b, StringComparison.Ordinal)))
+                    continue;
+            }
+            kept.Add(line);
+        }
+        return [.. kept];
+    }
 
     private static bool BreaksBlock(TextBox previous, TextBox next, bool afterFlatSentence)
     {

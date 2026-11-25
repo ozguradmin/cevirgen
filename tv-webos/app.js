@@ -1626,6 +1626,24 @@
   var REGION_MIN_FONT = 18;
   var REGION_MAX_FONT = 44;
 
+  // Telefon gönderisinin TV'de görünen içeriği (TV uygulaması 0.9.105; X, 22 Kas: "her saniye şekli de hareketi de
+  // değişiyor"): panelin mesajları, kişi adı ve notları kartın içinde akışla çizilir, kutuları çizimi değiştirmez. Yalnız
+  // kutuları oynayan aynı içerik yeniden dizilmez, yazı boyu yeniden hesaplanmaz (bilgisayardaki PhoneSteady.samePicture ile
+  // aynı kural); panelin zemini ve panel dışındaki her öğe yeriyle karşılaştırılır.
+  function phonePayload(blocks) {
+    var card = panelCard(blocks);
+    var parts = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var block = blocks[i];
+      if (card && block && PANEL_PARTS[block.panel]) {
+        var copy = {};
+        for (var key in block) if (Object.prototype.hasOwnProperty.call(block, key) && key !== 'box') copy[key] = block[key];
+        parts.push(copy);
+      } else parts.push(block);
+    }
+    return JSON.stringify(parts);
+  }
+
   function showRegion(data) {
     var id = data && typeof data.id === 'string' ? data.id : '';
     if (!id) return;
@@ -1639,7 +1657,7 @@
     var el = regionBoxes[id];
     // Oyun telefonunun aynı gönderisi yeniden çizilmez; değişen gönderi yerinde güncellenir (placeItems, placePanel).
     var phoneBlocks = id === 'game-phone' && kind === 'region-blocks';
-    var payload = phoneBlocks ? JSON.stringify(blocks) + JSON.stringify(box) : null;
+    var payload = phoneBlocks ? phonePayload(blocks) + JSON.stringify(box) : null;
     if (phoneBlocks && el && el.className === kind && el.couchsubsPayload === payload) {
       el.couchsubsStamp = ++regionStamp;
       return;

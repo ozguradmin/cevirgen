@@ -62,7 +62,8 @@ internal static class PhoneSteady
         if (a == b) return true;
         string x = TextMatch.Normalize(a), y = TextMatch.Normalize(b);
         if (x.Length == 0 || y.Length == 0 || TextMatch.AddsMeaning(a, b) || TextMatch.AddsMeaning(b, a)) return false;
-        if (x == y) return a.Contains('?') == b.Contains('?');
+        // Kısa satırda soru işareti anlam taşır ("Ok?" / "Ok."); uzun mesajda düşen soru işareti OCR'ın kaçırdığı noktalamadır.
+        if (x == y) return a.Contains('?') == b.Contains('?') || x.Count(char.IsLetter) >= MinimumLetters;
         return x.Count(char.IsLetter) >= MinimumLetters && y.Count(char.IsLetter) >= MinimumLetters
             && TextMatch.IsSimilar(x.Replace("rn", "m"), y.Replace("rn", "m"), SameMessage);
     }
@@ -190,6 +191,111 @@ internal static class PhoneSteady
         return still ? previous : pose;
     }
 
+    // Kararlı çıktı (X, 22 Kas: "sağ tarafta kutu çıkarıyorsun ama her saniye şekli de hareketi de değişiyor"). Telefonun
+    // yazısı değişmedikçe çizilen Türkçe birebir aynı kalır: aynı mesaj aynı çeviriyle ve bir kez, gruptaki bütün balonlar
+    // tek boyda; panelin kutusu yalnız telefon gerçekten kıpırdayınca kayar. Mac/iPhone ve Android aynı kural, aynı eşikler.
+
+    /// <summary>Art arda gelmeyen iki öğe ancak bu kadar harften uzunsa aynı mesaj sayılıp sonraki atılır.</summary>
+    internal const int RepeatLetters = 12;
+    /// <summary>Telefonda aynı yerde duran balonun okunuşları bu benzerlikten yüksekse aynı mesajdır (<see cref="SameBubble"/>).</summary>
+    internal const double SameSpotMessage = 0.8;
+    /// <summary>Aynı yer: düz ekrandaki sol üst köşeleri bu kadar içinde.</summary>
+    internal const double SameSpotShare = 0.05;
+
+    /// <summary>
+    /// Aynı mesaj panelde bir kez: telefondaki öğelerden bir öncekiyle aynı mesajı taşıyan (<see cref="SameReading"/>) art
+    /// arda öğe atılır; araları açık iki öğeden sonraki ancak uzun mesajsa (<see cref="RepeatLetters"/>) atılır. Telefon
+    /// dışındaki öğelere dokunulmaz (Mac ile aynı).
+    /// </summary>
+    internal static IReadOnlyList<ScreenTranslation.Item> WithoutRepeats(IReadOnlyList<ScreenTranslation.Item> items)
+    {
+        var kept = new List<ScreenTranslation.Item>();
+        foreach (var item in items)
+        {
+            if (item.Phone is null)
+            {
+                kept.Add(item);
+                continue;
+            }
+            var onPhone = kept.Where(old => old.Phone is not null).ToList();
+            bool isLong = TextMatch.Normalize(item.Source).Count(char.IsLetter) >= RepeatLetters;
+            bool repeated = false;
+            for (int i = 0; i < onPhone.Count && !repeated; i++)
+                repeated = SameReading(onPhone[i].Source, item.Source) && (i == onPhone.Count - 1 || isLong);
+            if (!repeated) kept.Add(item);
+        }
+        return kept;
+    }
+
+    /// <summary>
+    /// İki okuma aynı balon mu: aynı mesaj (<see cref="SameReading"/>) ya da telefonun ekranında aynı yerde
+    /// (<see cref="SameSpotShare"/>) ve en az <see cref="MinimumLetters"/> harfli iki uzun okuma <see cref="SameSpotMessage"/>
+    /// kadar benzer; sayı ya da olumsuzluk ekleyen/düşüren okuma aynı sayılmaz (Mac ile aynı).
+    /// </summary>
+    internal static bool SameBubble(string a, TextBox? spotA, string b, TextBox? spotB)
+    {
+        if (SameReading(a, b)) return true;
+        if (spotA is not { } x || spotB is not { } y || Math.Abs(x.Top - y.Top) > SameSpotShare || Math.Abs(x.Left - y.Left) > SameSpotShare
+            || TextMatch.AddsMeaning(a, b) || TextMatch.AddsMeaning(b, a)) return false;
+        string p = TextMatch.Normalize(a), q = TextMatch.Normalize(b);
+        return p.Count(char.IsLetter) >= MinimumLetters && q.Count(char.IsLetter) >= MinimumLetters
+            && TextMatch.IsSimilar(p, q, SameSpotMessage);
+    }
+
+    /// <summary>Ekranda aynı yerde duran aynı balonun gösterilen çevirisi (<see cref="SameBubble"/>); yoksa null.</summary>
+    internal static string? ShownTranslation(string source, TextBox? spot, IReadOnlyList<ScreenTranslation.Item>? shown) =>
+        shown?.FirstOrDefault(item => item.Phone is not null && !item.Unchanged && item.Icons is null && !item.Translation.Contains('\n')
+            && SameBubble(item.Source, item.Phone.Spot, source, spot))?.Translation;
+
+    /// <summary>
+    /// Önceki gönderide aynı balon (<see cref="SameBubble"/>) varsa öğe onun kaynağını ve çevirisini aynen alır: aynı İngilizce
+    /// için Türkçe her okumada yeniden üretilmez. Her önceki öğe en çok bir kez kullanılır (Mac ile aynı).
+    /// </summary>
+    internal static IReadOnlyList<ScreenTranslation.Item> KeptTranslations(IReadOnlyList<ScreenTranslation.Item> items,
+                                                                          IReadOnlyList<ScreenTranslation.Item> previous)
+    {
+        var used = new HashSet<int>();
+        return items.Select(item =>
+        {
+            for (int i = 0; i < previous.Count; i++)
+            {
+                var old = previous[i];
+                if (used.Contains(i) || (old.Phone is null) != (item.Phone is null) || old.Unchanged != item.Unchanged
+                    || !SameBubble(old.Source, old.Phone?.Spot, item.Source, item.Phone?.Spot)) continue;
+                used.Add(i);
+                return item with { Source = old.Source, Translation = old.Translation, Icons = old.Icons };
+            }
+            return item;
+        }).ToList();
+    }
+
+    /// <summary>Gruptaki bütün mesaj balonları tek yazı boyunda (<paramref name="line"/>: kilitli ölçüm); kişinin adı ve telefon dışı öğeler kendi boyunda.</summary>
+    internal static IReadOnlyList<ScreenTranslation.Item> UniformLine(IReadOnlyList<ScreenTranslation.Item> items, double? line)
+    {
+        if (line is not { } value || value <= 0) return items;
+        return items.Select(item => item.Phone?.Role is { } role && role.InCard() && role is not ScreenPhoneCard.Role.Header
+            and not ScreenPhoneCard.Role.Contact ? item with { LineHeight = value } : item).ToList();
+    }
+
+    /// <summary>
+    /// Panelin zemini (kart) kısalmaz: yeni kart öncekiyle aynı yanda, aynı genişlikte ve onun içinde kalıyorsa önceki kart
+    /// kalır; telefon gerçekten kıpırdayınca yeni kart geçer (Mac ile aynı).
+    /// </summary>
+    internal static IReadOnlyList<ScreenTranslation.Item> SteadyCard(IReadOnlyList<ScreenTranslation.Item> shown,
+                                                                     IReadOnlyList<ScreenTranslation.Item>? previous)
+    {
+        int index = -1;
+        for (int i = 0; i < shown.Count && index < 0; i++) if (shown[i].Panel == ScreenPhoneCard.PanelPart.Card) index = i;
+        if (index < 0 || previous?.FirstOrDefault(item => item.Panel == ScreenPhoneCard.PanelPart.Card)?.Box is not { } old) return shown;
+        var box = shown[index].Box;
+        const double near = 1e-9;
+        if (Math.Abs(box.Left - old.Left) >= near || Math.Abs(box.Right - old.Right) >= near
+            || box.Top < old.Top - near || box.Bottom > old.Bottom + near) return shown;
+        var result = shown.ToList();
+        result[index] = result[index] with { Box = old };
+        return result;
+    }
+
     /// <summary>
     /// İki gönderi TV'de ve masaüstünde aynı görünür mü. Panelin mesajları, kişi adı ve notları akışla çizilir: yalnız sırası,
     /// yazısı ve rengi önemlidir; panelin zemini ve panel dışındaki her öğe yeriyle aynı olmalıdır.
@@ -228,6 +334,11 @@ internal sealed class PhonePanelSteady
     internal double? Line { get; private set; }
     private long? poseSince;
     private long? lineSince;
+    /// <summary>
+    /// Son kilitli yazı boyu ve o andaki telefon boyu: telefon kapanıp açılınca yazı boyu baştan ölçülmez; telefon aynı
+    /// boydaysa (<see cref="SizeShare"/> içinde) aynı boy kalır. <see cref="Reset"/> bunu silmez, <see cref="Forget"/> siler.
+    /// </summary>
+    internal (double Line, double Height)? Remembered { get; private set; }
 
     /// <summary>Panelin dayanacağı telefon yeri; <c>Resized</c>: boyu belirgin değişti (ya da ilk yer).</summary>
     internal (GamePhoneGeometry.Pose Pose, bool Resized) SteadyPose(GamePhoneGeometry.Pose found, long now)
@@ -236,6 +347,13 @@ internal sealed class PhonePanelSteady
         {
             Pose = found;
             poseSince = null;
+            // Aynı boydaki telefon yeniden açıldı: yazı boyu öncekiyle aynı kalır.
+            if (Line is null && Remembered is { } remembered && remembered.Height > 0
+                && Math.Abs(Height(found) / remembered.Height - 1) <= SizeShare)
+            {
+                Line = remembered.Line;
+                return (found, false);
+            }
             return (found, true);
         }
         if (SameSpot(found, locked))
@@ -248,19 +366,42 @@ internal sealed class PhonePanelSteady
             poseSince ??= now;
             return (locked, false);
         }
-        bool resized = Resized(found, locked);
-        Pose = found;
         poseSince = null;
-        if (resized)
+        if (Resized(found, locked))
         {
+            Pose = found;
             Line = null;
             lineSince = null;
+            return (found, true);
         }
-        return (found, resized);
+        // Boyu aynı kalan telefon yalnız yer değiştirdi: panel telefona sabit uzaklıkla, aynı boyda izler.
+        var moved = Shifted(locked, found);
+        Pose = moved;
+        return (moved, false);
+    }
+
+    /// <summary>Telefonun yüksekliği (kareye oranla).</summary>
+    internal static double Height(GamePhoneGeometry.Pose pose) => pose.Bounds.Bottom - pose.Bounds.Top;
+
+    /// <summary><paramref name="locked"/> telefonun, ortası <paramref name="found"/>'unkine gelecek biçimde kaydırılmış hali.</summary>
+    internal static GamePhoneGeometry.Pose Shifted(GamePhoneGeometry.Pose locked, GamePhoneGeometry.Pose found)
+    {
+        if (Math.Abs((found.BottomY - found.TopY) - (locked.BottomY - locked.TopY)) < 1e-9
+            && Math.Abs((found.BottomX - found.TopX) - (locked.BottomX - locked.TopX)) < 1e-9) return found;
+        CropRegion a = locked.Bounds, b = found.Bounds;
+        double dx = (b.Left + b.Right - a.Left - a.Right) / 2, dy = (b.Top + b.Bottom - a.Top - a.Bottom) / 2;
+        return new GamePhoneGeometry.Pose(locked.TopX + dx, locked.TopY + dy, locked.BottomX + dx, locked.BottomY + dy);
     }
 
     /// <summary>Panelin satır yüksekliği (<see cref="ScreenPhoneCard.MeasuredLine"/>); ölçüm yoksa kilitli değer.</summary>
     internal double? SteadyLine(double? measured, long now)
+    {
+        var result = LockedLine(measured, now);
+        if (result is { } line && Pose is { } pose) Remembered = (line, Height(pose));
+        return result;
+    }
+
+    private double? LockedLine(double? measured, long now)
     {
         if (measured is not { } value || value <= 0) return Line;
         if (Line is not { } locked)
@@ -284,13 +425,20 @@ internal sealed class PhonePanelSteady
         return value;
     }
 
-    /// <summary>Telefon kayboldu: sonraki bulunuşta her şey yeniden ölçülür.</summary>
+    /// <summary>Telefon kayboldu: sonraki bulunuşta yeri yeniden ölçülür; aynı boydaki telefonun yazı boyu hatırlanır.</summary>
     internal void Reset()
     {
         Pose = null;
         Line = null;
         poseSince = null;
         lineSince = null;
+    }
+
+    /// <summary>Çeviri durdu: her şey unutulur.</summary>
+    internal void Forget()
+    {
+        Reset();
+        Remembered = null;
     }
 
     /// <summary>Kenarlar <see cref="PhoneSteady.PoseSlack"/> içinde ya da boy <see cref="SizeShare"/> içinde ve ortası az kaymış.</summary>

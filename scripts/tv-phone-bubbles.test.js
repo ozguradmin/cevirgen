@@ -246,6 +246,33 @@ test('telefonun gönderisi yerinde güncellenir: aynı gönderi yeniden çizilme
   assert.equal(r.kept, true, 'balonun kutusu yeniden yaratıldı ya da yeri güncellenmedi');
 });
 
+// X (22 Kas, Sinan Bey: "her saniye şekli de hareketi de değişiyor"; TV uygulaması 0.9.105): panelin mesajları akışla
+// çizilir; yalnız kutuları oynayan aynı içerik panele hiç dokunmaz (yeniden dizilmez, yazı boyu yeniden hesaplanmaz). Kartın
+// yeri ya da bir mesajın yazısı değişince panel güncellenir.
+const steadyPanel = `
+  var region = { id: 'game-phone', text: 'x', box: { left: 0.31, top: 0.26, right: 0.79, bottom: 0.81 }, blocks: ${JSON.stringify(panelBlocks(3))} };
+  showRegion(region);
+  var panel = document.querySelector('.phone-panel');
+  var size = panel.style.fontSize;
+  // İşaret: panel yeniden düzenlenirse yazı boyu yeniden yazılır, işaret silinir.
+  panel.style.fontSize = '7px';
+  var jitter = JSON.parse(JSON.stringify(region));
+  jitter.blocks.forEach(function (b) { if (b.panel !== 'card') { b.box.top += 0.004; b.box.bottom += 0.004; b.box.left -= 0.002; } });
+  showRegion(jitter);
+  var untouched = document.querySelector('.phone-panel') === panel && panel.style.fontSize === '7px';
+  var moved = JSON.parse(JSON.stringify(jitter));
+  moved.blocks[0].box.left += 0.01; moved.blocks[0].box.right += 0.01;
+  showRegion(moved);
+  var follows = document.querySelector('.phone-panel') === panel && panel.style.fontSize === size &&
+    Math.abs(parseFloat(panel.style.left) - 32) < 0.01;
+  $('result').textContent = JSON.stringify({ untouched: untouched, follows: follows });`;
+
+test('kutuları oynayan aynı panel içeriği yeniden dizilmez; kart kayınca panel izler', { skip: !browser && 'Chromium/Chrome bulunamadı' }, () => {
+  const r = measure(steadyPanel);
+  assert.equal(r.untouched, true, 'aynı içerik paneli yeniden düzenledi');
+  assert.equal(r.follows, true, 'kart kayınca panel güncellenmedi');
+});
+
 // LG, beta.93: GTA 6 telefonunun Mesajlar ekranı (sohbet listesi). Bilgisayar listeyi sola yaslı not satırları olarak
 // gönderir (style.align 'left'): kişi adı kalın ve çevrilmez, altında önizlemenin çevirisi, "Önerilen"/"Mesajlar" soluk
 // kalın bölüm başlığı. TV (0.9.101) bunları ortalı küçük not değil, telefondaki sırayla sola yaslı liste olarak çizer; aynı
