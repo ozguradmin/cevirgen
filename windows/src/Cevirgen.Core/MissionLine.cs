@@ -17,9 +17,10 @@ public sealed class MissionLine
     /// <summary>Bu kadar görülmeyen satır ekrandan kalkmış sayılır.</summary>
     public const int ForgetMs = 1500;
 
-    private sealed class Track(string text, long since, TextBox box)
+    private sealed class Track(string text, string source, long since, TextBox box)
     {
         public string Text { get; } = text;
+        public string Source { get; } = source;
         public long Since { get; } = since;
         public long LastSeen { get; set; } = since;
         public TextBox Box { get; set; } = box;
@@ -29,6 +30,12 @@ public sealed class MissionLine
 
     /// <summary>Görevin karedeki bölgesi; görev yoksa null.</summary>
     public CropRegion? Region { get; private set; }
+
+    /// <summary>
+    /// Son <see cref="Observe"/>'da <see cref="SettleMs"/> dolmadan ekrandan kalkan (görev sayılmayan) satırlar, özgün
+    /// metinleriyle; altyazı günlüğü için. Mac/iPhone ve Android aynıdır.
+    /// </summary>
+    public IReadOnlyList<string> Dropped { get; private set; } = [];
 
     /// <summary>
     /// Altyazı bloğundan çıkarılan satırlar (yeri <paramref name="area"/>'ya oranla). Görev bölgesi değiştiyse true.
@@ -43,11 +50,13 @@ public sealed class MissionLine
             var placed = box.PlacedIn(area);
             if (!IsCandidate(line.Text, placed)) continue;
             var track = tracks.FirstOrDefault(item => TextMatch.IsSimilar(item.Text, text));
-            if (track is null) tracks.Add(track = new Track(text, time, placed));
+            if (track is null) tracks.Add(track = new Track(text, line.Text, time, placed));
             track.LastSeen = time;
             track.Box = placed;
         }
-        tracks.RemoveAll(item => time - item.LastSeen > ForgetMs);
+        var gone = tracks.Where(item => time - item.LastSeen > ForgetMs).ToList();
+        Dropped = [.. gone.Where(item => item.LastSeen - item.Since < SettleMs).Select(item => item.Source)];
+        tracks.RemoveAll(gone.Contains);
         var settled = tracks.Where(item => time - item.Since >= SettleMs).ToList();
         CropRegion? next = null;
         if (settled.Count > 0)
@@ -76,6 +85,7 @@ public sealed class MissionLine
     {
         tracks.Clear();
         Region = null;
+        Dropped = [];
     }
 
     private static bool Within(CropRegion a, CropRegion b, double tolerance) =>

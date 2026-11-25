@@ -45,8 +45,9 @@ public sealed partial class RegionWatcher
         }
         Candidate candidate;
         try { candidate = ReadPhoneCandidate(frame, area, crop, state); }
-        catch
+        catch (Exception error)
         {
+            PhoneNote("PhoneSession", $"okunamadı ({error.Message})", "");
             // OCR hatası boş alan değildir. Eski kutuyu koru; aynı kareyi sonraki normal turda yeniden oku.
             // Başarısız kare, önceki adayın kararlılığını da doğrulayamaz.
             state.Signature = null;
@@ -62,6 +63,11 @@ public sealed partial class RegionWatcher
             && (MissingInteriorPhoneBubble(state, candidate)
                 || (SamePhoneLayout(state, candidate, frame) && GamePhoneText.HasAdjacentOcrEdits(state.Shown, candidate.Key))))
         {
+            if (state.Holds == 0)
+            {
+                var why = MissingInteriorPhoneBubble(state, candidate) ? "balon düştü" : "harf oynaması";
+                PhoneNote("PhoneSteady", $"okuma {PhoneSteady.HoldTurns} tura dek bekletildi ({why})", string.Join(' ', candidate.Paragraphs));
+            }
             state.Held = candidate.Key;
             state.Holds++;
             state.Signature = null;
@@ -78,6 +84,8 @@ public sealed partial class RegionWatcher
         if (candidate.Key.Length > 0 || (state.LastRead == candidate.Key
             && (string.IsNullOrEmpty(state.RenderedText) || empties >= PhoneSteady.MissTurns)))
         {
+            if (candidate.Key.Length == 0 && !string.IsNullOrEmpty(state.RenderedText))
+                PhoneNote("PhoneSteady", $"{PhoneSteady.MissTurns} tur boş okundu, çeviri silindi", state.Shown);
             state.LastRead = candidate.Key;
             state.Candidate = null;
             await CommitPhoneAsync(candidate, area, state, started, frame).ConfigureAwait(false);
@@ -91,6 +99,13 @@ public sealed partial class RegionWatcher
         }
         if (candidate.Key.Length > 0) state.PhoneEmpties = 0;
     }
+
+    /// <summary>
+    /// Telefon mesajının düşürülme ya da bekletilme nedeni (<see cref="DropLog"/>: aynı neden + metin yinelenmez, dakikada
+    /// sınırlı). Mac/iPhone ve Android PhoneRegionSession ile aynı satırlar.
+    /// </summary>
+    private void PhoneNote(string component, string reason, string text) =>
+        drops.Note(component, reason, IconText.Plain(text), Log);
 
     private Candidate ReadPhoneCandidate(Frame frame, WatchedArea area, Frame crop, State state)
     {
@@ -311,7 +326,17 @@ public sealed partial class RegionWatcher
                     ? GamePhoneText.EnglishModelInput(prepared[i].Text) : prepared[i].Text).ToList();
                 var translations = await translator.TranslateAllAsync(texts, area.PanelLifetime ?? default).ConfigureAwait(false);
                 if (translations.Count == missing.Count)
-                    for (var i = 0; i < missing.Count && i < translations.Count; i++) result[missing[i]] = translations[i];
+                {
+                    for (var i = 0; i < missing.Count && i < translations.Count; i++)
+                    {
+                        result[missing[i]] = translations[i];
+                        if (string.IsNullOrWhiteSpace(translations[i]))
+                            PhoneNote("PhoneSession", "motor boş çeviri döndü, gösterilmedi", candidate.Paragraphs[missing[i]]);
+                    }
+                }
+                else
+                    PhoneNote("PhoneSession", $"çevrilemedi (motor {translations.Count}/{missing.Count} yanıt)",
+                        string.Join(' ', missing.Select(i => candidate.Paragraphs[i])));
                 if (area.PanelLifetime is { IsCancellationRequested: true }) return;
                 for (var i = 0; i < result.Length; i++)
                     if (!string.IsNullOrWhiteSpace(result[i])) state.RememberPhoneTranslation(candidate.Paragraphs[i], result[i]!);
