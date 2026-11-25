@@ -3,8 +3,8 @@
 // kısa çeviride kutu İngilizce altyazıdan dar kalıyor, kenarlarda "You s" ve "s car?" görünüyordu. TV sayfası
 // (tv-webos/index.html; Samsung ve Android TV de aynı sayfayı kullanır) ve OBS katmanı (shared/resources/obs-overlay.html) gerçek
 // Chromium'da açılır; oyun görüntüsü yerine beyaz zemin, İngilizce altyazının yerinde (iki satırlık kutu) kırmızı bir dikdörtgen
-// durur. Ekran görüntüsünde tek bir kırmızı piksel kalmamalı. Yazı boyu seçilen boyda kalmalı, sığmayan satırda en çok bir
-// kademe (%80) küçülmeli, sonraki satırlarda geri zıplamamalı.
+// durur. Ekran görüntüsünde tek bir kırmızı piksel kalmamalı. Yazı boyu hep seçilen boyda kalmalı: sığmayan satır küçülmez, daha çok
+// satıra bölünür (X, beta.89: "Örtsün" + "Yazı kadar"da boy satırdan satıra değişiyordu).
 // node --test scripts/tv-cover-pixels.test.js — tarayıcı yolu: COUCHSUBS_TEST_BROWSER; ağ ve uygulama bağlantısı yok.
 'use strict';
 const test = require('node:test');
@@ -266,10 +266,10 @@ test('TV: kısa çeviri iki satırlık İngilizce altyazıyı tamamen örter (ek
   assert.equal(red.noBox, 0, JSON.stringify(red));
 });
 
-test('TV: örtüde yazı boyu sabit, en çok bir kademe küçülür ve geri zıplamaz', { skip }, () => {
+test('TV: örtüde yazı boyu sabit, uzun satırda da küçülmez', { skip }, () => {
   const fonts = tvFonts();
-  // Seçilen boy 46: kısa ve orta satır 46; 3 satıra sığmayan satır bir kademe (37); sonra kısa satırlar da 37 kalır.
-  assert.deepEqual(fonts, [46, 46, 37, 37, 37, 52], JSON.stringify(fonts));
+  // Seçilen boy 46: 3 satıra sığmayan satır da 46 (daha çok satıra bölünür); boy ayarı değişince yeni boy.
+  assert.deepEqual(fonts, [46, 46, 46, 46, 46, 52], JSON.stringify(fonts));
 });
 
 test('OBS: kısa çeviri iki satırlık İngilizce altyazıyı tamamen örter (ekran görüntüsünde kırmızı yok)', { skip }, (t) => {
@@ -287,10 +287,37 @@ test('OBS: kısa çeviri iki satırlık İngilizce altyazıyı tamamen örter (e
   assert.equal(red.noBox, 0, JSON.stringify(red));
 });
 
-test('OBS: örtüde yazı boyu sabit, en çok bir kademe küçülür ve geri zıplamaz', { skip }, () => {
+test('OBS: örtüde yazı boyu sabit, uzun satırda da küçülmez', { skip }, () => {
   const style = (size) => `fire('style', ${JSON.stringify(obsStyle('cover', size))});`;
   const fonts = obsRun(style() + obsSend(SHORT, ENGLISH) + obsSend(MEDIUM, ENGLISH) + obsSend(LONG, ENGLISH) +
     obsSend(SHORT, ENGLISH) + obsSend(MEDIUM) + style(54) + obsSend(SHORT, ENGLISH));
-  // Seçilen boy 48 (1080p'de piksel): bir kademe %80 (38); boy ayarı değişince kademe sıfırlanır.
-  assert.deepEqual(fonts, [48, 48, 38, 38, 38, 54], JSON.stringify(fonts));
+  // Seçilen boy 48 (1080p'de piksel): 3 satıra sığmayan satır da 48; boy ayarı değişince yeni boy.
+  assert.deepEqual(fonts, [48, 48, 48, 48, 48, 54], JSON.stringify(fonts));
+});
+
+// X'te bildirildi (beta.89, TCL Android TV): "Üstünde" seçiliyken Türkçe satır İngilizce satırın üstüne biniyordu. Yeri
+// gelmeyen satır sabit yüksekliğe (alttan %7) iniyor, alttaki İngilizce altyazıyı örtüyordu; katmanda (Android TV) büyütülmüş
+// kutu TV resmi büyütmeyince İngilizce satırın içine düşüyordu. "Üstünde"de İngilizce altyazı (kırmızı) hiç örtülmemeli.
+test('TV: "Üstünde" çeviri İngilizce altyazının üstünde ayrı durur (çakışma yok)', { skip }, (t) => {
+  const style = (placement) => `__send('style', ${JSON.stringify(tvStyle(placement))});`;
+  const subtitle = (text, box) => `__send('subtitle', ${JSON.stringify({ text, duration: 8000, box })});`;
+  const overlay = 'document.body.className += " overlay";';
+  const red = {
+    below: tvShot(style('below') + subtitle(SHORT, ENGLISH)),
+    above: tvShot(style('above') + subtitle(MEDIUM, ENGLISH)),
+    // Yeri gelmeyen satır son bilinen yerin üstünde kalır.
+    noBox: tvShot(style('above') + subtitle(SHORT, ENGLISH) + subtitle(MEDIUM)),
+    overlay: tvShot(overlay + style('above') + subtitle(MEDIUM, ENGLISH)),
+    long: tvShot(style('above') + subtitle(LONG, ENGLISH)),
+  };
+  t.diagnostic(JSON.stringify(red));
+  assert.ok(red.below > 10000, 'denetim sahnesinde İngilizce altyazı görünmeli: ' + JSON.stringify(red));
+  for (const name of ['above', 'noBox', 'overlay', 'long']) assert.equal(red[name], red.below, name + ': ' + JSON.stringify(red));
+});
+
+// "Örtsün" + "Yazı kadar": 3 satıra sığmayan uzun çeviri de seçilen boyda, daha çok satıra bölünür ve İngilizceyi örter.
+test('TV: örtüde uzun çeviri küçülmeden bölünür, İngilizce altyazı yine görünmez', { skip }, () => {
+  const red = tvShot(`__send('style', ${JSON.stringify(tvStyle('cover'))});` +
+    `__send('subtitle', ${JSON.stringify({ text: LONG, duration: 8000, box: ENGLISH })});`);
+  assert.equal(red, 0);
 });

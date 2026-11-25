@@ -319,7 +319,7 @@ public sealed partial class SubtitleOverlayWindow : Window
         var coverLine = !band && current && !line.Paragraphs && style.Placement == SubtitlePlacement.Cover
                         && subtitleBox is { } known && known.Text == line.Text ? subtitleBox : null;
         // Uzun çeviri en çok 3 satıra dengeli bölünür; 3 satıra sığmazsa yazı biraz küçülür (bkz. SubtitleWrap). "Örtsün"de yazı
-        // seçilen boyda kalır, en çok bir kademe küçülür ve satırdan satıra zıplamaz (CoverFontScale).
+        // seçilen boyda kalır, hiç küçülmez; sığmazsa daha çok satıra bölünür (CoverFontScale).
         var wrapped = coverLine is { } fixedSize ? SubtitleWrap.Fit(line.Text, fixedSize.Scale) : line.Wrapped;
         var size = Math.Max(1, OverlayPlacement.FontSize(style.FontSize) * scale * (current ? 1 : 0.8) * wrapped.Scale);
         var alpha = Math.Clamp(style.Background, 0, 100) / 100.0 * (current ? 1 : 0.83);

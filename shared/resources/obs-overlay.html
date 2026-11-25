@@ -192,7 +192,7 @@
     return widest;
   }
 
-  // scale: yazı boyu çarpanı (1 ya da COVER_STEP). Ölçüm yapılamazsa null, hiçbir bölme 3 satırda sığmazsa false.
+  // scale: yazı boyu çarpanı (örtüde hep 1). Ölçüm yapılamazsa null, hiçbir bölme 3 satırda sığmazsa false.
   function wrapToCover(text, box, scale) {
     if (!box || text.indexOf('\n') >= 0) return null;
     var words = wrapTokens(text);
@@ -215,31 +215,20 @@
     return best ? { text: best.text, scale: scale } : false;
   }
 
-  // "Örtsün"de yazı boyu kararlıdır (Mac/Windows: CoverFontScale, TV: coverWrap). Kullanıcının seçtiği boy kullanılır, kutu
-  // çeviriye göre genişler; yazı ancak 3 satıra sığmıyorsa bir kademe küçülür (seçilen boyun %80'i), asla büyütülmez. Küçülen
-  // boy yazı boyu ayarı değişene dek kalır: ardışık satırlarda boy bir büyük bir küçük zıplamasın. Yazı daha fazla
-  // küçülmez; sığmayan çeviride kutu büyür.
-  var COVER_STEP = 0.8, coverScale = 1, coverFont = null;
-  function wrapAt(text, scale) {
-    var cap = Math.floor(WRAP_MAX_CHARS / scale);
+  // "Örtsün"de yazı boyu sabittir (Mac/Windows: CoverFontScale, TV: coverWrap): her satır kullanıcının seçtiği boyda, kutu
+  // çeviriye göre genişler. Yazı 3 satıra sığmıyorsa küçülmez: 3 dengeli satır, tarayıcı uzun satırı kendisi böler. Eskiden
+  // 3 satıra sığmayan tek satır yazıyı %80'e indiriyor, boy ayarı değişene dek öyle bırakıyordu (X, beta.89).
+  function wrapAt(text) {
     var length = Array.from ? Array.from(text).length : text.length;
-    if (length <= cap || text.indexOf('\n') >= 0) return { text: text, scale: scale };
+    if (length <= WRAP_MAX_CHARS || text.indexOf('\n') >= 0) return { text: text, scale: 1 };
     var words = wrapTokens(text);
-    if (words.length < 2) return { text: text, scale: scale };
-    var lines = Math.min(WRAP_MAX_LINES, Math.max(2, Math.ceil(length / cap)));
-    return { text: wrapBalance(words, Math.min(lines, words.length)), scale: scale };
+    if (words.length < 2) return { text: text, scale: 1 };
+    var lines = Math.min(WRAP_MAX_LINES, Math.max(2, Math.ceil(length / WRAP_MAX_CHARS)));
+    return { text: wrapBalance(words, Math.min(lines, words.length)), scale: 1 };
   }
   function coverWrap(text, box) {
-    if (coverFont !== baseSize) { coverFont = baseSize; coverScale = 1; }
-    if (text.indexOf('\n') >= 0) return { text: text, scale: coverScale };
-    var fitted = wrapToCover(text, box, coverScale);
-    if (fitted === false && coverScale === 1) {
-      coverScale = COVER_STEP;
-      fitted = wrapToCover(text, box, coverScale);
-    } else if (fitted === null && coverScale === 1 && wrapSubtitle(text).scale < 1) {
-      coverScale = COVER_STEP;
-    }
-    return fitted || wrapAt(text, coverScale);
+    if (text.indexOf('\n') >= 0) return { text: text, scale: 1 };
+    return wrapToCover(text, box, 1) || wrapAt(text);
   }
 
   // Örtü kutusunun her yana bıraktığı pay (1080 satırlık ekranda piksel; Mac ve Windows'taki OverlayCover ile aynı).
@@ -594,8 +583,9 @@
     clearTimeout(timer);
     if (!text) return hide();
     hideHint();
-    // "Örtsün": oyundaki altyazının yeri gelmezse son bilinen yer örtülür (Mac ve Windows'taki pencere ile aynı).
-    if (placement === 'cover' && !box) box = lastBox;
+    // Oyundaki altyazının yeri gelmezse son bilinen yer kullanılır (TV ile aynı): "Örtsün"de örtülür, "Üstünde"/"Altında"da
+    // çeviri onun üstünde/altında kalır, alttaki İngilizce satırın üstüne inmez.
+    if (placement !== 'fixed' && !box) box = lastBox;
     if (box) lastBox = box;
     var covering = box && !fixed.bottom && placement === 'cover' && !(lastStyle && lastStyle.backgroundShape === 'band');
     var wrapped = covering ? coverWrap(text, box) : wrapSubtitle(text);

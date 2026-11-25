@@ -3,29 +3,13 @@
 namespace Cevirgen.Core;
 
 /// <summary>
-/// "Örtsün" yerleşiminde yazı boyu kararlıdır (Mac: CoverFontScale, TV ve OBS sayfası aynı kuralı uygular). Kullanıcının
-/// seçtiği boy kullanılır, kutu çeviriye göre genişler; yazı ancak 3 satıra sığmıyorsa bir kademe küçülür (seçilen boyun
-/// %80'i) ve asla büyütülmez. Küçülen boy oturum boyunca (yazı boyu değişene dek) kalır: ardışık satırlarda boy bir büyük
-/// bir küçük zıplamasın.
+/// "Örtsün" yerleşiminde yazı boyu sabittir (Mac: CoverFontScale, TV ve OBS sayfası aynı kuralı uygular): her satır
+/// kullanıcının seçtiği boyda, kutu çeviriye göre genişler. 3 satıra sığmayan çeviri küçülmez, daha çok satıra bölünür
+/// (en çok 3 dengeli satır, pencere daha uzununu kendisi böler). X'te bildirildi (beta.89): eskiden böyle tek bir satır yazıyı %80'e indiriyor
+/// ve boy ayarı değişene dek öyle bırakıyordu; yazı boyu satırdan satıra değişiyor, çeviri sıkışıyordu.
 /// </summary>
 public sealed class CoverFontScale
 {
-    /// <summary>Tek kademe: seçilen boyun %80'i. Bundan küçüğe inilmez.</summary>
-    public const double Step = 0.8;
-
-    private int? fontSize;
-
-    public bool Shrunk { get; private set; }
-
-    /// <summary>Satırın yazı boyu çarpanı (1 ya da <see cref="Step"/>). Yazı boyu ayarı değişince kademe sıfırlanır.</summary>
-    public double Scale(string text, int fontSize)
-    {
-        if (this.fontSize != fontSize)
-        {
-            this.fontSize = fontSize;
-            Shrunk = false;
-        }
-        if (!text.Contains('\n') && SubtitleWrap.Fit(text).Scale < 1) Shrunk = true;
-        return Shrunk ? Step : 1;
-    }
+    /// <summary>Satırın yazı boyu çarpanı: hep 1 (seçilen boy).</summary>
+    public double Scale(string text, int fontSize) => 1;
 }
