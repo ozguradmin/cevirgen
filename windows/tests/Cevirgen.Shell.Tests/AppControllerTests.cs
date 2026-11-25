@@ -2354,7 +2354,7 @@ public class TvAppInstallTests
         await controller.InstallTvAppAsync("ABC123");
         Assert.Equal("192.168.1.156", controller.Tv?.Host);
         Assert.Equal("192.168.1.156", store.Load<LgTv>(StoreKeys.Tv)?.Host);
-        Assert.Contains("TV'nin adresi değişmiş: 192.168.1.153 → 192.168.1.156", services.InstallLog);
+        Assert.Contains(services.InstallLog, line => line.StartsWith("TV yeni adreste bulundu: 192.168.1.153 → 192.168.1.156 (", StringComparison.Ordinal));
         Assert.Equal(["192.168.1.156"], services.InstallHosts);
         Assert.Equal(new TvAppState(TvAppKind.UpToDate, "0.6.1"), controller.TvApp);
         Assert.False(controller.TvNotResponding);
@@ -2403,7 +2403,7 @@ public class TvAppInstallTests
         await controller.ReinstallTvAppAsync();
         Assert.Equal("192.168.1.156", controller.Tv?.Host);
         Assert.Contains("192.168.1.156", services.InstallHosts);
-        Assert.Contains("TV'nin adresi değişmiş: 192.168.1.153 → 192.168.1.156", services.InstallLog);
+        Assert.Contains(services.InstallLog, line => line.StartsWith("TV yeni adreste bulundu: 192.168.1.153 → 192.168.1.156 (", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -92,6 +92,17 @@ public static class SamsungMessages
         };
     }
 
+    /// <summary>8001 yanıtından TV kaydı (ad ve kimlik: <c>device.id</c> ya da <c>id</c>, <c>device.wifiMac</c>); Samsung TV değilse null.</summary>
+    public static LgTv? Tv(string host, string json)
+    {
+        if (DeviceName(json) is not { } name) return null;
+        string? top = null;
+        try { top = JsonNode.Parse(json)?["id"]?.GetValue<string>(); }
+        catch (Exception error) when (error is JsonException or InvalidOperationException) { }
+        return new LgTv(name, host, TvBrand.Samsung, TvIdentity.NormalizedUuid(DeviceField(json, "id")) ?? TvIdentity.NormalizedUuid(top),
+            TvIdentity.NormalizedMac(DeviceField(json, "wifiMac")));
+    }
+
     /// <summary><c>http://TV:8001/api/v2/</c> yanıtındaki TV adı.</summary>
     public static string? DeviceName(string json)
     {
@@ -503,10 +514,10 @@ public static class SamsungDiscovery
         var tvs = new List<LgTv>();
         foreach (var host in hosts.Distinct().Order(StringComparer.Ordinal))
         {
-            string? name = null;
-            try { name = SamsungMessages.DeviceName(await Http.GetStringAsync($"http://{host}:8001/api/v2/", cancellationToken)); }
+            LgTv? tv = null;
+            try { tv = SamsungMessages.Tv(host, await Http.GetStringAsync($"http://{host}:8001/api/v2/", cancellationToken)); }
             catch (Exception) { /* ad okunamazsa genel ad kullanılır */ }
-            tvs.Add(new LgTv(name ?? "Samsung TV", host, TvBrand.Samsung));
+            tvs.Add(tv ?? new LgTv("Samsung TV", host, TvBrand.Samsung));
         }
         if (tvs.Count > 0) return tvs;
 
@@ -516,8 +527,8 @@ public static class SamsungDiscovery
         {
             try
             {
-                if (SamsungMessages.DeviceName(await Http.GetStringAsync($"http://{host}:8001/api/v2/", cancellationToken)) is { } name)
-                    tvs.Add(new LgTv(name, host, TvBrand.Samsung));
+                if (SamsungMessages.Tv(host, await Http.GetStringAsync($"http://{host}:8001/api/v2/", cancellationToken)) is { } tv)
+                    tvs.Add(tv);
             }
             catch (Exception error) when (error is HttpRequestException or TaskCanceledException) { }
         }

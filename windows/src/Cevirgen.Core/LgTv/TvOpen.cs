@@ -135,10 +135,12 @@ public sealed class AndroidTvOpenRule(int maxOpens = AndroidTvOpenRule.DefaultMa
 /// <param name="open">Uygulamayı açar (TV onay sorarsa beklemeden hata verir); çıktısı günlüğe yazılır. Uygulama zaten
 /// çalışıyorsa <see cref="AndroidTvOpenRule.AlreadyRunning"/> döner.</param>
 /// <param name="classify">Açma hatasının ana ekrandaki karşılığı.</param>
+/// <param name="locator">Açma TV'ye ulaşamazsa (onay sorusu değil) TV'yi ağda yeniden arar, bulursa beklemeden yeniden dener;
+/// ilk başarılı açılışta kimliği kayda yazar. <paramref name="open"/> adresi her denemede bundan okumalıdır.</param>
 public sealed class AndroidTvKeeper(Func<Task<string>> open, Func<bool> appConnected, Func<Exception, TvOpenProblem> classify,
                                     Action<TvOpenProblem?>? onOpenResult = null, Action<string>? log = null,
                                     TimeSpan? relaunchInterval = null, Func<DateTime>? clock = null,
-                                    int maxOpens = AndroidTvOpenRule.DefaultMaxOpens) : IDisposable
+                                    int maxOpens = AndroidTvOpenRule.DefaultMaxOpens, AndroidTvLocator? locator = null) : IDisposable
 {
     public static readonly TimeSpan DefaultRelaunchInterval = AndroidTvOpenRule.DefaultInterval;
     private readonly Func<DateTime> now = clock ?? (() => DateTime.UtcNow);
@@ -160,11 +162,12 @@ public sealed class AndroidTvKeeper(Func<Task<string>> open, Func<bool> appConne
             string result;
             try
             {
-                var output = (await open()).Trim();
+                var output = (await OpenOrRelocateAsync()).Trim();
                 // Uygulama TV'de çalışırken bulunduysa am start gönderilmedi: açılış sayılmaz.
                 if (output != AndroidTvOpenRule.AlreadyRunning) lock (rule) rule.Opened();
                 result = "açıldı: " + output;
                 onOpenResult?.Invoke(null);
+                if (locator is not null) await locator.LearnIdentityAsync();
             }
             catch (Exception error)
             {
@@ -178,6 +181,20 @@ public sealed class AndroidTvKeeper(Func<Task<string>> open, Func<bool> appConne
         finally
         {
             tickLock.Release();
+        }
+    }
+
+    /// <summary>Açar; TV'ye ulaşılamadıysa ve TV ağda yeni adreste bulunursa yeni adresle bir kez daha dener.</summary>
+    private async Task<string> OpenOrRelocateAsync()
+    {
+        try
+        {
+            return await open();
+        }
+        catch (Exception error) when (locator is not null && classify(error) == TvOpenProblem.DebugOff)
+        {
+            if (await locator.RelocateAsync() is null) throw;
+            return await open();
         }
     }
 

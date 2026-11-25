@@ -6,14 +6,18 @@
   var NETWORK_STATUS = ['luna://com.webos.service.connectionmanager/getStatus', 'luna://com.palm.connectionmanager/getStatus'];
 
   // connectionmanager/getStatus yanıtındaki adres: bağlı kablolu, sonra bağlı kablosuz, sonra herhangi biri; yoksa null.
-  function addressFromStatus(msg) {
+  function networkFromStatus(msg) {
     var status;
     try { status = JSON.parse(msg) || {}; } catch (e) { return null; }
     var wired = status.wired || {};
     var wifi = status.wifi || {};
-    if (wired.state === 'connected' && wired.ipAddress) return wired.ipAddress;
-    if (wifi.state === 'connected' && wifi.ipAddress) return wifi.ipAddress;
-    return wired.ipAddress || wifi.ipAddress || null;
+    var pick = null;
+    if (wired.state === 'connected' && wired.ipAddress) pick = wired;
+    else if (wifi.state === 'connected' && wifi.ipAddress) pick = wifi;
+    else if (wired.ipAddress) pick = wired;
+    else if (wifi.ipAddress) pick = wifi;
+    // Ağ maskesi (connectionmanager "netmask", ör. "255.255.252.0"): app.js /24'ten büyük ağları da tarar (en çok /22).
+    return pick ? { ip: pick.ipAddress, mask: pick.netmask || null } : null;
   }
 
   // --- Konsolun girişi ---
@@ -891,10 +895,10 @@
     // belgelediği ad) sorulur. Eskiden yalnız ilki soruluyordu; eski LG'lerde adres hiç bilinmiyordu (#469).
     localAddress: function (callback) {
       var done = false;
-      function finish(ip) {
+      function finish(ip, mask) {
         if (done) return;
         done = true;
-        callback(ip || null);
+        callback(ip || null, ip ? mask || null : null);
       }
       function ask(services, index) {
         if (done) return;
@@ -909,10 +913,10 @@
           var bridge = new PalmServiceBridge();
           bridge.onservicecallback = function (msg) {
             if (answered) return;
-            var ip = addressFromStatus(msg);
-            if (ip) {
+            var network = networkFromStatus(msg);
+            if (network) {
               answered = true;
-              return finish(ip);
+              return finish(network.ip, network.mask);
             }
             next();
           };

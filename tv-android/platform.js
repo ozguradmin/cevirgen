@@ -155,7 +155,13 @@
 
     chooseInput: function () { bridge.chooseInput(); },
 
-    localAddress: function (callback) { callback(bridge.localAddress() || null); },
+    // Önek uzunluğu (localPrefix, 0.9.100'den önceki APK'da yok): app.js /24'ten büyük ağları da tarar (en çok /22).
+    localAddress: function (callback) {
+      var ip = bridge.localAddress() || null;
+      var prefix = null;
+      try { prefix = ip && bridge.localPrefix ? bridge.localPrefix() : null; } catch (e) { prefix = null; }
+      callback(ip, prefix > 0 ? prefix : null);
+    },
 
     // Bilgi panelindeki ikinci tanı satırı: görüntü modu (uygulama içinde / katman), TvView'in durumu, cihazın üreticisi,
     // modeli, Android ve WebView sürümü. Eski TV uygulamasının köprüsünde yoktur; o zaman yalnız WebView sürümü yazar.

@@ -15,7 +15,11 @@ public enum TvBrand
 }
 
 /// <param name="Brand">Eski kayıtlarda marka yoktur; hepsi LG'dir.</param>
-public sealed record LgTv(string Name, string Host, TvBrand Brand = TvBrand.Lg);
+/// <param name="Uuid">Cihazın kalıcı kimliği (SSDP USN / cihaz tanımı UDN, Samsung <c>device.id</c>, Android TV'de Google Cast
+/// UDN). Modem TV'ye yeni adres verince TV bununla tanınır (ad değişse de, aynı adlı iki TV olsa da; bkz.
+/// <see cref="TvLocator.Locate"/>). Eski kayıtlarda yoktur; TV ilk kez ağda bulununca öğrenilir.</param>
+/// <param name="Mac">TV'nin MAC adresi (Samsung <c>device.wifiMac</c>; biliniyorsa).</param>
+public sealed record LgTv(string Name, string Host, TvBrand Brand = TvBrand.Lg, string? Uuid = null, string? Mac = null);
 
 /// <summary>Elle yazılan adresteki TV. <c>Recognised</c>: türünü TV kendisi söyledi; değilse LG sayıldı ve kullanıcıya söylenir.</summary>
 public sealed record ManualTv(LgTv Tv, bool Recognised);
@@ -42,9 +46,14 @@ public static class LgDiscovery
         foreach (var group in hits.GroupBy(hit => hit.Host).OrderBy(group => group.Key, StringComparer.Ordinal))
         {
             var host = group.Key;
+            var uuid = group.Where(hit => hit.Confirmed).Select(hit => hit.Uuid).FirstOrDefault(id => id is not null)
+                ?? group.Select(hit => hit.Uuid).FirstOrDefault(id => id is not null);
             if (group.Any(hit => hit.Confirmed))
             {
-                tvs.Add(new LgTv(await FriendlyName(host) ?? "LG TV", host));
+                // Kimlik: SSDP yanıtındaki USN; yoksa cihaz tanımındaki UDN.
+                var descriptionXml = await DescriptionAsync(host);
+                var name = descriptionXml is null ? null : FriendlyNameIn(descriptionXml);
+                tvs.Add(new LgTv(name ?? "LG TV", host, TvBrand.Lg, uuid ?? TvIdentity.UuidFromDescription(descriptionXml)));
                 continue;
             }
             var description = DescriptionAsync(host);
@@ -53,7 +62,13 @@ public static class LgDiscovery
             var xml = await description;
             if (ClassifyUnconfirmed(host, LgNameIn(xml),
                     IsSsapGreeting(await greeting), (await android).Any(open => open)) is { } tv)
+            {
+                // LG: cihaz tanımındaki UDN; Android TV: Google Cast UDN'si (SSDP USN yalnız hedefi geri söyleyen yığından
+                // gelebilir).
+                if (tv.Brand == TvBrand.Lg) tv = tv with { Uuid = TvIdentity.UuidFromDescription(xml) };
+                else tv = await AndroidTvDiscovery.IdentifyAsync(host, cancellationToken) ?? tv;
                 tvs.Add(tv);
+            }
         }
         return tvs;
     }
@@ -189,7 +204,8 @@ public static class LgDiscovery
     /// bir başlıkta webOS/LGTV geçiyor (webOS: "SERVER: WebOS/4.4.0 UPnP/1.0") ya da cihaz tanımı webOS'un 1990 portunda.
     /// Hedefin adında ("...webos-second-screen...") "webos" geçtiği için yalnız onu geri söyleyen yanıt doğrulanmış sayılmaz.
     /// </summary>
-    public sealed record SsdpHit(string Host, bool Confirmed);
+    /// <param name="Uuid">USN başlığındaki cihaz kimliği; yoksa null.</param>
+    public sealed record SsdpHit(string Host, bool Confirmed, string? Uuid = null);
 
     public static SsdpHit? HitFromSsdpResponse(string response, string searchTarget = SearchTarget)
     {
@@ -209,7 +225,7 @@ public static class LgDiscovery
             if (IsLgHeader(value.Replace(searchTarget, "", StringComparison.Ordinal))) lgHeader = true;
         }
         if (!isLg || !Uri.TryCreate(location, UriKind.Absolute, out var url)) return null;
-        return new SsdpHit(url.Host, lgHeader || url.Port == 1990);
+        return new SsdpHit(url.Host, lgHeader || url.Port == 1990, TvIdentity.UuidFromSsdpResponse(response));
     }
 
     /// <summary>
@@ -298,14 +314,6 @@ public static class LgDiscovery
         const int SioUdpConnReset = unchecked((int)0x9800000C);
         try { socket.IOControl(SioUdpConnReset, [0, 0, 0, 0], null); }
         catch (Exception error) when (error is SocketException or PlatformNotSupportedException or NotSupportedException) { }
-    }
-
-    /// <summary>TV'nin ağdaki adını (ör. "[LG] webOS TV UK7550") cihaz tanımından okur.</summary>
-    private static async Task<string?> FriendlyName(string host)
-    {
-        // webOS cihaz tanımı 1990 numaralı portta yayınlanır; okunamazsa genel ad kullanılır.
-        var xml = await DescriptionAsync(host);
-        return xml is null ? null : FriendlyNameIn(xml);
     }
 
     private static string? FriendlyNameIn(string xml)

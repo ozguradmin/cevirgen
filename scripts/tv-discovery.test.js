@@ -68,7 +68,7 @@ function element() {
 // auth: sunucunun eşleştirme durumu; storedKeys/identities: TV'de kayıtlı anahtarlar ve sunucu kimlikleri.
 // noPicture: görüntü vermeyen girişler; noPictureHelp: görüntü gelmezse app.js kutuyu açar (LG, Samsung gibi);
 // labels: platform.inputLabel'ın verdiği giriş adları.
-function startTv({ saved, alive, localIp, hasLocalAddress, consolePort, savedHdmi, resolution, closeWhenHidden, panelTips, hello, savedId, params,
+function startTv({ saved, alive, localIp, localMask, hasLocalAddress, consolePort, savedHdmi, resolution, closeWhenHidden, panelTips, hello, savedId, params,
                    auth = null, storedKeys = null, identities = null, noPicture = [], noPictureHelp = false, labels = null,
                    subtitleBand = 0 }) {
   const clock = makeClock();
@@ -176,7 +176,7 @@ function startTv({ saved, alive, localIp, hasLocalAddress, consolePort, savedHdm
   if (resolution !== undefined) {
     platform.videoResolution = (cb) => { resolutionCallback = cb; clock.setTimeout(() => cb(resolution), 5); };
   }
-  if (hasLocalAddress) platform.localAddress = (cb) => clock.setTimeout(() => cb(localIp || null), 10);
+  if (hasLocalAddress) platform.localAddress = (cb) => clock.setTimeout(() => cb(localIp || null, localMask || null), 10);
   if (closeWhenHidden) platform.closeWhenHidden = true;
   if (noPictureHelp) platform.noPictureHelp = true;
   if (labels) platform.inputLabel = (port) => labels[port] || '';
@@ -254,6 +254,7 @@ function startTv({ saved, alive, localIp, hasLocalAddress, consolePort, savedHdm
     probed: () => probes.slice(),
     exits: () => exits,
     pickServer: (found, savedId, current) => window.__pickServer(found, savedId, current),
+    subnetsFor: (ip, mask) => Array.from(window.__subnetsFor(ip, mask)),
     // Bilgisayar açık uygulamayı yeniden açar (Samsung DEEP_LINK, parametreler PAYLOAD'da).
     relaunch(params) { relaunchCallback(params); },
     // Açık (kapatılmamış) bağlantılar.
@@ -369,6 +370,47 @@ test('sürekli bağlantı hatası taramayı ertelemez (zamanlayıcı her hatada 
   // Üç hata ~6 sn, tarama ~3 sn sonra başlar; 254 adresin taranması ~13 sn sürer.
   tv.clock.advance(30000);
   assert.strictEqual(tv.saved(), 'http://192.168.1.200:8787');
+});
+
+test('kayıtlı adres ilk hatada yanıt vermezse arama hemen başlar (üç hata beklenmez)', () => {
+  const tv = startTv({
+    saved: 'http://192.168.1.109:8787',
+    alive: new Set(['http://192.168.1.7:8787']),
+    hasLocalAddress: true,
+    localIp: '192.168.1.30'
+  });
+  // İlk hata ~1,3 sn, tarama 3 sn sonra başlar, 254 adres ~13 sn sürer. Üç hata beklenseydi tarama ~10 sn'de başlar,
+  // kayıt 19. saniyede henüz değişmemiş olurdu.
+  tv.clock.advance(19000);
+  assert.strictEqual(tv.saved(), 'http://192.168.1.7:8787');
+});
+
+test('tarama aralığı TV\'nin ağ maskesine göre: /24 ve dar tek blok, /23 ve /22 bütün ağ, daha genişi en çok /22', () => {
+  const tv = startTv({ saved: 'http://192.168.1.109:8787', alive: new Set(['http://192.168.1.109:8787']) });
+  assert.deepStrictEqual(tv.subnetsFor('192.168.5.20', null), ['192.168.5']);
+  assert.deepStrictEqual(tv.subnetsFor('192.168.5.20', '255.255.255.0'), ['192.168.5']);
+  assert.deepStrictEqual(tv.subnetsFor('192.168.5.20', 25), ['192.168.5']);
+  assert.deepStrictEqual(tv.subnetsFor('192.168.5.20', '255.255.254.0'), ['192.168.5', '192.168.4']);
+  assert.deepStrictEqual(tv.subnetsFor('192.168.5.20', 22), ['192.168.5', '192.168.4', '192.168.6', '192.168.7']);
+  assert.deepStrictEqual(tv.subnetsFor('10.0.9.2', '255.255.0.0'), ['10.0.9', '10.0.8', '10.0.10', '10.0.11']);
+  assert.deepStrictEqual(tv.subnetsFor('10.0.9.2', '/8'), ['10.0.9', '10.0.8', '10.0.10', '10.0.11']);
+  assert.deepStrictEqual(tv.subnetsFor('10.0.9.2', 'çöp'), ['10.0.9']);
+  assert.deepStrictEqual(tv.subnetsFor('10.0.9.2', '255.0.255.0'), ['10.0.9']);
+  assert.deepStrictEqual(tv.subnetsFor(null, 22), []);
+});
+
+test('/22 ağda gönderici TV\'nin /24\'ü dışındaki blokta da bulunur', () => {
+  const tv = startTv({
+    saved: 'http://192.168.4.109:8787',
+    alive: new Set(['http://192.168.6.40:8787']),
+    hasLocalAddress: true,
+    localIp: '192.168.4.30',
+    localMask: '255.255.252.0'
+  });
+  tv.clock.advance(60000);
+  assert.strictEqual(tv.saved(), 'http://192.168.6.40:8787');
+  // Ağın dışına (/22'den sonrası) sorulmaz.
+  assert.ok(!tv.probed().some((url) => url.indexOf('192.168.8.') >= 0));
 });
 
 test('TV başka ağa geçtiyse TV\'nin kendi ağı taranır', () => {
@@ -816,6 +858,21 @@ test('webOS: yeni hizmet hata dönerse ya da yanıtsız kalırsa eski webOS\'un 
   assert.deepStrictEqual(failed.asked, [NEW_CM, OLD_CM]);
   const silent = webosAddress({ [OLD_CM]: { wifi: { state: 'connected', ipAddress: '10.0.0.8' } } });
   assert.strictEqual(silent.result, '10.0.0.8');
+});
+
+test('webOS: ağ maskesi de verilir (app.js /22\'ye kadar tarar)', () => {
+  const clock = makeClock();
+  class PalmServiceBridge {
+    call() { clock.setTimeout(() => this.onservicecallback(JSON.stringify({ wifi: { state: 'connected', ipAddress: '10.1.2.3', netmask: '255.255.252.0' } })), 50); }
+  }
+  const window = {};
+  const context = { window, document: {}, PalmServiceBridge, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, JSON };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'platform.js'), 'utf8'), context, { filename: 'platform.js' });
+  let got = null;
+  window.COUCHSUBS_PLATFORM.localAddress((ip, mask) => { got = [ip, mask]; });
+  clock.advance(3000);
+  assert.deepStrictEqual(got, ['10.1.2.3', '255.255.252.0']);
 });
 
 test('webOS: iki hizmet de adres vermezse null, 3 sn içinde', () => {

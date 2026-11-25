@@ -21,6 +21,7 @@ import android.webkit.WebViewClient;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.util.Collections;
 
@@ -232,6 +233,23 @@ final class TvPage {
                 return "";
             }
             return "";
+        }
+
+        /** localAddress'in ağ öneki (ör. 22); bilinemezse 0. Uygulama /24'ten büyük ağları da tarar (en çok /22). */
+        @JavascriptInterface
+        public int localPrefix() {
+            try {
+                for (NetworkInterface face : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                    if (!face.isUp() || face.isLoopback()) continue;
+                    for (InterfaceAddress entry : face.getInterfaceAddresses()) {
+                        InetAddress address = entry.getAddress();
+                        if (address instanceof Inet4Address && address.isSiteLocalAddress()) return entry.getNetworkPrefixLength();
+                    }
+                }
+            } catch (Exception ignored) {
+                return 0;
+            }
+            return 0;
         }
 
         @JavascriptInterface

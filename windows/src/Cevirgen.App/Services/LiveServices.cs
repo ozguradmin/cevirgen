@@ -169,11 +169,13 @@ public sealed class LiveServices : IAppServices
             // Android TV: ADB açıksa (uygulama bu bilgisayardan kurulduysa) Çevirgen TV bilgisayarın adresiyle açılır ve
             // bağlanana kadar arada bir yeniden açılır (iPhone ve Android telefonla aynı). Eskiden bilgisayar Android TV'ye
             // hiç dokunmuyordu. TV yine ekrandaki kodun onayıyla (/pair) eşleşir; erişim anahtarı gitmez.
-            var host = tv.Host;
             var launch = parameters.TryGetValue("server", out var address)
                 ? JsonSerializer.Serialize(new Dictionary<string, string> { ["server"] = address }) : null;
-            return new AndroidKeeper(new AndroidTvKeeper(() => AndroidTvInstaller.OpenAsync(host, DataDirectory("adb"), launch),
-                appConnected, AndroidOpenProblem, onOpenResult, new TvInstall.InstallLog(TvInstallLogPath).Write));
+            Action<string> installLog = new TvInstall.InstallLog(TvInstallLogPath).Write;
+            // TV'ye ulaşılamazsa ağda yeniden aranır (LG ve Samsung'daki TvLocator gibi; Mac ve iPhone ile aynı).
+            var androidLocator = new AndroidTvLocator(tv, onMoved, log: installLog);
+            return new AndroidKeeper(new AndroidTvKeeper(() => AndroidTvInstaller.OpenAsync(androidLocator.Host, DataDirectory("adb"), launch),
+                appConnected, AndroidOpenProblem, onOpenResult, installLog, locator: androidLocator));
         }
         if (tv.Brand == TvBrand.Samsung)
         {
@@ -194,7 +196,7 @@ public sealed class LiveServices : IAppServices
                     client.Dispose();
                     throw;
                 }
-            }, () => SamsungDiscovery.SearchAsync(), onMoved);
+            }, () => SamsungDiscovery.SearchAsync(), onMoved, log: new TvInstall.InstallLog(TvInstallLogPath).Write);
             // Önce geliştirici bağlantısı (sdb) denenir; uzaktan kumanda bağlantısıyla açma bazı TV'lerde sessizce çalışmıyordu.
             var host = tv.Host;
             return new Keeper(new TvKeeper(() => Task.FromResult<ITvControl>(new SamsungLauncher(() => OpenSamsungAppAsync(host), samsungLocator.ConnectAsync)),
@@ -213,7 +215,7 @@ public sealed class LiveServices : IAppServices
                 client.Dispose();
                 throw;
             }
-        }, () => LgDiscovery.SearchAsync(), onMoved);
+        }, () => LgDiscovery.SearchAsync(), onMoved, log: new TvInstall.InstallLog(TvInstallLogPath).Write);
         // Açık ve bağlı TV uygulamasına yeni bağlantıda açma komutu gitmez (#1055; Mac, iPhone ve Android ile aynı).
         return new Keeper(new TvKeeper(locator.ConnectAsync, AppController.TvAppId, parameters, consolePort: consolePort, onOpenResult: onOpenResult,
                                        tvConnected: appConnected));

@@ -2697,13 +2697,18 @@
   // Bilgisayar TV uygulamasını açamıyorsa adres gelmez; kayıtlı adres de eskiyebilir (altyazı kaynağı başka cihaz oldu
   // ya da cihazın IP'si değişti). Uygulama o zaman ağı tarar: TV'nin kendi ağını (adresini söyleyebiliyorsa) ve kayıtlı
   // adresin ağını. Kayıtlı adres art arda FAILS_BEFORE_SCAN kez yanıt vermezse tarama kısa süre içinde başlar.
+  // Eskiden üç hata bekleniyordu (~10 sn); modem yeniden başlayıp gönderici yeni adres alınca altyazı o kadar geç dönüyordu.
+  // Artık ilk hatadan sonra aranır. TV'nin ağı /24'ten büyükse (ör. /22, /23) TV'nin gerçek ağ maskesi kullanılır; tarama
+  // en çok /22 (4 x 254 adres) ile sınırlıdır, daha geniş ağlarda TV'nin çevresindeki /22 taranır.
 
   var SERVER_PORT = 8787;
   var SCAN_PARALLEL = 24;
   var SCAN_TIMEOUT_MS = 1200;
   var SCAN_PAUSE_MS = 30000;
   var SCAN_SOON_MS = 3000;
-  var FAILS_BEFORE_SCAN = 3;
+  var FAILS_BEFORE_SCAN = 1;
+  // En geniş taranan ağ: /22 (1024 adres). Daha büyük maskeler buna daraltılır.
+  var WIDEST_SCAN_PREFIX = 22;
   // TV kendi adresini söyleyemiyor ve kayıtlı adres de yoksa taranacak yaygın ev ağları (modemlerin varsayılanları,
   // sırayla). Eskiden bu durumda tarama listesi boş kalıyor, hiçbir adres denenmiyordu: telefondan ya da başlatma
   // parametresi vermeyen yoldan kurulan TV (eski webOS, adresini vermeyen Samsung) "Ağda Çevirgen aranıyor…" ekranında
@@ -2746,6 +2751,48 @@
     return match ? match[1] : null;
   }
 
+  // Ağ maskesinin önek uzunluğu: 22, "22", "/22" ya da "255.255.252.0"; okunamazsa null.
+  function prefixLength(mask) {
+    if (mask === null || mask === undefined || mask === '') return null;
+    var text = String(mask).replace(/^\//, '');
+    if (/^\d{1,2}$/.test(text)) {
+      var n = Number(text);
+      return n >= 0 && n <= 32 ? n : null;
+    }
+    var parts = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text);
+    if (!parts) return null;
+    var bits = 0, ended = false;
+    for (var i = 1; i <= 4; i++) {
+      var octet = Number(parts[i]);
+      if (octet > 255) return null;
+      for (var b = 7; b >= 0; b--) {
+        if (octet & (1 << b)) {
+          if (ended) return null;
+          bits++;
+        } else ended = true;
+      }
+    }
+    return bits;
+  }
+
+  // TV'nin adresi ve ağ maskesinden taranacak /24 blokları (TV'ninki önce). Maske yoksa ya da /24 ve dar ise yalnız
+  // TV'nin /24'ü; /23 ve /22'de ağın bütün blokları; /22'den geniş ağlarda TV'nin çevresindeki /22 (en çok 4 blok).
+  function subnetsFor(ip, mask) {
+    var own = subnetOf(ip);
+    if (!own) return [];
+    var bits = prefixLength(mask);
+    if (bits === null || bits >= 24) return [own];
+    if (bits < WIDEST_SCAN_PREFIX) bits = WIDEST_SCAN_PREFIX;
+    var parts = own.split('.');
+    var third = Number(parts[2]);
+    var size = 1 << (24 - bits);
+    var start = third - third % size;
+    var list = [own];
+    for (var i = start; i < start + size; i++) if (i !== third) list.push(parts[0] + '.' + parts[1] + '.' + i);
+    return list;
+  }
+  window.__subnetsFor = subnetsFor;
+
   // Bekleme ekranındaki durum satırı: TV'nin adresi (biliniyorsa; telefonda elle yazılabilir) ve aramanın sürdüğü.
   // Adres ayrıca sorulmaz, taramanın zaten sorduğu adres kullanılır.
   var tvAddress = null;
@@ -2759,24 +2806,22 @@
   // Taranacak ağlar: TV'nin kendi ağı, sonra kayıtlı adresin ağı (aynıysa bir kez); ikisi de yoksa yaygın ev ağları (guessed).
   function scanSubnets(done) {
     var fromServer = subnetOf(server);
-    function finish(ip) {
+    function finish(ip, mask) {
       if (ip && ip !== tvAddress) {
         tvAddress = ip;
         renderWaitingStatus();
       }
-      var list = [];
-      var own = subnetOf(ip);
-      if (own) list.push(own);
-      if (fromServer && fromServer !== own) list.push(fromServer);
+      var list = subnetsFor(ip, mask);
+      if (fromServer && list.indexOf(fromServer) < 0) list.push(fromServer);
       if (list.length) return done(list, false);
       done(GUESS_SUBNETS.slice(), true);
     }
     if (!platform.localAddress) return finish(null);
     var answered = false;
-    function once(ip) {
+    function once(ip, mask) {
       if (answered) return;
       answered = true;
-      finish(ip);
+      finish(ip, mask);
     }
     // Adresi soran servis yanıt vermezse tarama kayıtlı adresin ağıyla sürer.
     setTimeout(function () { once(null); }, 3000);

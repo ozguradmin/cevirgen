@@ -1858,13 +1858,23 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     private async Task<LgTv?> LocateTvAsync(LgTv target, bool userAsked)
     {
         if (target.Host.Length == 0) return target;
+        IReadOnlyList<LgTv> found = [];
         var (location, moved) = await TvReach.LocateAsync(target, host => services.TvRespondsAsync(host, target.Brand),
-            () => SearchTvsAsync(userAsked));
+            async () => found = await SearchTvsAsync(userAsked));
+        // Kimliği bilinmeyen eski kayıt, TV taramada kayıtlı adreste bulununca kimliğini öğrenir.
+        if (TvLocator.Learned(target, found) is { } learned)
+        {
+            services.WriteTvInstallLog(TvIdentity.LearnedLine(learned));
+            TvMoved(learned);
+            TvNotResponding = false;
+            return learned;
+        }
         switch (location)
         {
             case TvLocation.Moved when moved is not null:
-                services.WriteTvInstallLog(TvReach.MovedLine(target.Host, moved.Host));
-                SubtitleLog.Write(TvReach.MovedLine(target.Host, moved.Host));
+                var how = TvLocator.Locate(target, found)?.How ?? TvMatch.Name;
+                services.WriteTvInstallLog(TvIdentity.MovedLine(target.Host, moved.Host, how));
+                SubtitleLog.Write(TvIdentity.MovedLine(target.Host, moved.Host, how));
                 TvMoved(moved);
                 RestartKeeperForMovedTv();
                 TvNotResponding = false;
@@ -2003,7 +2013,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         if (tv is { } saved && saved.Brand == found.Brand)
         {
             if (saved.Host != host) services.WriteTvInstallLog(TvReach.MovedLine(saved.Host, host));
-            TvMoved(saved with { Host = host });
+            TvMoved(TvIdentity.Identified(saved with { Host = host }, found));
             RestartKeeperForMovedTv();
         }
         else
@@ -2863,6 +2873,20 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>Bilgisayar uykudan uyanınca bağlantıları hemen yenile.</summary>
+    /// <summary>
+    /// Bu bilgisayarın ev ağı adresi değişti (modem yeniden başladı, başka ağ): TV bekçisi yeni adresle yeniden kurulur; LG
+    /// ve Samsung'da açma komutu, Android TV'de adres komutu yeni sunucu adresini TV'ye hemen götürür. Eskiden TV eski
+    /// adrese bağlanmaya çalışıp ağı taramaya düşüyordu (Mac, iPhone ve Android ile aynı).
+    /// </summary>
+    public void SenderAddressChanged(IReadOnlyList<string> old, IReadOnlyList<string> now)
+    {
+        if (!isRunning) return;
+        services.WriteTvInstallLog(SenderAddressWatcher.Line(old, now));
+        if (keeper is null) return;
+        RestartKeeperForMovedTv();
+        keeper?.Reconnect();
+    }
+
     public void SystemResumed()
     {
         if (session?.HasGivenUp == true)
