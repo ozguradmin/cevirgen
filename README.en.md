@@ -5,7 +5,9 @@
 <p align="center"><b>Live Turkish subtitles for games.</b><br>
 Çevirgen reads a game's English subtitles from the screen, translates them into Turkish and shows them on your TV over the game. It works with most games that show their subtitles centred at the bottom of the screen.</p>
 
-<p align="center"><a href="https://github.com/ozguradmin/cevirgen/releases/latest"><b>Download (Windows)</b></a> · <a href="README.md">Türkçe</a></p>
+<p align="center"><a href="https://github.com/ozguradmin/cevirgen/releases/latest"><b>Download (Windows)</b></a> · <a href="#install">Install</a> · <a href="README.md">Türkçe</a></p>
+
+<p align="center"><sub>Windows won't open the app? <a href="#if-windows-wont-open-it">See what to do</a>.</sub></p>
 
 ![Çevirgen live screen](docs/cevirgen/ekran/canli.jpg)
 
@@ -37,7 +39,15 @@
 
 ## Install
 
-Download `CevirgenApp-win-Setup.exe` from the [latest release](https://github.com/ozguradmin/cevirgen/releases/latest) and run it. The installer is not signed yet: if SmartScreen warns, choose **More info › Run anyway**. If **Smart App Control** is on, Windows blocks unsigned apps without that option; turn it off in **Settings › Privacy & security › Windows Security › App & browser control › Smart App Control settings**. On older Windows 11 builds it cannot be turned back on without resetting Windows.
+Download `CevirgenApp-win-Setup.exe` from the [latest release](https://github.com/ozguradmin/cevirgen/releases/latest) and run it. The installer is not signed yet.
+
+### If Windows won't open it
+
+- **"Unrecognised app" warning (SmartScreen):** choose **More info › Run anyway**.
+- **Blocked with no "Run anyway" option:** Smart App Control is on, and while it is on Windows does not run unsigned apps at all. Turn it off in **Settings › Privacy & security › Windows Security › App & browser control › Smart App Control settings**, then run the installer again.
+
+> [!WARNING]
+> Smart App Control is a security protection: with it off, Windows no longer blocks other unsigned apps either. On older Windows 11 builds it cannot be turned back on without resetting Windows; on newer builds you can turn it back on in the same place.
 
 ## Privacy
 

@@ -7,10 +7,13 @@ Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üst�
 
 <p align="center">
   <a href="https://github.com/ozguradmin/cevirgen/releases/latest"><b>İndir (Windows)</b></a> ·
+  <a href="#kurulum">Kurulum</a> ·
   <a href="#nasıl-çalışır">Nasıl çalışır</a> ·
   <a href="#gizlilik">Gizlilik</a> ·
   <a href="README.en.md">English</a>
 </p>
+
+<p align="center"><sub>Windows uygulamayı açmıyor mu? <a href="#windows-uygulamayı-açmıyorsa">Ne yapacağın burada</a>.</sub></p>
 
 ![Çevirgen canlı ekranı: TV görüntüsü, Türkçe altyazı ve akan döküm](docs/cevirgen/ekran/canli.jpg)
 
@@ -60,9 +63,16 @@ Altyazının TV'de nasıl duracağını sen seçersin; Görünüm sekmesinden te
 ## Kurulum
 
 1. [Son sürümü indir](https://github.com/ozguradmin/cevirgen/releases/latest) ve `CevirgenApp-win-Setup.exe`'yi çalıştır.
-2. Windows "tanınmayan uygulama" uyarısı verirse **Ek bilgi › Yine de çalıştır**'a bas. Yükleyici henüz imzalı değil; kaynak kodu bu depoda.
-   - **Akıllı Uygulama Denetimi açıksa** Windows imzasız uygulamayı hiç çalıştırmaz, "Yine de çalıştır" seçeneği de çıkmaz. **Ayarlar › Gizlilik ve güvenlik › Windows Güvenliği › Uygulama ve tarayıcı denetimi › Akıllı Uygulama Denetimi ayarları**'ndan **Kapalı**'ya al. Eski Windows 11 sürümlerinde bu ayar kapatıldıktan sonra Windows sıfırlanmadan yeniden açılamıyor; yeni sürümlerde aynı yerden geri açılır.
+2. Windows uyarırsa ya da açmazsa hemen aşağıdaki [Windows uygulamayı açmıyorsa](#windows-uygulamayı-açmıyorsa) bölümüne bak. Yükleyici henüz imzalı değil; kaynak kodu bu depoda.
 3. Çevirgen'i aç, "Oyunu nerede oynuyorsun?" sorusunu cevapla ve adımları izle.
+
+### Windows uygulamayı açmıyorsa
+
+- **"Tanınmayan uygulama" uyarısı çıkıyorsa:** **Ek bilgi › Yine de çalıştır**'a bas.
+- **Hiç açmıyorsa ve "Yine de çalıştır" seçeneği de yoksa:** Akıllı Uygulama Denetimi açıktır; açıkken Windows imzasız uygulamaları hiç çalıştırmaz. **Ayarlar › Gizlilik ve güvenlik › Windows Güvenliği › Uygulama ve tarayıcı denetimi › Akıllı Uygulama Denetimi ayarları**'ndan **Kapalı**'ya al, sonra kurulum dosyasını yeniden çalıştır.
+
+> [!WARNING]
+> Akıllı Uygulama Denetimi bir güvenlik korumasıdır: kapatınca Windows imzasız başka uygulamaları da engellemez. Eski Windows 11 sürümlerinde kapatıldıktan sonra Windows sıfırlanmadan yeniden açılamıyor; yeni sürümlerde aynı yerden geri açılır.
 
 **PS5 için önemli:** Ekranın üstünde sürekli "Uzaktan Oynatma'ya bağlandı" yazmasın diye PS5'te **Ayarlar › Sistem › Uzaktan Oynatma › Uzaktan Oynatma Bağlantı Durumu Açılır Penceresini Gizle**'yi aç; bunu hem kendi hesabında hem ikinci hesapta yap.
 
