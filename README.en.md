@@ -3,7 +3,7 @@
 <h1 align="center">Çevirgen</h1>
 
 <p align="center"><b>Live Turkish subtitles for games.</b><br>
-Çevirgen reads a game's English subtitles from the screen, translates them into Turkish and shows them on your TV over the game. It works with any game that has subtitles.</p>
+Çevirgen reads a game's English subtitles from the screen, translates them into Turkish and shows them on your TV over the game. It works with most games that show their subtitles centred at the bottom of the screen.</p>
 
 <p align="center"><a href="https://github.com/ozguradmin/cevirgen/releases/latest"><b>Download (Windows)</b></a> · <a href="README.md">Türkçe</a></p>
 

@@ -3,7 +3,7 @@
 <h1 align="center">Çevirgen</h1>
 
 <p align="center"><b>Oyunlar için canlı Türkçe altyazı.</b><br>
-Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üstünde gösterir. Altyazısı olan her oyunda çalışır.</p>
+Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üstünde gösterir. Altyazısı ekranın altında, ortada çıkan çoğu oyunda çalışır.</p>
 
 <p align="center">
   <a href="https://github.com/ozguradmin/cevirgen/releases/latest"><b>İndir (Windows)</b></a> ·
@@ -18,7 +18,7 @@ Ekrandaki İngilizce altyazıyı okur, Türkçeye çevirir ve TV'de oyunun üst�
 
 - **Türkçesi olmayan oyunlara Türkçe altyazı.** Oyunun İngilizce altyazısını ekrandan okur, Türkçesini TV'de İngilizcenin hemen üstünde gösterir.
 - **Her platform:** PS5, Xbox, bilgisayar oyunları ve yakalama kartıyla diğer konsollar.
-- **İnternetsiz ücretsiz çeviri.** Varsayılan çeviri modeli bilgisayarında çalışır; yazılar dışarı çıkmaz. İstersen Gemini, DeepL, OpenAI, Claude ya da OpenAI uyumlu herhangi bir servisi (OpenRouter, Groq, LM Studio…) bağlarsın.
+- **İnternetsiz ücretsiz çeviri.** Varsayılan çeviri modeli bilgisayarında çalışır, çeviri için internet gerekmez (çevirileri iyileştirmeye katkı ayarı için [Gizlilik](#gizlilik) bölümüne bak). İstersen Gemini, DeepL, OpenAI, Claude ya da OpenAI uyumlu herhangi bir servisi (OpenRouter, Groq, LM Studio…) bağlarsın.
 - **Okunur altyazı.** Zeminsiz, kenarlıklı yazı; okunurluk testiyle gece de kar sahnesinde de okunduğunu görürsün. Oyundaki altyazı gidince Türkçesi de hemen gider.
 - **Düzelt ve sözlük.** Beğenmediğin çeviriyi düzeltirsin, o satır bir daha hep senin hâlinle gelir. "Şehir adları çevrilmesin", "buddy hep kanka olsun" gibi kurallar koyarsın.
 - **Okuma hızı.** Her satırın saniyedeki karakter sayısı ölçülür; profesyonel altyazı sınırını (17 kr/sn) aşan satırlar işaretlenir.

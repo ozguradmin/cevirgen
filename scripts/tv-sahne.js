@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Çevirgen: tanıtım için gerçek TV sayfasını (tv-webos, değiştirilmeden) kayıtlı bir oyun karesinin üstünde çizer. Sahte yerel
 // sunucu style, subtitle ve region olaylarını gönderir; başsız Chrome (CDP) 1920×1080 ekran görüntüsü alır. Sahneler:
-// [{id, name, subtitle:{text, box}, region}] (region: DiagnosticReplayTests'in yazdığı AD-olay.json). Kareler telif altındadır,
-// depoya girmez.
+// [{id, name, subtitle:{text, box}, region}] (region: DiagnosticReplayTests'in yazdığı AD-olay.json). İsteğe bağlı sahne alanları:
+// style (varsayılan biçimin üstüne; Klasik kutu: {background:100, outline:false, placement:'cover'}), width/height (kare 16:9
+// değilse, ör. 1920×1200). Kareler telif altındadır, depoya girmez.
 //   node scripts/tv-sahne.js <örnek dizini> <çıktı dizini> <sahneler.json>
 'use strict';
 const fs = require('node:fs');
@@ -30,7 +31,7 @@ const streams = new Set();
 const send = (res, name, data) => res.write('event: ' + name + '\ndata: ' + JSON.stringify(data) + '\n\n');
 function sendScene(res) {
   if (!current) return;
-  send(res, 'style', style);
+  send(res, 'style', Object.assign({}, style, current.style || {}));
   send(res, 'subtitle', { text: current.subtitle.text, box: current.subtitle.box, duration: 600000 });
   if (current.region) send(res, 'region', current.region);
 }
@@ -50,8 +51,9 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/ack') { res.writeHead(204, CORS); return res.end(); }
   if (url.pathname === '/wrap.html') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    return res.end(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#000}
-img{position:absolute;inset:0;width:1920px;height:1080px}iframe{position:absolute;inset:0;width:1920px;height:1080px;border:0;background:transparent}</style>
+    const W = current.width || 1920, H = current.height || 1080;
+    return res.end(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden;background:#000}
+img{position:absolute;inset:0;width:${W}px;height:${H}px}iframe{position:absolute;inset:0;width:${W}px;height:${H}px;border:0;background:transparent}</style>
 <img src="/kare/${current.id}-kare.jpg"><script>
 try { localStorage.setItem('couchsubs.server', 'http://127.0.0.1:${PORT}'); } catch (e) {}
 var f = document.createElement('iframe'); f.allowTransparency = true; f.src = '/tv/index.html';
@@ -89,9 +91,9 @@ async function cdp(wsUrl) {
       try { target = (await (await fetch(`http://127.0.0.1:${DEBUG}/json/list`)).json()).find(t => t.type === 'page'); } catch (e) {}
     }
     const page = await cdp(target.webSocketDebuggerUrl);
-    await page.call('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
     for (const scene of scenes) {
       current = scene;
+      await page.call('Emulation.setDeviceMetricsOverride', { width: scene.width || 1920, height: scene.height || 1080, deviceScaleFactor: 1, mobile: false });
       await page.call('Page.navigate', { url: `http://127.0.0.1:${PORT}/wrap.html?${scene.id}` });
       await wait(5000);
       const check = await page.call('Runtime.evaluate', { expression: `(function(){var d=document.querySelector('iframe').contentDocument;return JSON.stringify({sub:d.getElementById('subtitle').className, text:d.getElementById('subtitle-text').textContent, regions:d.getElementById('regions').className, items:d.querySelectorAll('#regions .item').length})})()`, returnByValue: true });
