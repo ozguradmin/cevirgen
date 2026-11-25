@@ -652,7 +652,9 @@
       // then position the wrapper without carrying stale vertical coordinates forward.
       wrap.style.top = '';
       wrap.style.bottom = '';
-      var gap = 1.2;
+      // Çevirinin kutusu ile İngilizce satır arasında ekran yüksekliğinin %2,4'ü boşluk (TV ile aynı; eskiden %1,2, zemin
+      // İngilizce yazıya değiyormuş gibi görünüyordu).
+      var gap = 2.4;
       if (mode !== 'fixed') {
         // Kap İngilizce satırın hemen üstüne ya da altına oturur, yatayda satırın ortasına hizalanır.
         var center = (box.left + box.right) / 2;

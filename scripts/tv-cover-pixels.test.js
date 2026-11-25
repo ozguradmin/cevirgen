@@ -315,6 +315,26 @@ test('TV: "Üstünde" çeviri İngilizce altyazının üstünde ayrı durur (ça
   for (const name of ['above', 'noBox', 'overlay', 'long']) assert.equal(red[name], red.below, name + ': ' + JSON.stringify(red));
 });
 
+// "Üstünde": çevirinin kutusu (zemini) ile İngilizce satırın üst kenarı arasında boşluk kalır. beta.88'de 1080'de ~12 piksel
+// (ekranın %1,2'si) idi; zemin İngilizce yazıya değiyormuş gibi görünüyordu (X, beta.90). Şimdi en az iki katı, çakışma yok.
+test('TV: "Üstünde" çevirinin zemini ile İngilizce satır arasında boşluk var (beta.88 boşluğunun en az iki katı)', { skip }, () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'couchsubs-above-gap-'));
+  try {
+    const events = `__send('style', ${JSON.stringify(tvStyle('above'))});
+      __send('subtitle', ${JSON.stringify({ text: MEDIUM, duration: 8000, box: ENGLISH })});
+      var r = document.getElementById('subtitle-text').getBoundingClientRect();
+      var pre = document.createElement('pre'); pre.id = 'result';
+      pre.textContent = btoa(JSON.stringify({ bottom: r.bottom, height: innerHeight }));
+      document.body.appendChild(pre);`;
+    const m = result(run(['--virtual-time-budget=31000', '--dump-dom', tvPage(temp, events)], temp));
+    const gap = ENGLISH.top * m.height - m.bottom;
+    const beta88 = m.height * 0.012;
+    assert.ok(gap >= 2 * beta88 - 1, 'boşluk ' + gap + ' px, beta.88: ' + beta88 + ' px');
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});
+
 // "Örtsün" + "Yazı kadar": 3 satıra sığmayan uzun çeviri de seçilen boyda, daha çok satıra bölünür ve İngilizceyi örter.
 test('TV: örtüde uzun çeviri küçülmeden bölünür, İngilizce altyazı yine görünmez', { skip }, () => {
   const red = tvShot(`__send('style', ${JSON.stringify(tvStyle('cover'))});` +

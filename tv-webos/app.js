@@ -1893,6 +1893,7 @@
   }
 
   var SIDE_MIN = 0.05;
+  var PLACE_GAP = 0.024;
 
   // Altyazıyı seçilen yerleşime göre konumlar. İngilizce altyazının yeri bilinmiyorsa sabit yükseklik kullanılır.
   function layout() {
@@ -1910,7 +1911,10 @@
     if (!box || el.className === 'hidden') return avoidRegions();
 
     var height = (document.documentElement.clientHeight || window.innerHeight || 1080) / (window.COUCHSUBS_ZOOM || 1);
-    var gap = Math.round(height * 0.012);
+    // "Üstünde"/"Altında": çevirinin kutusu ile İngilizce satır arasında ekran yüksekliğinin %2,4'ü (1080'de 26 piksel,
+    // 46 piksellik yazıda satır yüksekliğinin ~%45'i) boşluk. Eskiden %1,2 (13 piksel) idi; oyunun bildirdiği kutu harflere
+    // sıkı oturduğundan çevirinin zemini İngilizce yazıya değiyormuş gibi görünüyordu (X, beta.90). OBS katmanı ile aynı.
+    var gap = Math.round(height * PLACE_GAP);
     var mode = placement;
     // Ekranın kenarında yer yoksa öbür yana geçilir.
     if (mode === 'below' && box.bottom > 0.88) mode = 'above';
