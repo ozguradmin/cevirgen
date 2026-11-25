@@ -3380,8 +3380,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         if (reader is null) return;
         var scheduler = new ReadScheduler(maxReuse: settings.FastSubtitleDetection
             ? ReadScheduler.FastMaxReuse : ReadScheduler.DefaultMaxReuse);
-        // Ekranda menü varken altyazı gönderilmez: altyazı alanındaki menü satırları (alttaki seçenekler, tuş çubuğu)
-        // otomatik ekran yazısı olarak kendi yerinde çevriliyor, altyazıya karışmasın.
+        // Ekranda menü varken altyazı bekletilir: altyazı alanındaki menü satırları (alttaki seçenekler, tuş çubuğu)
+        // otomatik ekran yazısı olarak kendi yerinde çevriliyor, altyazıya karışmasın. Menü kapanınca bekletilen konuşma
+        // satırı gönderilir (#1240); her okumada yoklanır (EchoPaused).
         var sender = new MenuPausedSender(server, () => Volatile.Read(ref screenText)?.InMenu == true, SubtitleLog.Write);
         var built = new SubtitlePipeline(reader, MakeTranslator(), sender, scheduler)
         {
@@ -3389,7 +3390,8 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             SkipsTurkish = settings.TargetLanguage == "tr",
             DropsScreenText = () => !demoMode && ScreenText.IsGta(gameSense.Current?.Name),
             Echo = SubtitleEcho,
-            EchoPaused = () => Volatile.Read(ref screenText)?.InMenu == true,
+            EchoPaused = sender.Poll,
+            DialogueRead = () => Volatile.Read(ref screenText)?.NoteDialogue(Environment.TickCount64),
             FindsPhone = settings.ReadsGamePhone && GameName.Key(gameSense.Current?.Name) == "gta 6",
             // Çevirgen: kullanıcının sürekli okunan ek alanlarındaki yazı altyazı sayılmaz; kendi kutusunda çevrilir.
             SeparateAreas = () => Volatile.Read(ref savedWatchedAreas),
@@ -3582,6 +3584,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             // Okunup yazısız ya da gürültülü çıkan otomatik alan dedektöre bildirilir (o görüntüde yeniden önerilmez).
             var detector = screenText;
             regionWatcher.Rejected = detector is null ? null : detector.Reject;
+            regionWatcher.Hud = detector is null ? null : detector.MarkHud;
             regionWatcher.PackLookup = PacksActive && !demoMode ? services.FindInPacks : null;
             regionWatcher.SkipsTurkish = settings.TargetLanguage == "tr";
             regionWatcher.TranslatesUiCommands = settings.SourceLanguage == "en" && settings.TargetLanguage == "tr";

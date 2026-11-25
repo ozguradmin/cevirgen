@@ -1,0 +1,108 @@
+{
+  "about": "Kamerayla kayan yazı (SceneMotion, GitHub #1259/#1203): okumalar sırayla verilir, her okumadan sonra kalan satırlar beklenir. area: okunan alanın karedeki yeri [sol, üst, sağ, alt]; satır kutuları alana oranlı. Mac/iPhone SceneMotionTests.swift, Windows SceneMotionTests.cs ve Android SceneMotionTest.kt bu dosyayı okur.",
+  "cases": [
+    {
+      "name": "benzin istasyonu tabelası yana kayıyor (1259: MOTOR OIL MOTOR OIL)",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "MOTOR OIL MOTOR OIL", "box": [0.20, 0.30, 0.40, 0.40] }], "kept": ["MOTOR OIL MOTOR OIL"] },
+        { "time": 150, "lines": [{ "text": "MOTOR OIL MOTOR OIL", "box": [0.23, 0.30, 0.43, 0.40] }], "kept": [] },
+        { "time": 300, "lines": [{ "text": "MOTOR OIL MOTOR OIL", "box": [0.26, 0.30, 0.46, 0.40] }], "kept": [] },
+        { "time": 900, "lines": [{ "text": "MOTOR OIL MOTOR OIL", "box": [0.26, 0.30, 0.46, 0.40] }], "kept": [] },
+        { "time": 1500, "lines": [{ "text": "MOTOR OIL MOTOR OIL", "box": [0.26, 0.30, 0.46, 0.40] }], "kept": ["MOTOR OIL MOTOR OIL"] }
+      ]
+    },
+    {
+      "name": "teknedeki yazı konuşmanın üstünde kayıyor, konuşma kalıyor (1259: Charters / We're doing that tomorrow.)",
+      "area": [0.23, 0.75, 0.78, 0.94],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Charters", "box": [0.10, 0.10, 0.22, 0.30] }, { "text": "We're doing that tomorrow.", "box": [0.30, 0.60, 0.70, 0.80] }], "kept": ["Charters", "We're doing that tomorrow."] },
+        { "time": 200, "lines": [{ "text": "Charters", "box": [0.15, 0.10, 0.27, 0.30] }, { "text": "We're doing that tomorrow.", "box": [0.30, 0.60, 0.70, 0.80] }], "kept": ["We're doing that tomorrow."] },
+        { "time": 400, "lines": [{ "text": "Charters", "box": [0.20, 0.10, 0.32, 0.30] }, { "text": "We're doing that tomorrow.", "box": [0.30, 0.60, 0.70, 0.80] }], "kept": ["We're doing that tomorrow."] }
+      ]
+    },
+    {
+      "name": "yaklaşan dükkân tabelası büyüyor (1259: Game Base)",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Game Base", "box": [0.45, 0.40, 0.55, 0.50] }], "kept": ["Game Base"] },
+        { "time": 300, "lines": [{ "text": "Game Base", "box": [0.43, 0.38, 0.57, 0.53] }], "kept": [] }
+      ]
+    },
+    {
+      "name": "haritada kaydırılan yer adı (1259: Tola Bay)",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Tola Bay", "box": [0.60, 0.40, 0.70, 0.50] }], "kept": ["Tola Bay"] },
+        { "time": 250, "lines": [{ "text": "Tola Bay", "box": [0.52, 0.42, 0.62, 0.52] }], "kept": [] }
+      ]
+    },
+    {
+      "name": "altyazı yerinde duruyor, yazı tanıma kutusu biraz oynuyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Okay.", "box": [0.47, 0.60, 0.53, 0.70] }], "kept": ["Okay."] },
+        { "time": 100, "lines": [{ "text": "Okay.", "box": [0.474, 0.602, 0.534, 0.703] }], "kept": ["Okay."] },
+        { "time": 200, "lines": [{ "text": "Okay.", "box": [0.466, 0.598, 0.528, 0.698] }], "kept": ["Okay."] },
+        { "time": 2600, "lines": [{ "text": "Okay.", "box": [0.47, 0.60, 0.53, 0.70] }], "kept": ["Okay."] }
+      ]
+    },
+    {
+      "name": "alttan yeni satır gelince yukarı itilen altyazı satırı kalıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Yeah.", "box": [0.47, 0.80, 0.53, 0.90] }], "kept": ["Yeah."] },
+        { "time": 300, "lines": [{ "text": "Yeah.", "box": [0.47, 0.65, 0.53, 0.75] }, { "text": "Ah, there he is!", "box": [0.42, 0.80, 0.58, 0.90] }], "kept": ["Yeah.", "Ah, there he is!"] }
+      ]
+    },
+    {
+      "name": "yana kayan uzun konuşma cümlesi (karakterin üstündeki balon) çıkarılmıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Great. I think I got it under control.", "box": [0.20, 0.40, 0.50, 0.50] }], "kept": ["Great. I think I got it under control."] },
+        { "time": 200, "lines": [{ "text": "Great. I think I got it under control.", "box": [0.30, 0.40, 0.60, 0.50] }], "kept": ["Great. I think I got it under control."] }
+      ]
+    },
+    {
+      "name": "konuşan adlı satır kaysa da kalıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Jason: Go.", "box": [0.40, 0.60, 0.50, 0.70] }], "kept": ["Jason: Go."] },
+        { "time": 200, "lines": [{ "text": "Jason: Go.", "box": [0.50, 0.60, 0.60, 0.70] }], "kept": ["Jason: Go."] }
+      ]
+    },
+    {
+      "name": "yazı yazılır gibi beliren satır (okuma her karede farklı) kalıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Get", "box": [0.48, 0.60, 0.52, 0.70] }], "kept": ["Get"] },
+        { "time": 100, "lines": [{ "text": "Get in", "box": [0.46, 0.60, 0.54, 0.70] }], "kept": ["Get in"] },
+        { "time": 200, "lines": [{ "text": "Get in the car", "box": [0.42, 0.60, 0.58, 0.70] }], "kept": ["Get in the car"] }
+      ]
+    },
+    {
+      "name": "aynı karede iki aynı tabela kayma sayılmıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "EXIT", "box": [0.10, 0.30, 0.16, 0.40] }, { "text": "EXIT", "box": [0.80, 0.30, 0.86, 0.40] }], "kept": ["EXIT", "EXIT"] },
+        { "time": 200, "lines": [{ "text": "EXIT", "box": [0.10, 0.30, 0.16, 0.40] }, { "text": "EXIT", "box": [0.80, 0.30, 0.86, 0.40] }], "kept": ["EXIT", "EXIT"] }
+      ]
+    },
+    {
+      "name": "uzun süre sonra başka yerde yeniden okunan yazı kayma sayılmıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "Gambit Bay", "box": [0.60, 0.40, 0.70, 0.50] }], "kept": ["Gambit Bay"] },
+        { "time": 3000, "lines": [{ "text": "Gambit Bay", "box": [0.20, 0.40, 0.30, 0.50] }], "kept": ["Gambit Bay"] }
+      ]
+    },
+    {
+      "name": "yeri bilinmeyen satır olduğu gibi kalıyor",
+      "area": [0.0, 0.7, 1.0, 1.0],
+      "frames": [
+        { "time": 0, "lines": [{ "text": "TO BOOK!" }], "kept": ["TO BOOK!"] },
+        { "time": 200, "lines": [{ "text": "TO BOOK!" }], "kept": ["TO BOOK!"] }
+      ]
+    }
+  ]
+}

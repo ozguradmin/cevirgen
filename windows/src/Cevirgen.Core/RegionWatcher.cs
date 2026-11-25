@@ -225,6 +225,11 @@ public sealed partial class RegionWatcher
     public Func<ScreenTextKind, bool>? Allows { get; set; }
     /// <summary>Otomatik alan okundu ama yazı yok ya da gürültü (<see cref="ScreenTextNoise"/>): alanın kimliği.</summary>
     public Action<string>? Rejected { get; set; }
+    /// <summary>
+    /// Menü durumundaki otomatik alanın yazısı tuş ipucu ya da görev/HUD yazısı (<see cref="ScreenTextKinds.IsHud"/>): alanın
+    /// kimliği. Dedektör bu alanı menü bileşeni saymaz (<see cref="ScreenTextDetector.MarkHud"/>, #1240).
+    /// </summary>
+    public Action<string>? Hud { get; set; }
     /// <summary>Her okumanın süresi (ms; ölçüm için).</summary>
     public Action<long>? ReadMeasured { get; set; }
     /// <summary>
@@ -1109,6 +1114,9 @@ public sealed partial class RegionWatcher
     {
         // Menü dışındaki otomatik alanın türü okunan yazıdan çıkar (yardım/eylem ya da diğer); kapalı tür gürültü gibi
         // çizilmez, dedektöre bildirilir.
+        if (area.Auto && area.Menu && !candidate.MissionCard && ScreenTextKinds.IsHud(candidate.Paragraphs)
+            && Volatile.Read(ref session) == started)
+            Hud?.Invoke(area.Id);
         var unwanted = area.Auto && Allows is { } allows && Kind(area, candidate) is { } kind && !allows(kind);
         if (area.Auto && (candidate.Key.Length == 0 || ScreenTextNoise.IsNoise(string.Join(' ', candidate.Paragraphs), area.Menu)
                           || (!area.Menu && IsWorldText(candidate)) || unwanted))

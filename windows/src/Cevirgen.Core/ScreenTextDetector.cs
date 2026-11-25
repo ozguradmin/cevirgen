@@ -57,6 +57,8 @@ public sealed class ScreenTextDetector
         public bool HasLast;
         public long StableSince;
         public bool IsRejected;
+        /// <summary>Karo okununca tuş ipucu ya da görev/HUD yazısı çıktı (<see cref="MarkHud"/>): menü için sayılmaz.</summary>
+        public bool IsHud;
         public bool Quiet;
         // Zemin (koyu) örneklerinin toplamları: panel zemini kanıtı için.
         public long DarkSum, DarkSquares;
@@ -169,7 +171,7 @@ public sealed class ScreenTextDetector
                     (tile.DarkSum, tile.DarkSquares, tile.DarkCount) = (darkSum, darkSquares, dark);
                     var previous = lastMasks.AsSpan(index * Words, Words);
                     tile.Quiet = deviation < QuietDeviation;
-                    if (!tile.HasLast || Distance(previous, sampleMask) > MaskChange) tile.StableSince = now;
+                    if (!tile.HasLast || Distance(previous, sampleMask) > MaskChange) (tile.StableSince, tile.IsHud) = (now, false);
                     sampleMask.CopyTo(previous);
                     tile.HasLast = true;
                     if (tile.IsRejected && Distance(rejectedMasks.AsSpan(index * Words, Words), sampleMask) > MaskChange) tile.IsRejected = false;
@@ -219,6 +221,42 @@ public sealed class ScreenTextDetector
         }
     }
 
+    /// <summary>
+    /// Alan okundu ve yazısı tuş ipucu ya da görev/HUD yazısı (<see cref="RegionWatcher.Hud"/>): karoları menü için gereken
+    /// <see cref="MenuComponents"/> bileşene sayılmaz (görüntü değişene dek). GTA 6 balık tutma sahnesinde (#1240) ipucu ve
+    /// görev yazısı birlikte belirip menü sanılıyordu; alan çevrilmeye devam eder.
+    /// </summary>
+    public void MarkHud(string id)
+    {
+        lock (gate)
+        {
+            if (tracked.FirstOrDefault(item => item.Id == id) is not { } area) return;
+            foreach (var index in area.Tiles) tiles[index].IsHud = true;
+        }
+    }
+
+    /// <summary>
+    /// Altyazı alanında konuşma satırı (konuşan adıyla) okundu: ekranda menü yoktur. Menü durumu hemen biter (menü alanları
+    /// kalkar) ve <see cref="DialogueMs"/> boyunca yeniden açılmaz (#1240). Gerçek menüde (duraklatma, ayarlar, harita)
+    /// altyazı alanında konuşma satırı olmaz.
+    /// </summary>
+    public void NoteDialogue(long now)
+    {
+        lock (gate)
+        {
+            dialogueAt = now;
+            if (!menu) return;
+            menu = false;
+            menuFloor = now;
+            menuAnchors = [];
+            tracked.RemoveAll(item => item.Menu);
+        }
+    }
+
+    /// <summary>Konuşma satırı okunduktan sonra bu kadar süre menü durumu açılmaz.</summary>
+    public const int DialogueMs = 1500;
+    private long? dialogueAt;
+
     /// <summary>Çeviri durdu ya da oturum sıfırlandı: alanlar ve karo durumu silinir.</summary>
     public void Reset()
     {
@@ -232,6 +270,7 @@ public sealed class ScreenTextDetector
             menu = false;
             menuAnchors = [];
             menuFloor = null;
+            dialogueAt = null;
         }
     }
 
@@ -452,10 +491,17 @@ public sealed class ScreenTextDetector
     /// bileşen ve sakin zemin" yetiyordu: GTA 6 "Gone Fishing" (gece) menüden sonra görev yazısı, PS5 bildirimi ve HUD üç
     /// bileşen, karanlık zemin sakin sayıldı; menü durumu bitmedi, altyazı bütün oturum okunmadı.
     /// </summary>
-    private bool IsMenu(List<(Cells Cells, List<int> Tiles)> components, long now)
+    /// <summary>Menü durumu <see cref="MenuLifeMs"/> dolduğu için bitti (<see cref="IsMenu"/>); <see cref="Update"/> bir kez kullanır.</summary>
+    private bool menuExpired;
+
+    private bool IsMenu(List<(Cells Cells, List<int> Tiles)> all, long now)
     {
+        // Konuşma satırı az önce okundu: menü yok (#1240).
+        if (dialogueAt is { } spoken && now - spoken <= DialogueMs) return false;
+        // Tuş ipucu ve görev/HUD yazısı (MarkHud) menü bileşeni sayılmaz; zeminin sakinliğinde yazı karosu olarak kalır.
+        var components = all.Where(item => !item.Tiles.All(index => tiles[index].IsHud)).ToList();
         if (components.Count < MenuComponents) return false;
-        var inside = components.SelectMany(item => item.Tiles).ToHashSet();
+        var inside = all.SelectMany(item => item.Tiles).ToHashSet();
         var outside = Enumerable.Range(0, tiles.Length).Where(index => !inside.Contains(index)).ToList();
         if (outside.Count == 0 || outside.Count(index => tiles[index].Quiet) < MenuQuietShare * outside.Count) return false;
         if (menu && components.Any(item => item.Tiles.Count(menuAnchors.Contains) >= KeepOverlap * item.Tiles.Count))
@@ -471,7 +517,7 @@ public sealed class ScreenTextDetector
         if (appeared.Max() - appeared.Min() > MenuTogetherMs) return false;
         if (menuFloor is { } floor && appeared.Any(time => time <= floor)) return false;
         if (!menu) menuEnteredAt = now;
-        menuAnchors = inside;
+        menuAnchors = components.SelectMany(item => item.Tiles).ToHashSet();
         return true;
     }
 

@@ -91,6 +91,8 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
     private Reading lastOcrReading = Reading.Empty;
     /// <summary>Konuşma değişirken sabit duran görev/HUD satırları (GTA 6).</summary>
     private readonly StickyRows stickyRows = new();
+    /// <summary>Kamerayla kayan yazı (plaka, tabela) altyazı alanına girse de altyazı sayılmaz (SceneMotion).</summary>
+    private readonly SceneMotion sceneMotion = new();
     /// <summary>Bu oturumda kesin altyazının okunduğu yükseklikler: oradaki kısa satır sahne yazısı sayılmaz (SceneText).</summary>
     private readonly SubtitleBand subtitleBand = new();
     /// <summary>Günlüğe yazılmış son sahne yazıları (her karede yeniden yazılmasın).</summary>
@@ -302,6 +304,11 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         var inside = Math.Min(line.Right, separate.Right) - Math.Max(line.Left, separate.Left);
         return inside >= width * SeparateShare;
     }
+    /// <summary>
+    /// Altyazı alanında konuşan adıyla başlayan bir satır okundu (her okumada). Uygulama ekran yazısı dedektörüne bildirir
+    /// (<see cref="ScreenTextDetector.NoteDialogue"/>): konuşma sürerken menü sayılmaz (#1240). Mac/iPhone ve Android aynı.
+    /// </summary>
+    public Action? DialogueRead { get; init; }
     /// <summary>Son gösterilen çevirinin nereden geldiği: "paket", "senin" (kullanıcı düzeltmesi) ya da "motor" (günlük ve sayım için).</summary>
     public string? LastOrigin { get; private set; }
     /// <summary>Bu hatta paketten gelen satır sayısı.</summary>
@@ -509,6 +516,9 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
             rows = stickyRows.Filter(rows, now());
             foreach (var row in stickyRows.NewlySticky)
                 Write($"sabit satır: {SubtitleLog.Excerpt(row)} görev/HUD yazısı sayıldı, çevrilmiyor");
+            // Kamerayla kayan yazı (plaka, tabela, dükkân adı) altyazı değildir (SceneMotion, GitHub #1259).
+            rows = sceneMotion.Filter(rows, area, now());
+            foreach (var line in sceneMotion.Removed) LogSceneText(line.Text, SceneMotion.Reason);
             missionMoved = mission.Observe(stickyRows.Removed, area, now());
             missionRegion = mission.Region;
         }
@@ -544,6 +554,7 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
         }
         // Ekran yazısı okuyucuları altyazıyı ikinci kez çizmesin (bkz. SubtitleEcho). Menüde altyazı gönderilmez; okunan
         // menü satırları altyazı sayılmaz (yoksa menünün kendi çevirisi metin eşleşmesiyle atılırdı).
+        if (DialogueRead is { } dialogue && reading.Lines.Any(line => SpeakerPrefix.Parse(line.Text) is not null)) dialogue();
         var menu = EchoPaused?.Invoke() == true;
         if (Echo is { } echo && !menu) echo.Record(reading, region);
 
@@ -1379,6 +1390,7 @@ public sealed class SubtitlePipeline(ITextReader reader, ITextTranslator transla
             currentRead = null;
             schedule.Reset();
             stickyRows.Reset();
+            sceneMotion.Reset();
             subtitleBand.Reset();
             loggedSceneText.Clear();
             loggedStale = "";

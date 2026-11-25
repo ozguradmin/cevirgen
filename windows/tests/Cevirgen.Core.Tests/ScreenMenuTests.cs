@@ -126,6 +126,64 @@ public class ScreenMenuTests
         Assert.True(detector.Areas.Count(area => before.Contains(area.Id)) >= 9);
     }
 
+    /// <summary>
+    /// #1240, GTA 6 karanlık balık tutma sahnesi: tuş ipucu (sağ alt), görev yazısı (alt orta) ve HUD (sol üst) birlikte
+    /// belirince menü sanılıyordu (Mac ScreenMenuTests ve Android ScreenMenuTest ile aynı sahne).
+    /// </summary>
+    private static Frame Fishing()
+    {
+        var frame = Blurred();
+        Paint(frame, 26, 15, 3, 240);
+        Paint(frame, 12, 16, 8, 240);
+        Paint(frame, 1, 1, 3, 240);
+        return frame;
+    }
+
+    [Fact]
+    public void PromptAndMissionTextDoNotMakeAMenu()
+    {
+        var detector = new ScreenTextDetector();
+        Run(detector, 0, 400, _ => Fishing());
+        Assert.True(detector.InMenu);
+        // Alt bantta okunan alanlar tuş ipucu ve görev yazısı çıktı (RegionWatcher.Hud).
+        foreach (var area in detector.Areas.Where(area => area.Region.Top > 0.7)) detector.MarkHud(area.Id);
+        Run(detector, 500, 1500, _ => Fishing());
+        Assert.False(detector.InMenu);
+    }
+
+    [Fact]
+    public void DialogueEndsAFalseMenuAtOnce()
+    {
+        var detector = new ScreenTextDetector();
+        Run(detector, 0, 400, _ => Fishing());
+        Assert.True(detector.InMenu);
+        detector.NoteDialogue(450);
+        Assert.False(detector.InMenu);
+        Assert.DoesNotContain(detector.Areas, area => area.Menu);
+        Run(detector, 500, 1500, _ => Fishing());
+        Assert.False(detector.InMenu);
+    }
+
+    [Fact]
+    public void ARealMenuStaysAMenuWhenOneLabelIsAPrompt()
+    {
+        var detector = new ScreenTextDetector();
+        Run(detector, 0, 400, _ => Wheel());
+        Assert.True(detector.InMenu);
+        detector.MarkHud(detector.Areas[0].Id);
+        Run(detector, 500, 1500, _ => Wheel());
+        Assert.True(detector.InMenu);
+    }
+
+    [Theory]
+    [InlineData(new[] { "R2 Reel in" }, true)]
+    [InlineData(new[] { "Catch a fish." }, true)]
+    [InlineData(new[] { "MAP", "BRIEF" }, false)]
+    [InlineData(new[] { "SETTINGS" }, false)]
+    [InlineData(new[] { "Resume Game", "Settings", "Quit" }, false)]
+    public void PromptsAndMissionTextAreHud(string[] paragraphs, bool hud) =>
+        Assert.Equal(hud, ScreenTextKinds.IsHud(paragraphs));
+
     [Fact]
     public void LabelsOnABusyMovingSceneAreNotAMenu()
     {

@@ -69,4 +69,13 @@ public static class ScreenTextKinds
         var last = IconText.Plain(paragraphs.Count == 1 ? paragraphs[0] : "").TrimEnd(' ', '"', '\'', '\u201D', '\u2019');
         return words >= 2 && last.Length > 0 && ".!?".Contains(last[^1]) ? ScreenTextKind.Mission : ScreenTextKind.Other;
     }
+    /// <summary>
+    /// Menü durumundaki alanın yazısı tuş ipucu ya da görev/HUD yazısı: bütün parçaları tuş ipucu ya da tuş simgeli, ya da
+    /// noktalamayla biten kısa tek cümle (<see cref="ScreenTextKind.Mission"/>). Böyle alan menü bileşeni sayılmaz
+    /// (<see cref="ScreenTextDetector.MarkHud"/>, #1240; Mac/iPhone ve Android ile aynı).
+    /// </summary>
+    public static bool IsHud(IReadOnlyList<string> paragraphs) =>
+        paragraphs.Count > 0
+        && (paragraphs.All(item => item.Contains(ButtonIcons.Marker) || ButtonPrompts.IsPrompt(IconText.Plain(item)))
+            || Of(paragraphs) == ScreenTextKind.Mission);
 }
