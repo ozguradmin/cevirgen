@@ -41,6 +41,11 @@ public sealed record TextLine(string Text, TextBox? Box = null, double? Confiden
 {
     // Balonlar düz telefon ekranında gruplanır; Box, TV'de gösterim için oyun görüntüsündeki kutudur.
     internal TextBox? PhoneBox { get; init; }
+    /// <summary>
+    /// Telefonun sohbet listesinde (<see cref="GamePhoneText.ForTranslation"/>) satırın rolü: kişi adı, önizleme ya da bölüm
+    /// başlığı. Liste değilse null. Mac ile aynı.
+    /// </summary>
+    internal ScreenPhoneCard.Role? ListRole { get; init; }
 }
 
 /// <summary>Yazı tanımanın bulduğu bir sözcük ve yeri (okunan alanın kenarlarına oranla).</summary>

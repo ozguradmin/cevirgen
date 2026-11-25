@@ -73,6 +73,14 @@ internal static partial class GamePhoneText
         return unexpected || names.Count != 0 ? null : restored;
     }
 
+    /// <summary>
+    /// Çeviriye gidecek satırlar. Sohbet listesi (Mesajlar ekranı: "Suggested", "Messages", kişi adı ve altında son mesajın
+    /// önizlemesi) tanınırsa her satır rolüyle işaretlenir (<see cref="TextLine.ListRole"/>): kişi adı (çevrilmez, kalın),
+    /// önizleme (altında, çevrilir), bölüm başlığı. Liste için kişi adı sütununda en az üç "ad + önizleme" çifti ve bir bölüm
+    /// başlığı (ya da başlık okunamadıysa "…" ile kesilmiş en az iki önizleme) gerekir. Önceden iki başlığın ikisi de
+    /// okunmalıydı: sallanan telefonda biri her okumada kaçıyor, liste bir sohbet balonları bir düz satırlar olarak gidip
+    /// geliyordu (LG, beta.93). Kişi adları da atılıyordu; şimdi listede adıyla görünür. Mac ile aynı.
+    /// </summary>
     internal static Reading ForTranslation(Reading reading)
     {
         var lines = new List<TextLine>();
@@ -84,46 +92,96 @@ internal static partial class GamePhoneText
         }
 
         // Kişi adını tek başına büyük harften çıkarmak "May" gibi kısa gerçek mesajları kaybettirir.
-        // Yalnız mesaj listesinin başlığı VE aynı sütunda tekrarlanan ad/önizleme düzeni varsa adı yerinde bırak.
-        if (!lines.Any(l => SectionLabel(l.Text) is "Suggested" or "Suggestions" or "Öneriler") ||
-            !lines.Any(l => SectionLabel(l.Text) is "Messages" or "Mesajlar")) return new Reading(lines);
+        // Yalnız aynı sütunda tekrarlanan ad/önizleme düzeni ve bir başlık (ya da kesik önizlemeler) varsa liste sayılır.
         lines = lines.Select(l => SectionLabel(l.Text) is { } label ? l with { Text = label } : l).ToList();
-        var ordered = lines.Where(l => LayoutBox(l).HasValue).OrderBy(l => LayoutBox(l)!.Value.Top).ToList();
-        var names = new List<TextLine>();
-        var previews = new HashSet<TextLine>();
-        for (int i = 0; i + 1 < ordered.Count; i++)
+        var headed = lines.Any(l => SectionLabel(l.Text) is not null);
+        var order = Enumerable.Range(0, lines.Count).Where(i => LayoutBox(lines[i]).HasValue)
+            .OrderBy(i => LayoutBox(lines[i])!.Value.Top).ToList();
+        var names = new List<int>();
+        var previews = new HashSet<int>();
+        for (int i = 0; i + 1 < order.Count; i++)
         {
-            var name = ordered[i];
-            var preview = ordered[i + 1];
-            if (!preview.Text.Trim().Contains(' ') || !IsContactPair(name, preview)) continue;
+            var name = order[i];
+            var preview = order[i + 1];
+            if (!lines[preview].Text.Trim().Contains(' ') || !IsContactPair(lines[name], lines[preview])) continue;
             names.Add(name);
             previews.Add(preview);
             i++;
         }
         if (names.Count < 3) return new Reading(lines);
-        var first = LayoutBox(names[0])!.Value;
-        var last = LayoutBox(names[^1])!.Value;
+        var first = LayoutBox(lines[names[0]])!.Value;
+        var last = LayoutBox(lines[names[^1]])!.Value;
+        if (last.Top <= first.Top) return new Reading(lines);
+        if (!headed && previews.Count(i => IsCut(lines[i].Text)) < 2) return new Reading(lines);
         double slope = (last.Left - first.Left) / (last.Top - first.Top);
         bool InNameColumn(TextLine line) => LayoutBox(line) is { } box &&
             Math.Abs(box.Left - (first.Left + slope * (box.Top - first.Top))) <= 0.06;
-        if (!names.All(InNameColumn)) return new Reading(lines);
-        // Listeyi uzun önizlemeler doğruladı. Aynı satır düzenindeki "Okay" gibi kısa bir yanıtı
-        // tek başına kişi adına benziyor diye filtreleme. Başlı başına duran rehber adları elenir.
-        for (int i = 0; i + 1 < ordered.Count; i++)
+        if (!names.All(i => InNameColumn(lines[i]))) return new Reading(lines);
+        // Listeyi uzun önizlemeler doğruladı. Aynı satır düzenindeki "Okay" gibi kısa bir yanıt
+        // tek başına kişi adına benziyor diye ad sayılmaz; önizlemesi olarak kalır.
+        for (int i = 0; i + 1 < order.Count; i++)
         {
-            var name = ordered[i];
-            var preview = ordered[i + 1];
-            if (!InNameColumn(name) || previews.Contains(name) || names.Contains(preview) ||
-                preview.Text.Trim().Contains(' ') || !LooksLikeName(preview.Text) || !IsContactPair(name, preview)) continue;
+            var name = order[i];
+            var preview = order[i + 1];
+            if (!InNameColumn(lines[name]) || previews.Contains(name) || names.Contains(preview) ||
+                lines[preview].Text.Trim().Contains(' ') || !LooksLikeName(lines[preview].Text) ||
+                !IsContactPair(lines[name], lines[preview])) continue;
             names.Add(name);
             previews.Add(preview);
             i++;
         }
         // Önizlemesi boş kişilerin adı da aynı eğik sütunda, aynı satır düzenindedir.
-        var withoutNames = lines.Where(line => previews.Contains(line) ||
-            !(InNameColumn(line) && (names.Contains(line) || LooksLikeName(line.Text))));
-        return new Reading(withoutNames.Select(line => previews.Contains(line) ? PreviewPunctuation(line) : line));
+        return new Reading(lines.Select((line, index) =>
+            previews.Contains(index) ? PreviewPunctuation(line) with { ListRole = ScreenPhoneCard.Role.Preview }
+            : SectionLabel(line.Text) is not null ? line with { ListRole = ScreenPhoneCard.Role.Heading }
+            : InNameColumn(line) && (names.Contains(index) || LooksLikeName(line.Text)) ? line with { ListRole = ScreenPhoneCard.Role.Contact }
+            : line with { ListRole = ScreenPhoneCard.Role.Preview }));
     }
+
+    /// <summary>Telefonun "…" ile kestiği önizleme ("Hey this is Joey from Coa..."). Mac ile aynı.</summary>
+    internal static bool IsCut(string text)
+    {
+        var value = text.Trim();
+        return value.EndsWith("...", StringComparison.Ordinal) || value.EndsWith('…');
+    }
+
+    private static readonly HashSet<string> DanglingWords =
+    [
+        "a", "an", "the", "of", "to", "in", "on", "at", "for", "from", "with", "by", "about", "and", "but", "or", "so",
+        "than", "my", "your", "his", "her", "its", "our", "their", "this", "that", "is", "are", "was", "were", "be", "i",
+        "you", "we", "they", "it", "if", "as",
+    ];
+
+    /// <summary>
+    /// Kesik önizlemenin çevrilecek kısmı: telefon son sözcüğü yarıda keser ("Coa...", "in t..."), yazı tanıma da üç
+    /// noktanın önündeki boşluğu güvenilir okumaz; son sözcük her zaman atılır, ardından kalan bağlaç/edat ("from", "in",
+    /// "than") da. Çeviri "..." ile biter (<see cref="CutTranslation"/>): önceden "Hey this is Joey from Coa..." "Selam,
+    /// ben Coa'dan Joey..." çevriliyor, yarım sözcük uyduruluyordu. Kesik değilse ya da geriye bir sözcük bile kalmazsa
+    /// null. Mac ile aynı.
+    /// </summary>
+    internal static string? CutInput(string text)
+    {
+        if (!IsCut(text)) return null;
+        var value = text.Trim().TrimEnd('.', '…');
+        var words = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (words.Count < 2) return null;
+        words.RemoveAt(words.Count - 1);
+        while (words.Count > 1 && DanglingWords.Contains(TrimPunctuation(words[^1].ToLowerInvariant()))) words.RemoveAt(words.Count - 1);
+        var core = string.Join(' ', words).TrimEnd(',', ';', ':', '-', '–', '—').Trim();
+        return core.Any(char.IsLetter) ? core : null;
+    }
+
+    private static string TrimPunctuation(string word)
+    {
+        int start = 0, end = word.Length;
+        while (start < end && char.IsPunctuation(word[start])) start++;
+        while (end > start && char.IsPunctuation(word[end - 1])) end--;
+        return word[start..end];
+    }
+
+    /// <summary>Kesik önizlemenin çevirisi: sondaki noktalama atılıp "..." eklenir (telefondaki gibi kesik görünür). Mac ile aynı.</summary>
+    internal static string CutTranslation(string translation) =>
+        translation.Trim().TrimEnd('.', ',', ';', ':', '…', '–', '—', '-').Trim() + "...";
 
     private static TextLine PreviewPunctuation(TextLine line)
     {
@@ -142,12 +200,26 @@ internal static partial class GamePhoneText
 
     private static TextBox? LayoutBox(TextLine line) => line.PhoneBox ?? line.Box;
 
-    private static string? SectionLabel(string text)
+    private static readonly string[] Headings = ["Messages", "Suggested", "Suggestions", "Öneriler", "Mesajlar"];
+
+    /// <summary>
+    /// Sohbet listesinin bölüm başlığı ("Suggested", "Messages"); değilse null. Başlığın yanındaki simge yazı tanımada tek
+    /// harf ya da işaret olarak okunur ("g Suggested", "✱ Suggested", "Messages ☆"): o artık atılır. Önceden "g Suggested"
+    /// başlık sayılmıyor, sallanan telefonda liste her okumada bir liste bir sohbet çiziliyor, TV'de "g Önerilen" yazıyordu.
+    /// Simge artığı <see cref="ButtonIcons.IsIconToken"/> ile aynı tanımdadır (tek harf ya da işaret). Mac ile aynı.
+    /// </summary>
+    internal static string? SectionLabel(string text)
     {
-        var first = 0;
-        while (first < text.Length && !char.IsLetter(text[first])) first++;
-        var value = text[first..].TrimEnd();
-        return value is "Messages" or "Suggested" or "Suggestions" or "Öneriler" or "Mesajlar" ? value : null;
+        int first = 0, end = text.Length;
+        while (first < end && !char.IsLetter(text[first])) first++;
+        while (end > first && !char.IsLetter(text[end - 1])) end--;
+        var value = text[first..end];
+        if (Headings.Contains(value)) return value;
+        var words = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length is < 2 or > 3 || words.FirstOrDefault(Headings.Contains) is not { } heading) return null;
+        var rest = words.Where(w => w != heading).ToArray();
+        return rest.Length == words.Length - 1 &&
+            rest.All(w => w.Length == 1 || ButtonIcons.IsIconToken(w) || !w.Any(char.IsLetter)) ? heading : null;
     }
 
     private static bool LooksLikeName(string text)
@@ -187,6 +259,8 @@ internal static partial class GamePhoneText
         List<ScreenTranslation.Group> groups = [];
         List<TextLine> run = [];
         bool flat = reading.Lines.All(l => l.PhoneBox.HasValue);
+        // Sohbet listesi (ForTranslation): her satır kendi satırıdır (ad ve altındaki önizleme ayrı), rolü okumadan gelir.
+        bool listed = reading.Lines.Any(l => l.ListRole.HasValue);
         TextBox Layout(TextLine l) => (flat ? l.PhoneBox : l.Box)!.Value;
         void Finish()
         {
@@ -205,7 +279,10 @@ internal static partial class GamePhoneText
                     var spot = run.Select(Layout).Aggregate((a, b) => a.Union(b));
                     groups.Add(new ScreenTranslation.Group([string.Join(' ', clean.Select(l => l.Text))], box,
                         heights[heights.Length / 2], icons.Length == 0 ? null : [icons])
-                    { Phone = new ScreenPhoneCard.Placement(ScreenPhoneCard.Role.Message, spot) });
+                    {
+                        Phone = new ScreenPhoneCard.Placement(
+                            listed ? run[0].ListRole ?? ScreenPhoneCard.Role.Preview : ScreenPhoneCard.Role.Message, spot),
+                    });
                 }
             }
             else groups.AddRange(ScreenTranslation.Groups(new Reading(run), menuRows: false, keepIdentifiers: true));
@@ -216,12 +293,14 @@ internal static partial class GamePhoneText
             if (run.Count > 0)
             {
                 var previous = run[^1];
-                if (BreaksBlock(Layout(previous), Layout(line), flat && EndsSentence(previous.Text))) Finish();
+                if (listed || BreaksBlock(Layout(previous), Layout(line), flat && EndsSentence(previous.Text))) Finish();
             }
             run.Add(line);
         }
         Finish();
-        return Roles(groups.Count <= ScreenTranslation.MaxGroups ? groups : groups.GetRange(0, ScreenTranslation.MaxGroups), home);
+        var kept = groups.Count <= ScreenTranslation.MaxGroups ? groups : groups.GetRange(0, ScreenTranslation.MaxGroups);
+        if (listed && flat && kept.Count > 0) return kept;
+        return Roles(kept, home);
     }
 
     /// <summary>

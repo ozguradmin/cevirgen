@@ -185,7 +185,7 @@ public static class ButtonIcons
     /// <summary>Sözcük bir kumanda tuşunun adı ya da simgesi mi ("R3", "(L1)", "△").</summary>
     public static bool IsButtonName(string text) => Names.Contains(text.Trim(Brackets.ToCharArray()));
 
-    private static bool IsIconToken(string text)
+    internal static bool IsIconToken(string text)
     {
         var core = text.Trim(Brackets.ToCharArray()).TrimEnd(Punctuation.ToCharArray()).Trim(Brackets.ToCharArray());
         if (Names.Contains(core)) return true;

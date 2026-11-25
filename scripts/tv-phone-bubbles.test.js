@@ -245,3 +245,61 @@ test('telefonun gönderisi yerinde güncellenir: aynı gönderi yeniden çizilme
   assert.equal(r.appended, true, 'yeni mesajda mevcut balonlar yeniden yaratıldı ya da yeni mesaj alta eklenmedi');
   assert.equal(r.kept, true, 'balonun kutusu yeniden yaratıldı ya da yeri güncellenmedi');
 });
+
+// LG, beta.93: GTA 6 telefonunun Mesajlar ekranı (sohbet listesi). Bilgisayar listeyi sola yaslı not satırları olarak
+// gönderir (style.align 'left'): kişi adı kalın ve çevrilmez, altında önizlemenin çevirisi, "Önerilen"/"Mesajlar" soluk
+// kalın bölüm başlığı. TV (0.9.101) bunları ortalı küçük not değil, telefondaki sırayla sola yaslı liste olarak çizer; aynı
+// liste art arda gelince (sallanan telefon) hiçbir satır yeniden yaratılmaz, değişen önizlemenin yalnız satırı yenilenir.
+const noteInk = { background: '#141518', foreground: '#A9A59C' };
+const listPart = (text, top, kind) => ({ text, box: { left: 0.32, top, right: 0.58, bottom: top + 0.02 }, line: 0.022,
+  surface: Object.assign({ flat: true }, kind === 'heading' ? noteInk : cardStyle),
+  style: { bold: kind !== 'preview', condensed: false, align: 'left', upper: false }, panel: 'note' });
+const listBlocks = [
+  part('card', ' ', [0.31, 0.26, 0.592, 0.81], cardStyle),
+  listPart('Önerilen', 0.27, 'heading'), listPart('Cal', 0.30, 'name'), listPart('Posta kutunda. Kaçtın', 0.32, 'preview'),
+  listPart('Brian', 0.35, 'name'), listPart('Tamam. Biraz para var...', 0.37, 'preview'), listPart('Mesajlar', 0.40, 'heading'),
+  listPart('Donnie', 0.43, 'name'), listPart('Joey', 0.46, 'name'), listPart('Selam, ben Joey...', 0.48, 'preview'),
+  listPart('Rusty Anchor', 0.52, 'name')];
+const messageList = `
+  var region = { id: 'game-phone', text: 'x', box: { left: 0.31, top: 0.26, right: 0.79, bottom: 0.81 }, blocks: ${JSON.stringify(listBlocks)} };
+  showRegion(region);
+  var panel = document.querySelector('.phone-panel');
+  var nodes = Array.prototype.slice.call(panel.querySelectorAll('.panel-row'));
+  nodes.forEach(function (row, i) { row.couchsubsMark = i; });
+  var card = rect(panel);
+  var rows = nodes.map(function (row) {
+    var bubble = row.querySelector('.panel-bubble'), style = getComputedStyle(bubble);
+    return { text: bubble.textContent, cls: row.className, weight: parseInt(style.fontWeight, 10), align: style.textAlign,
+      color: style.color, box: rect(bubble) };
+  });
+  // Sallanan telefon: kutular biraz oynar, içerik aynı.
+  var again = JSON.parse(JSON.stringify(region));
+  again.blocks.forEach(function (b, i) { if (i) { b.box.top += 0.002; b.box.bottom += 0.002; } });
+  showRegion(again);
+  var kept = document.querySelector('.phone-panel') === panel &&
+    Array.prototype.every.call(panel.querySelectorAll('.panel-row'), function (row, i) { return row.couchsubsMark === i; }) &&
+    panel.querySelectorAll('.panel-row').length === nodes.length;
+  // Yalnız bir önizleme değişti: yalnız o satır yenilenir.
+  var changed = JSON.parse(JSON.stringify(region));
+  changed.blocks[9].text = 'Selam, ben Joey. Neredesin?';
+  showRegion(changed);
+  var after = Array.prototype.slice.call(panel.querySelectorAll('.panel-row'));
+  var only = after.length === nodes.length && after.every(function (row, i) { return i === 8 ? row.couchsubsMark === undefined : row.couchsubsMark === i; });
+  $('result').textContent = JSON.stringify({ card: card, rows: rows, kept: kept, only: only });`;
+
+test('Mesajlar listesi sola yaslı liste: ad kalın, önizleme altında, başlıklar ayrı; aynı liste yeniden çizilmez', { skip: !browser && 'Chromium/Chrome bulunamadı' }, () => {
+  const r = measure(messageList);
+  assert.deepEqual(r.rows.map(row => row.text), listBlocks.slice(1).map(b => b.text), 'telefondaki sıra korunmadı');
+  assert.ok(r.rows.every(row => row.cls.indexOf('list') >= 0 && row.align === 'left'), 'liste satırı ortalı: ' + JSON.stringify(r.rows));
+  assert.ok(r.rows.every(row => row.box.left - r.card.left < 0.03 * 1920), 'liste satırı sola yaslı değil');
+  const by = text => r.rows.find(row => row.text === text);
+  for (const name of ['Cal', 'Brian', 'Donnie', 'Joey', 'Rusty Anchor', 'Önerilen', 'Mesajlar']) assert.ok(by(name).weight >= 700, name + ' kalın değil');
+  assert.ok(by('Tamam. Biraz para var...').weight < 600, 'önizleme kalın');
+  assert.equal(by('Mesajlar').color, 'rgb(169, 165, 156)', 'bölüm başlığı soluk değil');
+  assert.ok(by('Tamam. Biraz para var...').box.top - by('Brian').box.bottom < 0.2 * 22 * 1.08, 'önizleme adın hemen altında değil');
+  assert.ok(by('Cal').box.top - by('Önerilen').box.bottom > 0.3 * 22 * 1.08, 'başlıktan sonraki ad başlığa yapışık');
+  for (let i = 0; i + 1 < r.rows.length; i++) assert.ok(r.rows[i].box.bottom <= r.rows[i + 1].box.top + 1, 'satırlar üst üste');
+  assert.equal(r.kept, true, 'aynı liste satırları yeniden yarattı');
+  assert.equal(r.only, true, 'değişen tek önizleme dışında satırlar yeniden yaratıldı');
+  shoot(messageList, 'tv-phone-list.png');
+});

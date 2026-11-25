@@ -1222,6 +1222,12 @@
   var PANEL_OPACITY = 0.88;
   var PANEL_COUCH = [[3, 1, 18, 8, 2.5], [0, 5, 5, 8, 2], [19, 5, 5, 8, 2], [4, 8, 16, 5, 1.5], [2, 13, 2, 3, 0.8], [20, 13, 2, 3, 0.8]];
 
+  // Sohbet listesinin satırı: sola yaslı not (bilgisayar `style.align` gönderir). Bölüm başlığının soluk yazı rengi.
+  var PANEL_NOTE_INK = '#A9A59C';
+  function panelListRow(item) {
+    return !!item && item.panel === 'note' && !!item.style && typeof item.style === 'object' && item.style.align === 'left';
+  }
+
   function panelCard(items) {
     for (var i = 0; i < (items || []).length; i++) {
       if (items[i] && items[i].panel === 'card' && validBox(items[i].box)) return items[i];
@@ -1307,10 +1313,16 @@
       var key = list.children[r].couchsubsKey;
       if (key) (old[key] = old[key] || []).push(list.children[r]);
     }
-    var seen = {}, rows = [];
+    var seen = {}, rows = [], previous = null;
     for (var j = 0; j < messages.length; j++) {
       var message = messages[j];
-      var base = message.panel + '|' + message.text;
+      // Sohbet listesinin satırı (TV uygulaması 0.9.101; LG, beta.93): sola yaslı not; kişi adı ve bölüm başlığı kalın,
+      // önizleme adın hemen altında (Mac, Windows, iPhone ve Android PhonePanelView ile aynı). Eski TV ortalı not çizer.
+      var listed = panelListRow(message);
+      var strong = listed && message.style.bold === true;
+      var tight = listed && !strong && previous && panelListRow(previous) && previous.style.bold === true &&
+        !(previous.surface && String(previous.surface.foreground).toUpperCase() === PANEL_NOTE_INK);
+      var base = message.panel + (listed ? (strong ? '+list+strong' : '+list') : '') + '|' + message.text;
       seen[base] = (seen[base] || 0) + 1;
       var rowKey = base + '#' + seen[base];
       var colors = message.surface;
@@ -1318,11 +1330,15 @@
         ? (message.panel !== 'note' ? colors.background : '') + '/' + colors.foreground : '';
       var row = old[rowKey] && old[rowKey].shift();
       var bubble;
+      var rowClass = 'panel-row ' + message.panel + (listed ? ' list' : '') + (strong ? ' strong' : '') + (tight ? ' tight' : '');
+      previous = message;
       if (row && row.couchsubsPaint === paint) {
         bubble = row.firstChild;
+        // Üstündeki satır değişince yalnız aralık sınıfı güncellenir; satır yeniden yaratılmaz.
+        if (row.className !== rowClass) row.className = rowClass;
       } else {
         row = document.createElement('div');
-        row.className = 'panel-row ' + message.panel;
+        row.className = rowClass;
         bubble = document.createElement('div');
         bubble.className = 'panel-bubble';
         fillText(bubble, message.text, message.icons);

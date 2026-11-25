@@ -83,6 +83,23 @@ public sealed partial class RegionWatcher
             return;
         }
         (state.Held, state.Holds) = (null, 0);
+        // Sayfanın türü (liste/sohbet) tek okumayla değişmez: telefon sallanırken bölüm başlığı bir okumada kaçınca panel
+        // liste ile sohbet balonları arasında gidip geliyordu (LG, beta.93). Öbür tür art arda PhoneSteady.KindTurns okumada
+        // gelirse geçilir; arada aynı tür gelirse sayaç sıfırlanır (Mac ile aynı).
+        var list = PhoneSteady.IsList(candidate.Blocks?.Select(block => block.Phone?.Role) ?? []);
+        if (candidate.Key.Length > 0 && state.PhoneShownList is { } shownList && shownList != list
+            && !string.IsNullOrEmpty(state.RenderedText))
+        {
+            state.PhoneKindVotes++;
+            if (state.PhoneKindVotes < PhoneSteady.KindTurns)
+            {
+                PhoneNote("PhoneSteady", $"sayfa türü değişti ({(list ? "liste" : "sohbet")}), bir okuma daha bekleniyor",
+                    string.Join('\n', candidate.Paragraphs));
+                state.Signature = null;
+                return;
+            }
+        }
+        if (candidate.Key.Length > 0) state.PhoneKindVotes = 0;
         state.ReadRegion = area.Region;
         state.ReadPhonePage = candidate.PhonePage;
         // Telefonun açılışı iki geometri örneğiyle doğrulandı. Okunan sayfayı çevirmeye hemen başla;
@@ -95,6 +112,7 @@ public sealed partial class RegionWatcher
         {
             if (candidate.Key.Length == 0 && !string.IsNullOrEmpty(state.RenderedText))
                 PhoneNote("PhoneSteady", $"{PhoneSteady.MissTurns} tur boş okundu, çeviri silindi", state.Shown);
+            state.PhoneShownList = candidate.Key.Length == 0 ? null : list;
             state.LastRead = candidate.Key;
             state.Candidate = null;
             await CommitPhoneAsync(candidate, area, state, started, frame).ConfigureAwait(false);
@@ -345,6 +363,12 @@ public sealed partial class RegionWatcher
                         break;
                     }
                 }
+                // Listede "…" ile kesilmiş önizleme kesik çevrilir, yarım sözcük uydurulmaz (GamePhoneText.CutInput; Mac ile aynı).
+                var cuts = missing.Select(i => candidate.Blocks?.Any(block => block.Phone?.Role == ScreenPhoneCard.Role.Preview
+                        && i >= block.Start && i < block.Start + block.Count) == true
+                    ? GamePhoneText.CutInput(candidate.Paragraphs[i]) : null).ToList();
+                for (var n = 0; n < missing.Count; n++)
+                    if (cuts[n] is { } cut) prepared[missing[n]] = IconText.Protect(cut);
                 var texts = missing.Select(i => EnglishPhoneMessages
                     ? GamePhoneText.EnglishModelInput(prepared[i].Text) : prepared[i].Text).ToList();
                 var translations = await translator.TranslateAllAsync(texts, area.PanelLifetime ?? default).ConfigureAwait(false);
@@ -352,7 +376,8 @@ public sealed partial class RegionWatcher
                 {
                     for (var i = 0; i < missing.Count && i < translations.Count; i++)
                     {
-                        result[missing[i]] = translations[i];
+                        result[missing[i]] = cuts[i] is null || string.IsNullOrWhiteSpace(translations[i])
+                            ? translations[i] : GamePhoneText.CutTranslation(translations[i]);
                         if (string.IsNullOrWhiteSpace(translations[i]))
                             PhoneNote("PhoneSession", "motor boş çeviri döndü, gösterilmedi", candidate.Paragraphs[missing[i]]);
                     }

@@ -40,7 +40,8 @@ internal static class PhonePanelView
             grid.Children.Add(name);
         }
         var list = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
-        foreach (var message in panel.Messages) list.Children.Add(Message(message, width, fontSize));
+        for (var i = 0; i < panel.Messages.Count; i++)
+            list.Children.Add(Message(panel.Messages[i], width, fontSize, fontSize * Gap(panel.Messages, i)));
         // Sığmayan en eski mesajlar üstten kırpılır: liste alta yaslı, alan kırpılmış.
         var clip = new Border { ClipToBounds = true, Child = list };
         Grid.SetRow(clip, 1);
@@ -61,25 +62,47 @@ internal static class PhonePanelView
         return root;
     }
 
-    private static FrameworkElement Message(ScreenTranslation.Item item, double width, double fontSize)
+    /// <summary>Sohbet listesinin satırı (kişi adı, önizleme, bölüm başlığı): sola yaslı not; ad ve başlık kalın. Mac ile aynı.</summary>
+    internal static bool IsListRow(ScreenTranslation.Item item) =>
+        item.Panel == ScreenPhoneCard.PanelPart.Note && item.Look?.Align == "left";
+
+    /// <summary>
+    /// Satırın üstündeki boşluk (yazı boyuna oranla): önizleme, üstündeki kişi adının hemen altındadır (Mac ile aynı).
+    /// İlk satırın üstündeki boşluk eskisi gibi kalır.
+    /// </summary>
+    internal static double Gap(IReadOnlyList<ScreenTranslation.Item> messages, int index)
+    {
+        if (index <= 0) return 0.45;
+        var item = messages[index];
+        var previous = messages[index - 1];
+        if (IsListRow(item) && IsListRow(previous) && item.Look?.Bold != true && previous.Look?.Bold == true
+            && previous.Style?.Foreground != ScreenPhoneCard.NoteColor.Foreground) return 0.08;
+        return 0.45;
+    }
+
+    private static FrameworkElement Message(ScreenTranslation.Item item, double width, double fontSize, double gap)
     {
         var note = item.Panel == ScreenPhoneCard.PanelPart.Note;
         var mine = item.Panel == ScreenPhoneCard.PanelPart.Mine;
+        var listed = IsListRow(item);
         var text = new TextBlock
         {
             Text = item.Translation,
-            FontSize = note ? fontSize * 0.8 : fontSize,
-            FontWeight = note ? FontWeights.Medium : FontWeights.SemiBold,
+            FontSize = listed ? fontSize * 0.92 : note ? fontSize * 0.8 : fontSize,
+            FontWeight = listed ? (item.Look?.Bold == true ? FontWeights.Bold : FontWeights.Normal)
+                : note ? FontWeights.Medium : FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Parse(item.Style?.Foreground, Colors.White)),
             TextWrapping = TextWrapping.Wrap,
-            TextAlignment = note ? TextAlignment.Center : TextAlignment.Left,
+            TextAlignment = note && !listed ? TextAlignment.Center : TextAlignment.Left,
         };
-        if (note) return new Border { Margin = new Thickness(0, fontSize * 0.45, 0, 0), Child = text };
+        if (listed)
+            return new Border { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, gap, 0, 0), Child = text };
+        if (note) return new Border { Margin = new Thickness(0, gap, 0, 0), Child = text };
         return new Border
         {
             HorizontalAlignment = mine ? HorizontalAlignment.Right : HorizontalAlignment.Left,
             MaxWidth = width * 0.84,
-            Margin = new Thickness(0, fontSize * 0.45, 0, 0),
+            Margin = new Thickness(0, gap, 0, 0),
             Padding = new Thickness(fontSize * 0.6, fontSize * 0.32, fontSize * 0.6, fontSize * 0.32),
             CornerRadius = new CornerRadius(fontSize * 0.75),
             Background = new SolidColorBrush(Parse(item.Style?.Background, Colors.Gray)),

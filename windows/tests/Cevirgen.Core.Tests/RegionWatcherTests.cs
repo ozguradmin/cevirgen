@@ -922,6 +922,86 @@ public partial class RegionWatcherTests
         Assert.Equal(["TR: Where are you?", "TR: Meet me outside."], server.Blocks[^1]!.Select(item => item.Translation));
     }
 
+    /// <summary>
+    /// LG, beta.93: GTA 6 Mesajlar ekranı elde sallanırken TV'deki panel her saniye liste ile sohbet balonları arasında
+    /// gidip geliyordu. Pikselleri biraz farklı, başlığı bir "g" ile bir simgesiz okunan art arda okumalarda sayfa liste
+    /// kalır, aynı görüntü yeniden gönderilmez; tek bir sohbet gibi okunan kare türü değiştirmez, art arda iki okuma
+    /// değiştirir (Mac ile aynı).
+    /// </summary>
+    [Fact]
+    public async Task SwayingMessageListKeepsTheListLayout()
+    {
+        var still = GamePhoneTrackerTests.PhoneFrame();
+        var tracker = new GamePhoneTracker();
+        tracker.TrySample(still, 0, out _);
+        tracker.TrySample(still, 400, out var region);
+        Assert.NotNull(region);
+        using var lifetime = new CancellationTokenSource();
+        var area = tracker.WithPose(Phone with { Region = region, PanelLifetime = lifetime.Token });
+        var reader = new Reader();
+        var translator = new WaitingPhoneTranslator(together: true, waitFor: "-");
+        var server = new Server();
+        var watcher = new RegionWatcher(reader, translator, server);
+        static TextLine Row(string text, double y, double left, double right, double dy) =>
+            new(text, new TextBox(left, y + dy, right, y + dy + 0.031));
+        static List<TextLine> List(string heading, double dy) =>
+        [
+            Row(heading, 0.04, 0.05, 0.40, dy), Row("Cal", 0.10, 0.30, 0.38, dy), Row("$ in your mailbox. You bailed", 0.14, 0.30, 0.95, dy),
+            Row("Brian", 0.22, 0.30, 0.42, dy), Row("Ok. There's some cash in t...", 0.26, 0.30, 0.95, dy),
+            Row("Messages", 0.33, 0.03, 0.30, dy), Row("Donnie", 0.40, 0.30, 0.45, dy),
+            Row("Joey", 0.50, 0.30, 0.40, dy), Row("Hey this is Joey from Coa...", 0.54, 0.30, 0.95, dy),
+            Row("Shirley", 0.74, 0.30, 0.45, dy), Row("Oh that's nice hon. aren't ...", 0.78, 0.30, 0.95, dy),
+            Row("Rusty Anchor", 0.88, 0.30, 0.62, dy),
+        ];
+        // Liste gibi okunamayan kare: yalnız iki ad-önizleme çifti, başlık ve kesik önizleme yok.
+        List<TextLine> chat = [Row("Joey", 0.50, 0.30, 0.40, 0), Row("Hey this is Joey from home.", 0.54, 0.30, 0.95, 0),
+                               Row("Shirley", 0.74, 0.30, 0.45, 0), Row("Oh that's nice hon.", 0.78, 0.30, 0.95, 0)];
+        var step = 0;
+        async Task Read(List<TextLine> lines)
+        {
+            reader.Lines = lines;
+            // Her karede ekranın pikselleri biraz başka (sallanan telefon): her tur yeniden okunur.
+            var frame = GamePhoneTrackerTests.PhoneFrame();
+            for (var y = 60 + 6 * step; y < 72 + 6 * step; y++)
+                Array.Fill(frame.Pixels, (byte)40, y * frame.Stride + (170 + 4 * (step % 10)) * 4, 10 * 4);
+            step++;
+            await watcher.PassAsync(frame, [area]);
+        }
+        await Read(List("Suggested", 0));
+        var shown = server.Blocks[^1]!;
+        var rows = shown.Where(item => item.Panel == ScreenPhoneCard.PanelPart.Note).ToList();
+        Assert.Equal(["TR: Suggested", "Cal", "TR: in your mailbox. You bailed", "Brian", "TR: Ok. There's some cash...",
+                      "TR: Messages", "Donnie", "Joey", "TR: Hey this is Joey...", "Shirley", "TR: Oh that's nice hon...",
+                      "Rusty Anchor"], rows.Select(item => item.Translation));
+        Assert.All(rows, item => Assert.Equal("left", item.Look?.Align)); // liste sola yaslı, ortalı not değil
+        Assert.Equal(["TR: Suggested", "Cal", "Brian", "TR: Messages", "Donnie", "Joey", "Shirley", "Rusty Anchor"],
+            rows.Where(item => item.Look?.Bold == true).Select(item => item.Translation));
+        Assert.Equal(0, rows.Zip(rows.Skip(1)).Count(pair => pair.First.Box.Top >= pair.Second.Box.Top)); // telefondaki sıra
+        string[] names = ["Cal", "Brian", "Joey", "Donnie", "Shirley", "Rusty Anchor"];
+        Assert.DoesNotContain(translator.Calls, call => names.Contains(call)); // adlar çevrilmez
+        Assert.DoesNotContain(translator.Calls, call => call.Contains("Coa")); // yarım sözcük çeviriye gitmez
+        var sent = server.Sent.Count;
+
+        // Sallanan telefon: kutular birkaç piksel oynar, başlığın simgesi bir "g" okunur; görüntü aynı, yeniden gönderilmez.
+        await Read(List("g Suggested", 0.003));
+        await Read(List("✱ Suggested", -0.002));
+        Assert.Equal(sent, server.Sent.Count);
+        Assert.DoesNotContain(translator.Calls, call => call.Contains("g Suggested"));
+
+        // Tek bir okuma sohbet gibi geldi: liste kalır.
+        await Read(chat);
+        await Read(List("Suggested", 0.002));
+        Assert.Equal(sent, server.Sent.Count);
+
+        // Sayfa gerçekten değişti (art arda iki okuma): yeni tür çizilir.
+        await Read(chat);
+        Assert.Equal(sent, server.Sent.Count);
+        await Read(chat);
+        Assert.True(server.Sent.Count > sent);
+        var after = server.Blocks[^1]!;
+        Assert.DoesNotContain(after, item => item.Panel == ScreenPhoneCard.PanelPart.Note && item.Look?.Align == "left");
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

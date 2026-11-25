@@ -14,6 +14,17 @@ internal static class PhoneSteady
     internal const int MissTurns = 3;
     /// <summary>Tek turluk OCR sapması (düşen balon, yan yana bozuk harfler) en çok bu kadar tur bekletilir.</summary>
     internal const int HoldTurns = 2;
+    /// <summary>
+    /// Sayfanın türü (sohbet listesi ya da sohbet) ancak bu kadar ardışık okuma aynı yeni türü verirse değişir: sallanan
+    /// telefonda tek okumada bölüm başlığı kaçınca TV'deki panel liste ile balonlar arasında her saniye gidip geliyordu
+    /// (LG, beta.93). Mac ile aynı.
+    /// </summary>
+    internal const int KindTurns = 2;
+
+    /// <summary>Okumanın grupları sohbet listesi mi (kişi adı, önizleme, bölüm başlığı).</summary>
+    internal static bool IsList(IEnumerable<ScreenPhoneCard.Role?> roles) =>
+        roles.Any(role => role is ScreenPhoneCard.Role.Contact or ScreenPhoneCard.Role.Preview or ScreenPhoneCard.Role.Heading);
+
     /// <summary>Aynı mesaj sayılmak için sadeleştirilmiş iki okumanın benzerliği (Levenshtein oranı) en az bu.</summary>
     internal const double SameMessage = 0.9;
     /// <summary>Kısa satırda bir harf anlamı değiştirir ("Ok" / "On"): benzer okuma yalnız bu kadar harften uzun mesajda kullanılır.</summary>

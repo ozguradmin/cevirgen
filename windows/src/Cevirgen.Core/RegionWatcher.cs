@@ -142,6 +142,12 @@ public sealed partial class RegionWatcher
         public (string Text, double Top)[]? PhoneLastBubbles;
         /// <summary>Son taze okumada telefon kaydırılıyordu (<see cref="PhoneSteady.Scrolled"/>): bekletme ve konum sabitleme yok.</summary>
         public bool PhoneScrolling;
+        /// <summary>
+        /// Ekrandaki telefon sayfasının türü (sohbet listesi mi; boşken null) ve öbür türü veren ardışık okuma sayısı
+        /// (<see cref="PhoneSteady.KindTurns"/>). Mac ile aynı.
+        /// </summary>
+        public bool? PhoneShownList;
+        public int PhoneKindVotes;
 
         public void RememberPhoneTranslation(string source, string translation)
         {

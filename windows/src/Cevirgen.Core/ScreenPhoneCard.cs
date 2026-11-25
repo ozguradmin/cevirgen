@@ -36,7 +36,8 @@ public static class ScreenPhoneCard
     internal static readonly PhoneTextStyle CardColor = new("#141518", "#F3EEE4");
     internal static readonly PhoneTextStyle IncomingColor = new("#F3EEE4", "#17181B");
     internal static readonly PhoneTextStyle OutgoingColor = new("#F5B83D", "#17181B");
-    internal static readonly PhoneTextStyle NoteColor = new("#141518", "#A9A59C");
+    /// <summary>Not ve liste başlığının soluk rengi; çizici (PhonePanelView) liste satırlarının arasını bununla ayırt eder.</summary>
+    public static readonly PhoneTextStyle NoteColor = new("#141518", "#A9A59C");
     /// <summary>Panelin köşe yarıçapı (1080 satırlık ekranda piksel) ve zemin örtüsü.</summary>
     public const double PanelRadius = 18, PanelOpacity = 0.88;
     /// <summary>Kanepe simgesi: 24×16 ızgarada yuvarlak köşeli dikdörtgenler (x, y, en, boy, köşe); Mac ile aynı şekil.</summary>
@@ -59,6 +60,8 @@ public static class ScreenPhoneCard
     /// birbirine yapışık görünüyordu.
     /// </summary>
     internal const double BubbleSpacing = 0.6, BubblePadding = 0.6, LineSpacing = 1.2;
+    /// <summary>Sohbet listesinde kişi adıyla altındaki önizleme arasındaki boşluk (satır yüksekliğine oranla). Mac ile aynı.</summary>
+    internal const double ListGap = 0.1;
     /// <summary>Balonun kart genişliğine oranı (en çok) ve en az.</summary>
     internal const double BubbleShare = 0.8, BubbleMin = 0.3;
     /// <summary>Kartta yazı boyu (kare yüksekliğine oranla) en az bu: telefonun küçük yazısı TV'de okunsun (1080p'de ~24 nokta).</summary>
@@ -289,7 +292,9 @@ public static class ScreenPhoneCard
                 Unchanged = false, LineHeight = line,
                 Style = role switch
                 {
-                    Role.Outgoing => OutgoingColor, Role.Incoming => IncomingColor, Role.Note => NoteColor, _ => CardColor,
+                    // Bölüm başlığı ("Önerilen", "Mesajlar") soluk ve kalın, sola yaslı; not ortalı (Mac ile aynı).
+                    Role.Outgoing => OutgoingColor, Role.Incoming => IncomingColor, Role.Note or Role.Heading => NoteColor,
+                    _ => CardColor,
                 },
                 Panel = role switch { Role.Outgoing => PanelPart.Mine, Role.Incoming => PanelPart.Theirs, _ => PanelPart.Note },
                 Look = Flat(side, role is Role.Contact or Role.Heading),
@@ -297,8 +302,13 @@ public static class ScreenPhoneCard
             var inside = line * (bubble ? BubblePadding : 0.3);
             return new Row(placed, width, lines.Count * line * LineSpacing + inside, side);
         }).ToList();
+        // Sohbet listesinde önizleme kişi adının hemen altındadır (ListGap); öbür satırlar arasında spacing kalır (Mac ile aynı).
+        double RowGap(int index) =>
+            index > 0 && rows[index].Item.Phone?.Role == Role.Preview && rows[index - 1].Item.Phone?.Role == Role.Contact
+                ? line * ListGap : spacing;
         // Mesajlar telefon boyuna sığmazsa kart önce aşağı, sonra yukarı uzar (ekranın kenar payına kadar).
-        double Needed() => 2 * padY + headerHeight + rows.Sum(row => row.Height) + spacing * Math.Max(0, rows.Count - 1);
+        double Needed() => 2 * padY + headerHeight + rows.Sum(row => row.Height) +
+            Enumerable.Range(1, Math.Max(0, rows.Count - 1)).Sum(RowGap);
         double top = card.Top, bottom = card.Bottom;
         var extra = Needed() - (bottom - top);
         if (extra > 0)
@@ -348,14 +358,14 @@ public static class ScreenPhoneCard
         for (var i = 0; i < rows.Count; i++)
         {
             var wanted = phone.Top + rows[i].Item.Phone!.Spot.Top * (phone.Bottom - phone.Top);
-            tops[i] = Math.Max(wanted, cursor);
-            cursor = tops[i] + rows[i].Height + spacing;
+            tops[i] = i > 0 && RowGap(i) < spacing ? cursor : Math.Max(wanted, cursor);
+            cursor = tops[i] + rows[i].Height + (i + 1 < rows.Count ? RowGap(i + 1) : spacing);
         }
         var floor = limit;
         for (var i = rows.Count - 1; i >= 0; i--)
         {
             tops[i] = Math.Max(bodyTop, Math.Min(tops[i], floor - rows[i].Height));
-            floor = tops[i] - spacing;
+            floor = tops[i] - RowGap(i);
         }
         for (var i = 0; i < rows.Count; i++)
         {
