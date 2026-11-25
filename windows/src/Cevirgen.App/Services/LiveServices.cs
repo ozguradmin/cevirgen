@@ -108,7 +108,13 @@ public sealed class LiveServices : IAppServices
     {
         var lg = LgDiscovery.SearchAsync();
         var samsung = SamsungDiscovery.SearchAsync();
-        return [.. await lg, .. await samsung];
+        // Çevirgen: Android TV / Google TV de aranır (Cast cihaz tanımı ya da açık ADB portu). Eskiden yalnız LG ve Samsung
+        // aranıyordu; Android TV kurulumda hep "TV bulunamadı" çıkıyor, "Android TV seç"ten sonra ayrıca aranıyordu (2026-11-25).
+        var android = AndroidTvDiscovery.SearchAsync();
+        var known = new List<LgTv>([.. await lg, .. await samsung]);
+        foreach (var tv in await android)
+            if (known.All(other => other.Host != tv.Host)) known.Add(tv);
+        return known;
     }
 
     public async Task<TvPairing> PairTvAsync(LgTv tv, string? key, string server, string accessKey)

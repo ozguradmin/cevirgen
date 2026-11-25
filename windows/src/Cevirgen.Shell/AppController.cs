@@ -420,6 +420,10 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             // Eşleştirme adımındaki güvenlik duvarı önerisi başka adıma taşınmaz.
             if (!Set(ref step, value, [nameof(CanAdvance), nameof(StepNumber)])) return;
             ClearFirewallPrompt();
+            // Çevirgen: TV, TV girişi ve deneme adımlarında TV uygulamasının eşleştirme isteği kabul edilir (çeviri sürmediği
+            // için reddediliyordu; TV'de "Ayarlar'daki TV eşleştir'e basın" kalıyordu).
+            if (value is OnboardingStep.Tv or OnboardingStep.Hdmi or OnboardingStep.Test && !demoMode)
+                _ = OpenPairingWithServerAsync($"kurulum adımı {value}");
             // Sihirbaz bitince ana ekran TV'siz de açılsın.
             if (value == OnboardingStep.Done)
             {
@@ -1544,6 +1548,9 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             // Açılan uygulamaya altyazı sunucusunun adresi verilir: sunucu 8787 dışında bir portta olsa da (8787 doluysa ya da
             // Linux'ta COUCHSUBS_SERVER_PORT) TV uygulaması onu bulur (#617). Eşleştirme yine TV'deki kodla yapılır.
             try { await StartServerAsync(); } catch (SocketException) { }
+            // Çevirgen: açılan TV uygulaması hemen eşleştirme ister; çeviri sürmüyorsa bilgisayar reddediyordu (409) ve TV'de
+            // "Ayarlar'daki TV eşleştir'e basın" kalıyordu (kurulumda, 2026-11-25). İki dakikalık onay penceresi açılır.
+            OpenPairingWindow("Android TV uygulaması kuruluyor/açılıyor");
             var launch = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["server"] = ServerAddress(target with { Host = host }) });
             var version = await services.InstallAndroidAppAsync(host, bundled, open, launch, replaceForeignApp, e => post(() => InstallEvent(e)));
             // TV'nin adresi bundan sonra sürüm denetimi için kullanılır.
@@ -2063,8 +2070,27 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
 
     public Task WaitForModelAsync() => modelDownload ?? Task.CompletedTask;
 
+    /// <summary>Çeviri sürmüyorsa TV'nin eşleştirme isteği iki dakika kabul edilir ("TV eşleştir" gibi).</summary>
+    private void OpenPairingWindow(string why)
+    {
+        if (isRunning) return;
+        var wasOpen = server.Pairing.IsOpen;
+        server.Pairing.Open();
+        if (!wasOpen) SubtitleLog.Write($"TV eşleştirme açıldı (2 dk): {why}; port={ServerPort}");
+    }
+
+    private async Task OpenPairingWithServerAsync(string why)
+    {
+        try { await StartServerAsync(); }
+        catch (SocketException) { return; }
+        OpenPairingWindow(why);
+    }
+
     public void SendTestSubtitle()
     {
+        // Çevirgen: "TV'de dene" ve kurulumun deneme düğmesi bu yolu kullanıyor; eşleşmemiş TV kod isteyebilsin (eskiden
+        // yalnız ana ekrandaki deneme açıyordu, TV'de "Ayarlar'daki TV eşleştir'e basın" kalıyordu).
+        if (!demoMode && !isRunning) _ = OpenPairingWithServerAsync("deneme altyazısı");
         server.SendStyle(settings.Style);
         // Oyunda henüz altyazı görülmediyse altyazı bölgesinin altına yakın tipik bir yer kullanılır.
         var region = settings.Region;

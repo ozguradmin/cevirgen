@@ -1670,6 +1670,45 @@ public class AppControllerRunTests
         controller.Dispose();
     }
 
+    /// <summary>TV'nin eşleştirme isteği (POST /pair) en çok 3 saniye içinde kabul edildi mi.</summary>
+    private static async Task<bool> PairingAcceptedAsync(AppController controller)
+    {
+        using var http = new HttpClient();
+        for (var i = 0; i < 30; i++)
+        {
+            if (controller.ServerPort > 0)
+            {
+                using var response = await http.PostAsync($"http://127.0.0.1:{controller.ServerPort}/pair", null);
+                if (response.StatusCode == System.Net.HttpStatusCode.OK) return true;
+            }
+            await Task.Delay(100);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Çevirgen (2026-11-25): kurulumda Android TV uygulaması kurulup açılınca eşleştirme istiyordu, çeviri sürmediği için
+    /// reddediliyordu; TV'de "Ayarlar'daki TV eşleştir'e basın" kalıyordu. TV adımında onay penceresi açılır.
+    /// </summary>
+    [Fact]
+    public async Task TheSetupTvStepAcceptsTheTvsPairingRequest()
+    {
+        var controller = AppControllerTests.Make();
+        controller.Step = OnboardingStep.Tv;
+        Assert.True(await PairingAcceptedAsync(controller));
+        controller.Dispose();
+    }
+
+    /// <summary>Çevirgen: "TV'de dene" ve kurulumun deneme düğmesi (eşzamanlı deneme) de onay penceresini açar.</summary>
+    [Fact]
+    public async Task ATestSubtitleFromSettingsAcceptsTheTvsPairingRequest()
+    {
+        var controller = AppControllerTests.Make();
+        controller.SendTestSubtitle();
+        Assert.True(await PairingAcceptedAsync(controller));
+        controller.Dispose();
+    }
+
     /// #40: bekçinin bağlantısında TV yeni jeton verirse saklanır; sonraki açılışta TV yeniden izin sormaz.
     [Fact]
     public async Task KeeperSavesNewTvToken()
