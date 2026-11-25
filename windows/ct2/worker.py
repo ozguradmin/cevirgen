@@ -39,6 +39,15 @@ except Exception as error:
 for line in sys.stdin:
     try:
         request = json.loads(line)
+        if "batch" in request:
+            # Çevirgen: satırın cümleleri tek istekte; model birlikte işler (sırayla çevirmenin yaklaşık yarı süresi).
+            result = translator.translate_batch(
+                request["batch"],
+                beam_size=request["beams"],
+                max_decoding_length=request["max_output"],
+            )
+            reply({"batch": [item.hypotheses[0] for item in result]})
+            continue
         result = translator.translate_batch(
             [request["tokens"]],
             beam_size=request["beams"],

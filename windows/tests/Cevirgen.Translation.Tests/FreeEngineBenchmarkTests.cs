@@ -19,8 +19,13 @@ public class FreeEngineBenchmarkTests
         var path = Environment.GetEnvironmentVariable("COUCHSUBS_MT_BENCH");
         if (string.IsNullOrEmpty(path) || !TestModels.ModelAvailable) return;
         var tag = Environment.GetEnvironmentVariable("COUCHSUBS_MT_BENCH_TAG") ?? "out";
+        // Çevirgen: COUCHSUBS_MT_BENCH_THREADS (varsayılan 4) ve COUCHSUBS_MT_BENCH_FAST=1 (hızlı mod).
+        var threads = int.TryParse(Environment.GetEnvironmentVariable("COUCHSUBS_MT_BENCH_THREADS"), out var count) ? count : 4;
         using var translator = new MarianTranslator(() => new Ct2MarianEngine(TestModels.Directory, 128, 4, false, null,
-            cpuThreads: 4), () => true, glossary: GlossaryStore.BuiltInOnly());
+            cpuThreads: threads), () => true, glossary: GlossaryStore.BuiltInOnly())
+        {
+            Fast = Environment.GetEnvironmentVariable("COUCHSUBS_MT_BENCH_FAST") == "1",
+        };
         await translator.WarmUpAsync();
         var lines = File.ReadAllLines(path).Where(line => line.Trim().Length > 0).ToList();
         var rows = new List<string>();

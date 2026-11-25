@@ -41,10 +41,44 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
     private volatile bool _fast;
 
     /// <summary>
-    /// Çevirgen: hızlı mod (Canlı › Hızlı). Model tek adaylı aramayla çevirir. Önce kaliteli çeviri önbelleğine bakılır;
-    /// hızlı çeviriler ayrı anahtarla saklanır (<see cref="FastKey"/>), Kaliteli'ye dönünce o satırlar yeniden çevrilir.
+    /// Çevirgen: hızlı mod (Canlı › Hızlı). Model tek adaylı aramayla ve daha çok iş parçacığıyla çevirir. Önce kaliteli
+    /// çeviri önbelleğine bakılır; hızlı çeviriler ayrı anahtarla saklanır (<see cref="FastKey"/>), Kaliteli'ye dönünce o
+    /// satırlar yeniden çevrilir. Mod değişince açık motor arka planda yeni iş parçacığı sayısıyla hazırlanır.
     /// </summary>
-    public bool Fast { get => _fast; set => _fast = value; }
+    public bool Fast
+    {
+        get => _fast;
+        set
+        {
+            if (_fast == value) return;
+            _fast = value;
+            if (_engine is not null) _ = PrepareEngineAsync(value);
+        }
+    }
+
+    private async Task PrepareEngineAsync(bool fast)
+    {
+        try
+        {
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!_disposed && _engine is { } engine && _fast == fast) await Task.Run(() => engine.Prepare(fast)).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        // Hazırlık olmazsa ilk çeviri yeniden dener; hata orada bildirilir.
+        catch (Exception error) when (error is not OutOfMemoryException) { }
+    }
+
+    /// <summary>Çevirgen: satırın ilk model girdisini yakalamak için (bkz. <see cref="FirstInputs"/>).</summary>
+    private sealed class FirstInput(string text) : Exception
+    {
+        public string Text { get; } = text;
+    }
 
     internal static string FastKey(string key) => "fast|" + key;
 
@@ -92,7 +126,7 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
     {
         try
         {
-            await TranslateSentenceAsync("Hello.", null, cancellationToken).ConfigureAwait(false);
+            await TranslateSentenceAsync("Hello.", null, _fast, null, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -117,18 +151,27 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
         // "OLD MAN: " → "old", "man": çok sözcüklü adın her sözcüğü ayrıca tanınır.
         foreach (var name in pieces.Select(SubtitleSegmenter.LabelName).OfType<string>()) NoteSpeaker(name);
         var previous = previousLine is null ? null : LastSentence(previousLine);
-        var translations = new List<string?>(pieces.Count);
+        var fast = _fast;
+        var sentences = new List<(string Text, string? Context)?>(pieces.Count);
         foreach (var piece in pieces)
         {
             if (!piece.Translate)
             {
-                translations.Add(null);
+                sentences.Add(null);
                 continue;
             }
-            var context = FreeTranslation.IsShort(piece.Text) ? previous : null;
-            translations.Add(await TranslateSentenceAsync(piece.Text, context, cancellationToken).ConfigureAwait(false));
+            sentences.Add((piece.Text, FreeTranslation.IsShort(piece.Text) ? previous : null));
             previous = piece.Text;
         }
+        // Çevirgen: önbellekte olmayan cümlelerin model girdileri tek istekte çevrilir; aşağıdaki cümle cümle hat onları
+        // hazır bulur (sözlük, bağlam ve onarım adımları değişmez).
+        var ready = await TranslateTogetherAsync([.. sentences.OfType<(string Text, string? Context)>()], fast, cancellationToken)
+            .ConfigureAwait(false);
+        var translations = new List<string?>(pieces.Count);
+        foreach (var sentence in sentences)
+            translations.Add(sentence is { } s
+                ? await TranslateSentenceAsync(s.Text, s.Context, fast, ready, cancellationToken).ConfigureAwait(false)
+                : null);
         // Hitap satırın bütününe bakar ("Sana söyledim. Bekleyin!"); önbellekteki cümle çevirileri değişmez.
         var final = TurkishPostEdit.Register(translations);
         var builder = new StringBuilder();
@@ -149,12 +192,76 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
     public IReadOnlyList<SpokenLine> SpokenLines(string text) =>
         _speech.TryGetValue(text, out var lines) ? lines : SpeechScript.FromCache(text, _cache);
 
-    private async Task<string> TranslateSentenceAsync(string sentence, string? context, CancellationToken cancellationToken)
-    {
+    private Glossary GlossaryFor(string sentence, string? context) =>
         // Konuşan etiketlerinden öğrenilen adlar cümle içinde de korunur ("Price, get down!"; #287).
-        var glossary = _glossary.Current.KeepingNames(_speakers.Protected, context is null ? sentence : context + "\n" + sentence);
+        _glossary.Current.KeepingNames(_speakers.Protected, context is null ? sentence : context + "\n" + sentence);
+
+    private bool Cached(string key, bool fast) =>
+        _cache.TryGet(key, out _) || (fast && _cache.TryGet(FastKey(key), out _));
+
+    /// <summary>
+    /// Önbellekte olmayan cümlelerin modele gidecek ilk girdisi: metin hattı sahte bir motorla çalıştırılır, ilk çağrıda
+    /// durdurulur. Sözlükte hazır Türkçesi olan cümlenin girdisi yoktur.
+    /// </summary>
+    private List<string> FirstInputs(IReadOnlyList<(string Text, string? Context)> sentences, bool fast)
+    {
+        var names = _names.Keys.ToHashSet(StringComparer.Ordinal);
+        var inputs = new List<string>();
+        foreach (var (sentence, context) in sentences)
+        {
+            var glossary = GlossaryFor(sentence, context);
+            if (Cached(FreeTranslation.CacheKey(sentence, context, glossary), fast)) continue;
+            var words = new HashSet<string>(names, StringComparer.Ordinal);
+            words.UnionWith(glossary.CapitalWords);
+            try
+            {
+                FreeTranslation.Translate(sentence, context, glossary, text => SubtitleSegmenter.NormalizeCase(text, words),
+                    input => throw new FirstInput(input));
+            }
+            catch (FirstInput first)
+            {
+                if (!inputs.Contains(first.Text)) inputs.Add(first.Text);
+            }
+        }
+        return inputs;
+    }
+
+    /// <summary>
+    /// Çevirgen: satırın iki ya da daha çok cümlesi modele tek istekte gider (girdi → çıktı). Toplu çeviri olmazsa boş
+    /// döner; cümleler her zamanki gibi tek tek çevrilir, motor hatası da orada bildirilir.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>?> TranslateTogetherAsync(IReadOnlyList<(string Text, string? Context)> sentences,
+        bool fast, CancellationToken cancellationToken)
+    {
+        if (sentences.Count < 2 || _engineFailure is not null) return null;
+        var inputs = FirstInputs(sentences, fast);
+        if (inputs.Count < 2) return null;
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_disposed || _engineFailure is not null) return null;
+            var engine = _engine ??= CreateEngine();
+            var outputs = await Task.Run(() => engine.TranslateBatch(inputs, fast, cancellationToken), cancellationToken).ConfigureAwait(false);
+            if (outputs.Count != inputs.Count) return null;
+            var ready = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (var i = 0; i < inputs.Count; i++) ready[inputs[i]] = outputs[i];
+            return ready;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            return null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<string> TranslateSentenceAsync(string sentence, string? context, bool fast,
+        IReadOnlyDictionary<string, string>? ready, CancellationToken cancellationToken)
+    {
+        var glossary = GlossaryFor(sentence, context);
         var key = FreeTranslation.CacheKey(sentence, context, glossary);
-        var fast = _fast;
         if (_cache.TryGet(key, out var known)) return known;
         if (fast && _cache.TryGet(FastKey(key), out var quick)) return quick;
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -174,7 +281,8 @@ public sealed class MarianTranslator : ITextTranslator, IDisposable
             {
                 translation = await Task.Run(() => FreeTranslation.Translate(sentence, context, glossary,
                     text => SubtitleSegmenter.NormalizeCase(text, names),
-                    input => engine.Translate(input, fast, cancellationToken)), cancellationToken).ConfigureAwait(false);
+                    input => ready is not null && ready.TryGetValue(input, out var done) ? done : engine.Translate(input, fast, cancellationToken)),
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (IOException error)
             {
@@ -235,4 +343,11 @@ internal interface ISentenceEngine : IDisposable
 
     /// <summary>Çevirgen: hızlı modda tek adaylı arama; desteklemeyen çekirdek her zamanki gibi çevirir.</summary>
     string Translate(string sentence, bool fast, CancellationToken cancellationToken) => Translate(sentence, cancellationToken);
+
+    /// <summary>Çevirgen: birden çok cümle tek istekte; desteklemeyen çekirdek sırayla çevirir.</summary>
+    IReadOnlyList<string> TranslateBatch(IReadOnlyList<string> sentences, bool fast, CancellationToken cancellationToken) =>
+        [.. sentences.Select(sentence => Translate(sentence, fast, cancellationToken))];
+
+    /// <summary>Çevirgen: mod değişince motor hazırlanır (ör. iş parçacığı sayısı).</summary>
+    void Prepare(bool fast) { }
 }
