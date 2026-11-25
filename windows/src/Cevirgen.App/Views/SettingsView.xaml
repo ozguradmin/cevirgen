@@ -151,6 +151,19 @@
                                 <c:Chip x:Name="ConsolePs5Badge" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="{t:Sp 's,0,0,0'}" />
                                 <c:SectionTitle x:Name="ConsolePs5Row" Title="PS5" Text="{t:T 'With Remote Play and a second PSN account.'}" />
                             </DockPanel>
+                            <!-- PS5 adresi elle (upstream 7e8c3290): adres değişip ağda bulunamazsa yeni adres yazılır. -->
+                            <c:SpacedStack x:Name="Ps5AddressActions" Gap="xs" Visibility="Collapsed">
+                                <WrapPanel>
+                                    <Button Content="{t:T 'Enter IP Address'}" Style="{StaticResource OutlineButton}" Margin="{t:Sp '0,0,0,xs'}" Click="OnEnterPs5Address" />
+                                </WrapPanel>
+                                <Grid x:Name="Ps5AddressPanel" Visibility="Collapsed">
+                                    <TextBox x:Name="Ps5Address" FontFamily="{StaticResource MonoFont}" Padding="{t:Sp 'm,0,xxl,0'}" KeyDown="OnPs5AddressKey"
+                                             ToolTip="{t:T 'IP address, e.g. 192.168.1.20'}" />
+                                    <Button Content="{t:T 'Save'}" Style="{StaticResource CompactButton}" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Margin="{t:Sp '0,0,xs,0'}" Click="OnUsePs5Address" />
+                                </Grid>
+                                <TextBlock x:Name="Ps5AddressError" Style="{StaticResource ErrorText}" TextWrapping="Wrap" Visibility="Collapsed" />
+                            </c:SpacedStack>
                             <c:SpacedStack x:Name="ConsoleXboxPanel">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource UnitTitleText}"><Run Text="{t:T 'Xbox and connection'}" /><Run x:Name="ConsoleXboxName" /></TextBlock>

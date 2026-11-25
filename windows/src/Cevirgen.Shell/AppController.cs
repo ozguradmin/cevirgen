@@ -3030,7 +3030,7 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
             // Eskiden "Yeniden bağlanılıyor… (Unknown Session Request Error)" diye sonsuza kadar deneniyordu.
             DisconnectKind.RegistrationInvalid => text["The PS5 didn't accept this pairing. Pair the PS5 again with the second account in Settings."],
             // Eskiden ağ hatası, bulunamayan PS5 ve diğer nedenler hep yalnız "Yeniden bağlanılıyor…" idi.
-            DisconnectKind.NotFound => text.Format("PS5 not found at %@. Make sure it is on and on the same network. Reconnecting…", detail ?? "?"),
+            DisconnectKind.NotFound => text.Format("PS5 not found at %@. Searching the network for it. Make sure it is on and on the same network; if its address changed, use Enter IP Address in Settings > Console. Reconnecting…", detail ?? "?"),
             // Kablosuz ağda akış sık kopuyordu (GitHub #388, #401): yeniden bağlanılır, kalıcı çözüm kablodur.
             DisconnectKind.Network => text["Lost the connection to the PS5. Reconnecting… If this keeps happening, connect the PS5 to the router with a cable."],
             // 0x80108b12: PS5'te Uzaktan Oynatma kapalı (GitHub #9). Ayar açılınca yeniden denemede bağlanılır.
@@ -4216,6 +4216,34 @@ public sealed partial class AppController : INotifyPropertyChanged, IDisposable
         store.Save(StoreKeys.Console, moved);
         Changed(nameof(Console), nameof(Ps5StatusText));
     }
+
+    /// <summary>
+    /// Konsol kartında PS5 "IP Adresi Gir": PS5'in adresi değişti ve ağda kendiliğinden bulunamıyorsa kullanıcı yeni adresi
+    /// yazar; kayıt (anahtarlar korunarak) o adrese taşınır ve çeviri sürüyorsa oturum yeni adresle yeniden açılır. Önceden
+    /// yeni arayüzde PS5 adresi hiçbir yerden değiştirilemiyordu (Mac, iPhone, Android ile aynı).
+    /// </summary>
+    public bool UsePs5Address(string address)
+    {
+        if (console is not { } saved) return false;
+        if (MovedConsole(saved, address) is not { } moved)
+        {
+            Ps5AddressProblem = text["This is not a valid IP address. Type it like 192.168.1.20, without http:// or a port number."];
+            return false;
+        }
+        Ps5AddressProblem = null;
+        if (moved.Host != saved.Host) RemotePlayLog.Note($"PS5 adresi elle değiştirildi: {saved.Host} -> {moved.Host}");
+        ConsoleMoved(moved);
+        if (isRunning && !IsXbox) Reconnect("PS5 adresi elle girildi");
+        return true;
+    }
+
+    /// <summary>Elle yazılan adres geçerli IPv4 ise kayıtlı PS5'in o adrese taşınmış hali (kimlik ve anahtarlar aynı); değilse null.</summary>
+    public static RegisteredConsole? MovedConsole(RegisteredConsole saved, string? typed) =>
+        LgDiscovery.NormalizeHost(typed) is { } host ? saved.WithHost(host) : null;
+
+    /// <summary>PS5 "IP Adresi Gir" alanına yazılan adres geçersiz: kartta açıklama.</summary>
+    public string? Ps5AddressProblem { get => ps5AddressProblem; private set => Set(ref ps5AddressProblem, value); }
+    private string? ps5AddressProblem;
 
     /// <summary>altyazi.log'a yazılan kopma nedeni: türü; adres (NotFound) yazılmaz, PS5'in kodu ve libchiaki metni yazılır.</summary>
     public static string DisconnectLogName(DisconnectReason? reason) => reason switch

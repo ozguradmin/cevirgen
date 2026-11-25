@@ -8930,18 +8930,18 @@
         }
       }
     },
-    "PS5 not found at %@. Make sure it is on and on the same network. Reconnecting…": {
+    "PS5 not found at %@. Searching the network for it. Make sure it is on and on the same network; if its address changed, use Enter IP Address in Settings > Console. Reconnecting…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PS5 not found at %@. Make sure it is on and on the same network. Reconnecting…"
+            "value": "PS5 not found at %@. Searching the network for it. Make sure it is on and on the same network; if its address changed, use Enter IP Address in Settings > Console. Reconnecting…"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PS5 %@ adresinde bulunamadı. Açık ve aynı ağda olduğundan emin olun. Yeniden bağlanılıyor…"
+            "value": "PS5 %@ adresinde bulunamadı, ağda aranıyor. Açık ve aynı ağda olduğundan emin olun; adresi değiştiyse Ayarlar > Konsol'da IP Adresi Gir'i kullanın. Yeniden bağlanılıyor…"
           }
         }
       }

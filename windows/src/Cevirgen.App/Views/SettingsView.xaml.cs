@@ -229,6 +229,7 @@ public partial class SettingsView : UserControl
             ConsolePs5Badge.Text = text["Not Set Up"];
             ConsolePs5Badge.Tone = Controls.ChipTone.Muted;
         }
+        Ps5AddressActions.Visibility = !xbox && controller.Console is not null ? Visibility.Visible : Visibility.Collapsed;
         ConsoleXboxPanel.Visibility = xbox ? Visibility.Visible : Visibility.Collapsed;
         ConsoleXboxName.Text = controller.SelectedXboxConsole is { } console ? "  ·  " + (string.IsNullOrEmpty(console.Name) ? "Xbox" : console.Name) : "";
         // Microsoft hesap kartı (Mac DSAccountCard): girişliyse "Yeniden Giriş Yap" ve Diğer Giriş Yolları'nda Xbox seçimi ve çıkış.
@@ -515,6 +516,8 @@ public partial class SettingsView : UserControl
             Dispatcher.BeginInvoke(ShowTvStatus);
         if (e.PropertyName is nameof(AppController.TvUnreachableProblem) or nameof(AppController.Tv))
             Dispatcher.BeginInvoke(ShowTvUnreachable);
+        if (e.PropertyName is nameof(AppController.Ps5AddressProblem)) Dispatcher.BeginInvoke(ShowPs5AddressProblem);
+        if (e.PropertyName is nameof(AppController.Console)) Dispatcher.BeginInvoke(ShowConsole);
         // Menü arkasındaki renk geçişi çeviri sürerken durur (işlemci oyuna kalsın).
         if (e.PropertyName == nameof(AppController.IsRunning)) Dispatcher.BeginInvoke(() => Glow.Paused = controller.IsRunning);
         if (e.PropertyName is nameof(AppController.ObsAddress) or nameof(AppController.NetworkObsAddress) or nameof(AppController.LegacyTvWarning))
@@ -1324,6 +1327,37 @@ public partial class SettingsView : UserControl
     }
 
     private async void OnSearchTvAgain(object sender, RoutedEventArgs e) => await controller.SearchTvAgainAsync();
+
+    /// <summary>PS5 "IP Adresi Gir" (konsol kartı): alan açılır/kapanır.</summary>
+    private void OnEnterPs5Address(object sender, RoutedEventArgs e)
+    {
+        var open = Ps5AddressPanel.Visibility != Visibility.Visible;
+        Ps5AddressPanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open)
+        {
+            Ps5Address.Text = controller.Console?.Host ?? "";
+            Ps5Address.Focus();
+            Ps5Address.SelectAll();
+        }
+    }
+
+    private void OnUsePs5Address(object sender, RoutedEventArgs e)
+    {
+        if (!controller.UsePs5Address(Ps5Address.Text)) return;
+        Ps5AddressPanel.Visibility = Visibility.Collapsed;
+        ShowConsole();
+    }
+
+    private void OnPs5AddressKey(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) OnUsePs5Address(sender, e);
+    }
+
+    private void ShowPs5AddressProblem()
+    {
+        Ps5AddressError.Text = controller.Ps5AddressProblem ?? "";
+        Ps5AddressError.Visibility = controller.Ps5AddressProblem is null ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     private void OnEnterTvAddress(object sender, RoutedEventArgs e)
     {

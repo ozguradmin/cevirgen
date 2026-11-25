@@ -26,15 +26,20 @@ public static class ConsoleDiscovery
 
     /// <summary>Taramada bulunanlar arasından kayıtlı PS5'i seçer: adı (kayıtta PS5'in verdiği ad) tek eşleşen.
     /// Emin olunamıyorsa null (yanlış konsola bağlanmaya çalışmaktansa adres değiştirilmez). Eskiden ağda tek PS5 varsa
-    /// adına bakılmadan o seçiliyordu; aynı evde iki PS5 varken uygulama diğerine geçiyordu (GitHub #425).</summary>
+    /// adına bakılmadan o seçiliyordu; aynı evde iki PS5 varken uygulama diğerine geçiyordu (GitHub #425).
+    /// Ad, boşluk ve büyük/küçük harf gözetmeden eşlenir (kayıttaki ad ile aramadaki ad aynı PS5'te harf farkıyla gelebiliyor;
+    /// eskiden PS5'in adresi değişince yeni adreste bulunamıyor, eski adrese sonsuza dek "bulunamadı" deniyordu). Kayıtta ad
+    /// yoksa ağdaki tek PS5 seçilir.</summary>
     internal static ConsoleInfo? PickMoved(IReadOnlyList<ConsoleInfo> found, string name)
     {
-        var named = found.Where(c => c.Name == name).ToList();
+        var named = found.Where(c => IsRegistered(c, name)).ToList();
         return named.Count == 1 ? named[0] : null;
     }
 
-    /// <summary>Aramaya yanıt veren PS5 kayıtlı PS5 mi (ad eşleşmesi; kayıtta ad yoksa her yanıt kabul edilir).</summary>
-    internal static bool IsRegistered(ConsoleInfo info, string name) => name.Length == 0 || info.Name == name;
+    /// <summary>Aramaya yanıt veren PS5 kayıtlı PS5 mi (ad eşleşmesi, boşluk ve harf büyüklüğü gözetilmez; kayıtta ad yoksa her
+    /// yanıt kabul edilir).</summary>
+    internal static bool IsRegistered(ConsoleInfo info, string name) =>
+        name.Trim().Length == 0 || string.Equals(info.Name.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>PS5'te o an çalışan oyun: yalnız bağlı PS5'in adresine sorulur (ortak havuz için; bkz. <see cref="RunningGame"/>).</summary>
     public static async Task<RunningGame?> RunningGameAsync(string host, CancellationToken ct = default)

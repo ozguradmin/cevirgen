@@ -581,6 +581,19 @@ public class RegistrationReasonTests
         Assert.Null(ConsoleDiscovery.PickMoved([], "PS5-A"));
     }
 
+    /// <summary>Adresi değişen PS5 adı harf/boşluk farkıyla gelse de yeni adreste bulunur; kayıtta ad yoksa ağdaki tek PS5
+    /// seçilir, iki PS5 varken seçilmez.</summary>
+    [Fact]
+    public void MovedConsoleIsFoundDespiteCaseOrSpacing()
+    {
+        var a = new ConsoleInfo("192.168.1.35", "PS5-A ", false);
+        var b = new ConsoleInfo("192.168.1.36", "PS5-B", true);
+        Assert.Equal(a, ConsoleDiscovery.PickMoved([a, b], "ps5-a"));
+        Assert.True(ConsoleDiscovery.IsRegistered(a, " PS5-a"));
+        Assert.Equal(b, ConsoleDiscovery.PickMoved([b], ""));
+        Assert.Null(ConsoleDiscovery.PickMoved([a, b], ""));
+    }
+
     [Fact]
     public void OtherConsoleAtSavedAddressIsNotTheRegisteredOne()
     {
